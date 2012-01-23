@@ -157,7 +157,7 @@ void
 __attribute__((noinline))
 test3 (void)
 {
-  struct A { char buf1[10]; char buf2[10]; } a;
+  struct A { char buf1[10]; char buf2[10]; } __attribute__((packed)) a;
   char buf3[20];
 
   memset (&a, '\0', sizeof (a));

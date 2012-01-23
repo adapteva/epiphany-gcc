@@ -2,7 +2,7 @@
 // { dg-do compile }
 // { dg-options "-O2" }
 
-struct A { char x[12], y[35]; };
+struct A { char x[12], y[35]; } __attribute__((packed));
 struct B { char z[50]; };
 
 inline void

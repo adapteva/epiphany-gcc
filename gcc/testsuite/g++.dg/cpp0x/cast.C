@@ -8,7 +8,7 @@
 template <bool> struct sa;
 template <> struct sa<true> {};
 
-struct one   {long x[1];};
+struct one   {long x[1];} __attribute__((packed));
 struct two   {long x[2];};
 
 struct A {};

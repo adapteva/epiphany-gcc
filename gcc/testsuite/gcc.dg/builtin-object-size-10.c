@@ -8,7 +8,7 @@ typedef struct {
 typedef struct {
     char type_str[16];
     char channel_hop;
-} drone_source_packet;
+} __attribute__((packed)) drone_source_packet;
 drone_packet *
 foo(char *x)
 {

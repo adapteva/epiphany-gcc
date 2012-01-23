@@ -6,7 +6,7 @@ struct foo
 {
   word x;
   word y[0];
-};
+} __attribute__((packed,aligned(__alignof__(word))));
 
 int main()
 {

@@ -471,6 +471,7 @@ get_trampoline_type (struct nesting_info *info)
 {
   unsigned align, size;
   tree t;
+  int save_warn_padded;
 
   if (trampoline_type)
     return trampoline_type;
@@ -496,7 +497,12 @@ get_trampoline_type (struct nesting_info *info)
   trampoline_type = make_node (RECORD_TYPE);
   TYPE_NAME (trampoline_type) = get_identifier ("__builtin_trampoline");
   TYPE_FIELDS (trampoline_type) = t;
+  /* In some cases the trampoline type will trigger the -Wpadded warning.
+     This is not helpful; suppress it. */
+  save_warn_padded = warn_padded;
+  warn_padded = 0;
   layout_type (trampoline_type);
+  warn_padded = save_warn_padded;
   DECL_CONTEXT (t) = trampoline_type;
 
   return trampoline_type;

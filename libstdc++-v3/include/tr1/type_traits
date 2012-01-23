@@ -671,7 +671,7 @@ _GLIBCXX_BEGIN_NAMESPACE_VERSION
       {
 	unsigned char __data[_Len];
 	struct __attribute__((__aligned__((_Align)))) { } __align; 
-      };
+      } __attribute__((packed,__aligned__((_Align))));
     };
 
 #undef _DEFINE_SPEC_0_HELPER

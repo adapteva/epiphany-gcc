@@ -63,6 +63,7 @@ _GLIBCXX_BEGIN_NAMESPACE_VERSION
       case space:
 	__ret = wctype("space");
 	break;
+      case print - graph:
       case print:
 	__ret = wctype("print");
 	break;
@@ -84,6 +85,7 @@ _GLIBCXX_BEGIN_NAMESPACE_VERSION
       case punct:
 	__ret = wctype("punct");
 	break;
+      case xdigit - digit:
       case xdigit:
 	__ret = wctype("xdigit");
 	break;

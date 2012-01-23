@@ -1,0 +1,9 @@
+2011-12-21  Jeremy Bennett  <jeremy.bennett@embecosm.com>
+
+	* doc/extend.texi: Updated information on interrupt attribute for
+	Epiphany.
+
+2011-08-30  Joern Rennecke <joern.rennecke@embecosm.com>
+
+	* tree-nested.c (get_trampoline_type): Suppress -Wpadded while
+	laying out TRAMPOLINE_TYPE.

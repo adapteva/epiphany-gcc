@@ -1,6 +1,7 @@
 /* { dg-do run } */
 /* { dg-options "-fno-strict-aliasing" } */
 /* { dg-skip-if "unaligned access" { sparc*-*-* sh*-*-* tic6x-*-* } "*" "" } */
+/* { dg-options "-DSTRICT_ALIGNMENT" { target { epiphany-*-* } } } */
 
 extern void abort (void);
 #if (__SIZEOF_INT__ <= 2)
@@ -31,7 +32,14 @@ int main (void)
   x.b = -1;
   x.c = -1;
 
+#ifdef STRICT_ALIGNMENT
+  {
+    struct Y { unsigned int i; } __attribute__((packed));
+    bad_bits = ((unsigned int)-1) ^ (1+(struct Y *) &x)->i;
+  }
+#else
   bad_bits = ((unsigned int)-1) ^ *(1+(unsigned int *) &x);
+#endif
   if (bad_bits != 0)
     abort ();
   return 0;

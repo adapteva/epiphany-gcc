@@ -34,7 +34,9 @@ see the files COPYING3 and COPYING.RUNTIME respectively.  If not, see
 
 #define SYM(x) CONCAT1 (__USER_LABEL_PREFIX__, x)
 
-#define FSTAB(X,T)	.stabs	STRINGIFY2(X##:F,T),36,0,__LINE__,SYM(X)
+/* Put in a dummy STABS declaration for now. */
+/* #define FSTAB(X,T)	.stabs	STRINGIFY2(X##:F,T),36,0,__LINE__,SYM(X) */
+#define FSTAB(X,T)
 #define FUNC(X)		.type SYM(X),@function
 #define HIDDEN_FUNC(X)	FUNC(X)` .hidden SYM(X)
 #define ENDFUNC0(X)	CONCAT1(.Lfe_,X): .size X,CONCAT1(.Lfe_,X)-X
@@ -47,7 +49,10 @@ see the files COPYING3 and COPYING.RUNTIME respectively.  If not, see
 #define TMP4	r19
 #define TMP5	r20
 
+/* Put in a dummy STABS declaration for now. */
+/* #define T_INT (0,1) */
+/* 	.stabs	"int:t(0,1)=r(0,1);-2147483648;2147483647;",128,0,1,0 */
+/* #define T_UINT (0,2) */
+/* 	.stabs	"unsigned int:t(0,2)=r(0,2);0;037777777777;",128,0,1,0 */
 #define T_INT (0,1)
-	.stabs	"int:t(0,1)=r(0,1);-2147483648;2147483647;",128,0,1,0
 #define T_UINT (0,2)
-	.stabs	"unsigned int:t(0,2)=r(0,2);0;037777777777;",128,0,1,0

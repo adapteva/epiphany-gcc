@@ -232,7 +232,7 @@ __attribute__((noinline))
 test3_sub (int i, ...)
 {
   va_list ap;
-  struct A { char buf1[10]; char buf2[10]; } a;
+  struct A { char buf1[10]; char buf2[10]; } __attribute__((packed)) a;
   char buf3[20];
 
   va_start (ap, i);

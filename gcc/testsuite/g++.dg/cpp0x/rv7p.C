@@ -8,13 +8,13 @@
 template <bool> struct sa;
 template <> struct sa<true> {};
 
-struct one   {long x[1];};
+struct one   {long x[1];} __attribute__((packed));
 struct two   {long x[2];};
-struct three {long x[3];};
+struct three {long x[3];} __attribute__((packed));
 struct four  {long x[4];};
-struct five  {long x[5];};
+struct five  {long x[5];} __attribute__((packed));
 struct six   {long x[6];};
-struct seven {long x[7];};
+struct seven {long x[7];} __attribute__((packed));
 struct eight {long x[8];};
 
 struct A

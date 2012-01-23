@@ -7,7 +7,7 @@ extern void abort (void);
 struct s {
     int i;
     char c[];
-} s = { 1, "01234" };
+}__attribute__((packed)) s = { 1, "01234" };
 
 __SIZE_TYPE__ f (void) { return __builtin_object_size (&s.c, 0); }
 

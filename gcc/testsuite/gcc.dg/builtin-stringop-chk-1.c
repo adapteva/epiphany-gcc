@@ -104,7 +104,7 @@ test2 (const H h)
   S *s[3];
   memset (s, 0, sizeof (S) * 3); /* { dg-warning "will always overflow" "memset" } */
 
-  struct T { char a[8]; char b[4]; char c[10]; } t;
+  struct T { char a[8]; char b[4]; char c[10]; } __attribute__((packed)) t;
   stpcpy (t.c,"Testing..."); /* { dg-warning "will always overflow" "stpcpy" } */
 
   char b1[7];

@@ -1,0 +1,9 @@
+2011-12-06  Joern Rennecke  <joern.rennecke@embecosm.com>
+
+	* config/epiphany/t-epiphany (unwind-sjlj.o): Don't compile with
+	-fexceptions, but with -fno-exceptions.
+
+2011-11-21  Jeremy Bennett  <jeremy.bennett@embecosm.com>
+
+	* config/epiphany/epiphany-asm.h <FSTAB, T_INT, T_UINT>: Replace
+	with dummy macros to remove STABS directives.

@@ -1,0 +1,99 @@
+2011-12-01  Joern Rennecke <joern.rennecke@embecosm.com>
+
+	* gcc.target/epiphany/interrupt.c: Add dg-options "-g".
+
+2011-11-19  Joern Rennecke <joern.rennecke@embecosm.com>
+
+	* gcc.target/epiphany/interrupt.c (f): Rename to ...
+	(dma0_handler): ... this.
+	Add a scan-assembler-time clause to test for the interupt vector jump.
+
+2011-11-19  Joern Rennecke <joern.rennecke@embecosm.com>
+
+	* gcc.dg/pr49994-3.c: Skip test for epiphany.
+
+2011-08-30  Joern Rennecke <joern.rennecke@embecosm.com>
+
+	* gcc.c-torture/execute/zerolen-2.c (struct foo): Add packed &
+	aligned attributes.
+	* gcc.c-torture/execute/builtins/snprintf-chk.c (test 3 <struct A)>:
+	Add packed attribute.
+	* gcc.c-torture/execute/builtins/stpcpy-chk.c (test4 <struct A>):
+	Likewise.
+	* gcc.c-torture/execute/builtins/memcpy-chk.c (test4 <struct A>):
+	Likewise.
+	* gcc.c-torture/execute/builtins/strncpy-chk.c (test4 <struct A>):
+	Likewise.
+	* gcc.c-torture/execute/builtins/strncat-chk.c (test3 <struct A)>:
+	Likewise.
+	* gcc.c-torture/execute/builtins/sprintf-chk.c (test3 <struct A)>:
+	Likewise.
+	* gcc.c-torture/execute/builtins/memset-chk.c (test3 <struct A)>:
+	Likewise.
+	* gcc.c-torture/execute/builtins/memmove-chk.c (test5 <struct A)>:
+	Likewise.
+	* gcc.c-torture/execute/builtins/strcpy-chk.c (test4 <struct A)>:
+	Likewise.
+	* gcc.c-torture/execute/builtins/strcat-chk.c (test3 <struct A)>:
+	Likewise.
+	* gcc.c-torture/execute/builtins/mempcpy-chk.c (test4 <struct A)>:
+	Likewise.
+	* gcc.c-torture/execute/builtins/vsprintf-chk.c (test3_sub <struct A)>:
+	Likewise.
+	* gcc.c-torture/execute/builtins/vsnprintf-chk.c (test3_sub <struct A)>:
+	Likewise.
+	* gcc.dg/builtin-object-size-11.c (struct s): Likewise.
+	* gcc.dg/pr25805.c (d1): Likewise.
+	* g++.dg/cpp0x/rv1p.C (struct one, struct three): Likewise.
+	(struct five, struct seven): Likewise.
+	* g++.dg/cpp0x/rv2p.C (struct one, struct three): Likewise.
+	(struct five, struct seven): Likewise.
+	* g++.dg/cpp0x/rv3p.C (struct one, struct three): Likewise.
+	(struct five, struct seven): Likewise.
+	* g++.dg/cpp0x/rv4p.C (struct one, struct three): Likewise.
+	(struct five, struct seven): Likewise.
+	* g++.dg/cpp0x/rv5p.C (struct one, struct three): Likewise.
+	(struct five, struct seven): Likewise.
+	* g++.dg/cpp0x/rv6p.C (struct one, struct three): Likewise.
+	(struct five, struct seven): Likewise.
+	* g++.dg/cpp0x/rv7p.C (struct one, struct three): Likewise.
+	(struct five, struct seven): Likewise.
+	* g++.dg/cpp0x/rv8p.C (struct one, struct three): Likewise.
+	(struct five, struct seven): Likewise.
+	* g++.dg/cpp0x/iop.C (struct one): Likewise.
+	* g++.dg/cpp0x/named_refs.C (struct one): Likewise.
+	* g++.dg/cpp0x/cast.C (struct one): Likewise.
+
+2011-08-28  Joern Rennecke <joern.rennecke@embecosm.com>
+
+	* gcc.dg/nested-func-9.c: Fix comment to indicate the actual code
+	that did the instruction moving.
+
+2011-08-06  Joern Rennecke <joern.rennecke@embecosm.com>
+
+	* gcc.dg/nested-func-9.c: New test.
+
+2011-07-27  Joern Rennecke <joern.rennecke@embecosm.com>
+
+	* g++.dg/ext/strncpy-chk1.C (struct A): Add packed attribute.
+
+2011-07-26  Joern Rennecke <joern.rennecke@embecosm.com>
+
+	* gcc.dg/pr27095.c: For Epiphany, add -mshort-calls.
+	* gcc.dg/tree-ssa/loop-1.c: Likewise.
+
+2011-07-21  Joern Rennecke <joern.rennecke@embecosm.com>
+
+	* gcc.dg/builtin-object-size-10.c (drone_source_packet): Make packed.
+
+	* gcc.dg/builtin-stringop-chk-1.c (t): Make packed.
+
+2011-07-20  Joern Rennecke <joern.rennecke@embecosm.com>
+
+	* gcc.dg/torture/pr37868.c: For epiphany, don't use misaligned
+	accesses.
+
+2009-09-24  Joern Rennecke <joern.rennecke@embecosm.com>
+
+	* gcc.dg/sibcall-6.c: Enable for atdsp.
+	* gcc.dg/cpp/_Pragma6.c: Disable for atdsp.

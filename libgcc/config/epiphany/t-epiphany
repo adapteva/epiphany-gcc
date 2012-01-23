@@ -28,6 +28,9 @@ LIB2ADD_ST = $(srcdir)/config/epiphany/modsi3-float.S \
 	     $(srcdir)/config/epiphany/ieee-754/uneqsf2.S \
 	     $(srcdir)/config/epiphany/ieee-754/fast_div.S
 
+unwind-sjlj.o : CFLAGS += -fno-exceptions
+unwind-sjlj.o : c_flags := $(filter-out -fexceptions,$(c_flags))
+
 # .init/.fini section routines
 
 crtint.o crtrunc.o crtm1reg-r43.o crtm1reg-r63.o : \

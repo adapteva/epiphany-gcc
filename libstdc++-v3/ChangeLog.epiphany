@@ -1,0 +1,15 @@
+2011-08-19  Joern Rennecke <joern.rennecke@spamcop.net>
+
+	* config/locale/generic/ctype_members.cc
+	(ctype<wchar_t>::_M_convert_to_wmask): Also handle (print - graph)
+	and (xdigit - digit).
+
+	* include/tr1/type_traits (aligned_storage <type>):
+	Fix typo in last change.
+
+2011-08-16  Joern Rennecke <joern.rennecke@spamcop.net>
+
+	* include/std/type_traits (aligned_storage <type>):
+	Inhibit target-specific union padding.
+	* include/tr1/type_traits (aligned_storage <type>):
+	Likewise.

@@ -5,7 +5,8 @@
 extern void abort (void);
 extern void exit (int);
 
-struct { int a; int x[]; } d1 = { 0, 0 };
+struct { int a; int x[]; } __attribute__((packed,aligned(sizeof (int)))) d1
+  = { 0, 0 };
 int d2 = 0;
 
 int
