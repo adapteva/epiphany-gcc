@@ -1764,6 +1764,18 @@ base_alias_check (rtx x, rtx y, enum machine_mode x_mode,
   if (GET_CODE (x_base) != ADDRESS && GET_CODE (y_base) != ADDRESS)
     return 0;
 
+  /* If both are stack references, one via the stack pointer, the other via
+     the frame pointer, there can be an alias.
+     E.g.: gcc.c-torture/execute/20041113-1.c -O3 -g,
+           gcc.dg/torture/stackalign/vararg-1.c  -O2  */
+  if (GET_CODE (x_base) == ADDRESS
+      && (XEXP (x_base, 0) == stack_pointer_rtx
+	  || XEXP (x_base, 0) == hard_frame_pointer_rtx)
+      && GET_CODE (y_base) == ADDRESS
+      && (XEXP (y_base, 0) == stack_pointer_rtx
+	  || XEXP (y_base, 0) == hard_frame_pointer_rtx))
+    return 1;
+
   /* If one address is a stack reference there can be no alias:
      stack references using different base registers do not alias,
      a stack reference can not alias a parameter, and a stack reference

@@ -40,3 +40,8 @@
 
 	* tree-nested.c (get_trampoline_type): Suppress -Wpadded while
 	laying out TRAMPOLINE_TYPE.
+
+2009-09-23  Joern Rennecke <joern.rennecke@embecosm.com>
+
+	* alias.c (base_alias_check): Allow for aliases between stack-
+	and frame-pointer referenced memory.
