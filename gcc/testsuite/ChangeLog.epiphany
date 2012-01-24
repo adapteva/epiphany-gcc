@@ -1,3 +1,8 @@
+2012-01-24  Joern Rennecke <joern.rennecke@embecosm.com>
+
+	* gcc.c-torture/execute/builtins/stpncpy-chk.c (test4 <struct A>):
+	Add packed attribute.
+
 2012-01-23  Joern Rennecke <joern.rennecke@embecosm.com>
 
 	* gcc.target/epiphany/interrupt.c: New test.
