@@ -1,3 +1,8 @@
+2013-07-30  Joern Rennecke <joern.rennecke@embecosm.com>
+
+	* alias.c (base_alias_check): Allow for aliases between stack-
+	and frame-pointer referenced memory.
+
 2013-07-29  Joern Rennecke <joern.rennecke@embecosm.com>
 	merged from trunk:
 
