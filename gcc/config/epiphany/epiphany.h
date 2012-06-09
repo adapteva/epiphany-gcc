@@ -45,7 +45,7 @@ along with GCC; see the file COPYING3.  If not see
 /* Pick up the libgloss library. One day we may do this by linker script, but
    for now its static. */
 #undef LIB_SPEC
-#define LIB_SPEC "%{!shared:%{g*:-lg} %{!p:%{!pg:-lc}}%{p:-lc_p}%{pg:-lc_p}} -lepiphany"
+#define LIB_SPEC "%{!shared:%{g*:-lg} %{!p:%{!pg:-lc}}%{p:-lc_p}%{pg:-lc_p}} -lepiphany -lelib"
 
 #define LINK_SPEC "%{v}"
 
@@ -228,7 +228,7 @@ along with GCC; see the file COPYING3.  If not see
 	0, 0, 0, 0, 0, 0, 0, 0,		/* 016-023, gr16 - gr23 */	\
 	0, 0, 0, 0, 1, 1, 1, 1,		/* 024-031, gr24 - gr31 */	\
 	0, 0, 0, 0, 0, 0, 0, 0,		/* 032-039, gr32 - gr39 */	\
-	1, 1, 1, 1, 0, 0, 0, 0,		/* 040-047, gr40 - gr47 */	\
+	0, 0, 0, 0, 0, 0, 0, 0,		/* 040-047, gr40 - gr47 */	\
 	0, 0, 0, 0, 0, 0, 0, 0,		/* 048-055, gr48 - gr55 */	\
 	0, 0, 0, 0, 0, 0, 0, 0,		/* 056-063, gr56 - gr63 */	\
 	/* Other registers */						\
@@ -257,7 +257,7 @@ along with GCC; see the file COPYING3.  If not see
 	1, 1, 1, 1, 1, 1, 1, 1,		/* 016-023, gr16 - gr23 */	\
 	1, 1, 1, 1, 1, 1, 1, 1,		/* 024-031, gr24 - gr31 */	\
 	0, 0, 0, 0, 0, 0, 0, 0,		/* 032-039, gr32 - gr38 */	\
-	1, 1, 1, 1, 1, 1, 1, 1,		/* 040-047, gr40 - gr47 */	\
+	0, 0, 0, 0, 1, 1, 1, 1,		/* 040-047, gr40 - gr47 */	\
 	1, 1, 1, 1, 1, 1, 1, 1,		/* 048-055, gr48 - gr55 */	\
 	1, 1, 1, 1, 1, 1, 1, 1,		/* 056-063, gr56 - gr63 */	\
 	1,				/* 64 AP   - fake arg ptr */	\
@@ -281,11 +281,10 @@ along with GCC; see the file COPYING3.  If not see
     4, 5, 6, 7, /* Calle-saved 'small' registers.  */ \
     15, /* Calle-saved unpaired register.  */ \
     8, 9, 10, 11, /* Calle-saved registers.  */ \
-    32, 33, 34, 35, 36, 37, 38, 39, \
+    32, 33, 34, 35, 36, 37, 38, 39, 40, 41, 42, 43, \
     14, 13, /* Link register, stack pointer.  */ \
-    40, 41, 42, 43, /* Usually constant, but might be made callee-saved.  */ \
     /* Can't allocate, but must name these... */ \
-    28, 29, 30, 31, \
+    28, 29, 30, 31, /* Usually constant, but might be made callee-saved.  */\
     64, 65, 66, 67, 68, 69, 70, 71, 72, 73, 74, 75, 76, 77 \
   }
 
@@ -779,6 +778,10 @@ do {							\
    to a multiple of 2**LOG bytes.  */
 #define ASM_OUTPUT_ALIGN(FILE,LOG) \
 do { if ((LOG) != 0) fprintf (FILE, "\t.balign %d\n", 1 << (LOG)); } while (0)
+
+/* Inside the text section, align with nops rather than zeros.  */
+#define ASM_OUTPUT_ALIGN_WITH_NOP(FILE,LOG) \
+do { if ((LOG) != 0) fprintf (FILE, "\t.balignw %d,0x01a2\n", 1 << (LOG)); } while (0)
 
 /* This is how to declare the size of a function.  */
 #undef ASM_DECLARE_FUNCTION_SIZE
