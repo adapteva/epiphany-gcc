@@ -1,3 +1,7 @@
+2012-07-31  Joern Rennecke <joern.rennecke@embecosm.com>
+
+	* config/epiphany/epiphany.h (LIB_SPEC): Remove -lelib.
+
 2012-06-29  Joern Rennecke <joern.rennecke@embecosm.com>
 
 	* config/epiphany/epiphany.h (HARD_REGNO_RENAME_OK): Define.

@@ -45,7 +45,7 @@ along with GCC; see the file COPYING3.  If not see
 /* Pick up the libgloss library. One day we may do this by linker script, but
    for now its static. */
 #undef LIB_SPEC
-#define LIB_SPEC "%{!shared:%{g*:-lg} %{!p:%{!pg:-lc}}%{p:-lc_p}%{pg:-lc_p}} -lepiphany -lelib"
+#define LIB_SPEC "%{!shared:%{g*:-lg} %{!p:%{!pg:-lc}}%{p:-lc_p}%{pg:-lc_p}} -lepiphany"
 
 #define LINK_SPEC "%{v}"
 
