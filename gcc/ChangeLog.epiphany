@@ -1,3 +1,11 @@
+2012-08-01  Joern Rennecke <joern.rennecke@embecosm.com>
+
+	* tree-ssa-math-opts.c (mult_to_fma_pass): New file static struct.
+	(convert_mult_to_fma): In first pass, don't use an fms construct
+	when we don't have an fms operation, but fmna.
+	(execute_optimize_widening_mul): Add a second pass if
+	convert_mult_to_fma requests it.
+
 2012-07-31  Joern Rennecke <joern.rennecke@embecosm.com>
 
 	* config/epiphany/epiphany.h (LIB_SPEC): Remove -lelib.

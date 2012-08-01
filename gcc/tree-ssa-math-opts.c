@@ -2405,6 +2405,12 @@ convert_plusminus_to_widen (gimple_stmt_iterator *gsi, gimple stmt,
   return true;
 }
 
+static struct 
+{
+  bool second_pass;
+  bool retry_request;
+} mult_to_fma_pass;
+
 /* Combine the multiplication at MUL_STMT with operands MULOP1 and MULOP2
    with uses in additions and subtractions to form fused multiply-add
    operations.  Returns true if successful and MUL_STMT should be removed.  */
@@ -2514,6 +2520,22 @@ convert_mult_to_fma (gimple mul_stmt, tree op1, tree op2)
 	  return false;
 	}
 
+      /* If the subtrahend (gimple_assign_rhs2 (use_stmt)) is computed
+	 by a MULT_EXPR that we'll visit later, we might be able to
+	 get a more profitable match with fnma.
+	 OTOH, if we don't, a negate / fma pair has likely lower latency
+	 that a mult / subtract pair.  */
+      if (use_code == MINUS_EXPR && !negate_p
+	  && gimple_assign_rhs1 (use_stmt) == result
+	  && optab_handler (fms_optab, TYPE_MODE (type)) == CODE_FOR_nothing
+	  && optab_handler (fnma_optab, TYPE_MODE (type)) != CODE_FOR_nothing
+	  && mult_to_fma_pass.second_pass == false)
+	{
+	  /* ??? Could make setting of retry_request dependent on some
+	     rtx_cost measure we evaluate beforehand.  */
+	  mult_to_fma_pass.retry_request = true;
+	  return false;
+	}
       /* We can't handle a * b + a * b.  */
       if (gimple_assign_rhs1 (use_stmt) == gimple_assign_rhs2 (use_stmt))
 	return false;
@@ -2601,6 +2623,12 @@ execute_optimize_widening_mul (void)
 
   memset (&widen_mul_stats, 0, sizeof (widen_mul_stats));
 
+
+  mult_to_fma_pass.retry_request = false;
+  /* This could be a do-while loop, but that'd be a lot of indentation
+     code churn now.  */
+ retry:
+      mult_to_fma_pass.second_pass = mult_to_fma_pass.retry_request;
   FOR_EACH_BB (bb)
     {
       gimple_stmt_iterator gsi;
@@ -2671,6 +2699,8 @@ execute_optimize_widening_mul (void)
 	  gsi_next (&gsi);
 	}
     }
+  if (!mult_to_fma_pass.second_pass && mult_to_fma_pass.retry_request)
+    goto retry;
 
   statistics_counter_event (cfun, "widening multiplications inserted",
 			    widen_mul_stats.widen_mults_inserted);
