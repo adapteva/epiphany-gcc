@@ -1058,7 +1058,7 @@
 		    (match_operand:SI 3 "gpr_operand" "0")))
       (clobber (reg:CC_FP CCFP_REGNUM))])]
   ""
-  "imsub %0, %1, %2"
+  "imadd %0, %1, %2"
   [(set_attr "type" "fp_int")])
 
 (define_insn "*imsub"
