@@ -20,6 +20,11 @@
 	* config/epiphany/epiphany-sched.md (sched_use_fpu): New attribute.
 	* config/epiphany/epiphany.md (isub_i+1): New peephole2.
 
+	* config/epiphany/epiphany.h (EPIPHANY_LIBRARY_EXTRA_SPEC): Define.
+	(EXTRA_SPECS, DRIVER_SELF_SPECS): Likewise.
+	* config/epiphany/t-epiphany (SPECS): Set.
+	(specs): New rule.
+
 2012-08-01  Joern Rennecke <joern.rennecke@embecosm.com>
 
 	* tree-ssa-math-opts.c (mult_to_fma_pass): New file static struct.
