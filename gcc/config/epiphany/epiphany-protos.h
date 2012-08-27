@@ -55,3 +55,7 @@ extern unsigned epiphany_special_round_type_align (tree, unsigned, unsigned);
 extern unsigned epiphany_adjust_field_align (tree, unsigned);
 extern void epiphany_start_function (FILE *f, const char *name, tree decl);
 extern bool epiphany_regno_rename_ok (unsigned src, unsigned dst);
+
+/* Also declared in insn-attr.h, but files generated from epiphany.md
+   can't / won't include that.  */
+extern int get_attr_sched_use_fpu (rtx);
