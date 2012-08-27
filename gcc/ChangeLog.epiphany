@@ -16,6 +16,10 @@
 
 	* config/epiphany/epiphgany.md (maddsi_combine): Fix output pattern.
 
+	* config/epiphany/predicates.md (addsub_operator): New predicate.
+	* config/epiphany/epiphany-sched.md (sched_use_fpu): New attribute.
+	* config/epiphany/epiphany.md (isub_i+1): New peephole2.
+
 2012-08-01  Joern Rennecke <joern.rennecke@embecosm.com>
 
 	* tree-ssa-math-opts.c (mult_to_fma_pass): New file static struct.
