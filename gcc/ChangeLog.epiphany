@@ -1,3 +1,8 @@
+2012-08-29  Joern Rennecke <joern.rennecke@embecosm.com>
+
+	* config/epiphany/epiphany.c (epiphany_adjust_cost): Use
+	reg_overlap_mentioned_p.
+
 2012-08-27  Joern Rennecke <joern.rennecke@embecosm.com>
 
 	* config/epiphany/epiphany.opt (mfp-iarith): New option.
