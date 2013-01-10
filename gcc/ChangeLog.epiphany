@@ -1,3 +1,10 @@
+2013-01-09  Joern Rennecke <joern.rennecke@embecosm.com>
+	Merged from mainline:
+	2013-01-09  Jakub Jelinek  <jakub@redhat.com>
+	PR tree-optimization/55921
+	* tree-complex.c (expand_complex_asm): New function.
+	(expand_complex_operations_1): Call it for GIMPLE_ASM.
+
 2012-08-29  Joern Rennecke <joern.rennecke@embecosm.com>
 
 	* config/epiphany/epiphany.c (epiphany_adjust_cost): Use

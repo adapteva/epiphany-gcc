@@ -1,3 +1,9 @@
+2013-01-09  Joern Rennecke <joern.rennecke@embecosm.com>
+	Merged from mainline:
+	2013-01-09  Jakub Jelinek  <jakub@redhat.com>
+	PR tree-optimization/55921
+	* gcc.c-torture/compile/pr55921.c: New test.
+
 2012-02-07  Joern Rennecke <joern.rennecke@embecosm.com>
 
 	* gcc.target/epiphany/interrupt-2.c: New test.
