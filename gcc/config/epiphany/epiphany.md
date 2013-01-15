@@ -23,6 +23,7 @@
 
 (define_constants
   [(GPR_0			 0)
+   (GPR_1			 1)
    (GPR_FP			11)
    (GPR_IP			12)
    (GPR_SP			13)
@@ -1821,6 +1822,8 @@
 	 operations - if we get some.  */
       operands[1]
 	= gen_compare_reg (<MODE>mode, code, cmp_in_mode, cmp_op0, cmp_op1);
+      if (!operands[1])
+	FAIL;
     }
 })
 
