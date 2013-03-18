@@ -432,12 +432,14 @@
 }")
 
 (define_insn "addsi3_i"
-  [(set (match_operand:SI 0 "add_reg_operand" "=r")
-	(plus:SI (match_operand:SI 1 "add_reg_operand" "%r")
-		 (match_operand:SI 2 "add_operand" "rL")))
+  [(set (match_operand:SI 0 "add_reg_operand" "=r,r")
+	(plus:SI (match_operand:SI 1 "add_reg_operand" "%r,r")
+		 (match_operand:SI 2 "add_operand" "rL,CnL")))
    (clobber (reg:CC CC_REGNUM))]
   ""
-  "add %0,%1,%2"
+  "@
+   add %0,%1,%2
+   sub %0,%1,%n2"
 [(set_attr "type" "misc")])
 
 ; We use a clobber of UNKNOWN_REGNUM here so that the peephole optimizers

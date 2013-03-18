@@ -5,6 +5,10 @@
 	* config/epiphany/epiphany.md (cmpsf_ord): Make pattern
 	unconditional.
 
+	* config/epiphany/constraints.md (CnL): New constraint.
+	* config/epiphany/epiphany.md (addsi3_i): Add r/r/CnL alternative.
+	* config/epiphany/predicates.md (add_operand): Allow 1024.
+
 2013-01-15  Joern Rennecke <joern.rennecke@embecosm.com>
 
 	* config/epiphany/epiphany.md (GPR_1): New constant.
