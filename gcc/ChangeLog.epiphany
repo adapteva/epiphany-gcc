@@ -1,3 +1,8 @@
+2013-03-26  Joern Rennecke <joern.rennecke@embecosm.com>
+
+	* config/epiphany/epiphany.md (addsi3_i) <r/r/CnL>: Add '#' to
+	output template alternative.
+
 2013-03-18  Joern Rennecke <joern.rennecke@embecosm.com>
 
 	* config/epiphany/epiphany.c (epiphany_select_cc_mode):
