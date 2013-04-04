@@ -1,3 +1,10 @@
+2013-04-04  Joern Rennecke <joern.rennecke@embecosm.com>
+
+	* config/epiphany/epiphany.md (logical_op): New code iterator.
+	(op_mnc): New code attribute.
+	(<op_mnc>_f, mov_f, cstoresi4): New patterns.
+	(mov_f+1, mov_f+2): New peephole2 patterns.
+
 2013-03-26  Joern Rennecke <joern.rennecke@embecosm.com>
 
 	* config/epiphany/epiphany.md (addsi3_i) <r/r/CnL>: Add '#' to
