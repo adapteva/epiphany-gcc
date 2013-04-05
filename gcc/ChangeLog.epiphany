@@ -1,5 +1,10 @@
 2013-04-05  Joern Rennecke <joern.rennecke@embecosm.com>
 
+	* config/epiphany/epiphany.md (<insn_opname>v2si3):
+	Use gen_addsi3_i / gen_subsi3_i.
+
+2013-04-05  Joern Rennecke <joern.rennecke@embecosm.com>
+
 	* config/epiphany/epiphany.md (mov_f+2): New peephole2 pattern.
 	(cstoresi4): Also allow re-use of zero result when doing a NE
 	comparison to a non-zero operand.
