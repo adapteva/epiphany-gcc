@@ -3,6 +3,11 @@
 	merged from trunk:
 
   2013-04-08  Joern Rennecke  <joern.rennecke@embecosm.com>
+	* config/epiphany/epiphany.md (mov_f+2): New peephole2 pattern.
+	(cstoresi4): Also allow re-use of zero result when doing a NE
+	comparison to a non-zero operand.
+	Use (clobber (sratch)) for first insn if the gpr output is not needed.
+  2013-04-08  Joern Rennecke  <joern.rennecke@embecosm.com>
 	* config/epiphany/epiphany.md (logical_op): New code iterator.
 	(op_mnc): New code attribute.
 	(<op_mnc>_f, mov_f, cstoresi4): New patterns.
