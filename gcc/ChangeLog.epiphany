@@ -3,6 +3,10 @@
 	merged from trunk:
 
   2013-04-08  Joern Rennecke  <joern.rennecke@embecosm.com>
+	* config/epiphany/constraints.md (CnL): New constraint.
+	* config/epiphany/epiphany.md (addsi3_i): Add r/r/CnL alternative.
+	* config/epiphany/predicates.md (add_operand): Allow 1024.
+  2013-04-08  Joern Rennecke  <joern.rennecke@embecosm.com>
 	* config/epiphany/epiphany.c (epiphany_select_cc_mode):
 	Don't use CC_FPmode for ORDERED / UNORDERED.
 	* config/epiphany/epiphany.md (cmpsf_ord): Make pattern
