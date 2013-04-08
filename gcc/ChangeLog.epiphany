@@ -3,6 +3,11 @@
 	merged from trunk:
 
   2013-04-08  Joern Rennecke  <joern.rennecke@embecosm.com>
+	* config/epiphany/epiphany.c (epiphany_select_cc_mode):
+	Don't use CC_FPmode for ORDERED / UNORDERED.
+	* config/epiphany/epiphany.md (cmpsf_ord): Make pattern
+	unconditional.
+  2013-04-08  Joern Rennecke  <joern.rennecke@embecosm.com>
 	* config/epiphany/epiphany.md (GPR_1): New constant.
 	(define_expand "mov<mode>cc): FAIL if gen_compare_reg returned 0.
 	* config/epiphany/epiphany.c (gen_compare_reg):
