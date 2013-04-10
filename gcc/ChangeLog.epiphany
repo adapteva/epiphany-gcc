@@ -2,6 +2,16 @@
 
 	merged from trunk:
 
+  2013-04-10  Joern Rennecke <joern.rennecke@embecosm.com>
+  	gcc:
+	PR tree-optimization/55524
+	* tree-ssa-math-opts.c
+	(convert_mult_to_fma): Don't use an fms construct
+	when we don't have an fms operation, but fnma, and it looks
+	likely that we'll be able to use the latter.
+	testsuite:
+	PR tree-optimization/55524
+	* gcc.target/epiphany/fnma-1.c: New test.
   2013-04-08  Joern Rennecke  <joern.rennecke@embecosm.com>
 	* config/epiphany/epiphany.md (<insn_opname>v2si3):
 	Use gen_addsi3_i / gen_subsi3_i.
