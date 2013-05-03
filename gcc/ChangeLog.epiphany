@@ -2,8 +2,13 @@
 
 	merged from trunk:
 
+  2013-05-03  Joern Rennecke <joern.rennecke@embecosm.com>
+	PR tree-optimization/57027
+	* tree-ssa-math-opts.c (convert_mult_to_fma): When checking
+	for fnms opportunity, check we got the prerequisite kind
+	of tree / gimple before using accessor functions.
   2013-04-10  Joern Rennecke <joern.rennecke@embecosm.com>
-  	gcc:
+	gcc:
 	PR tree-optimization/55524
 	* tree-ssa-math-opts.c
 	(convert_mult_to_fma): Don't use an fms construct
