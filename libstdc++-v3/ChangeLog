@@ -1,3 +1,213 @@
+2013-06-27  Paolo Carlini  <paolo.carlini@oracle.com>
+
+	* include/profile/vector (emplace(iterator, _Args&&...)): Define.
+
+2013-06-25  Paolo Carlini  <paolo.carlini@oracle.com>
+
+	* testsuite/23_containers/map/modifiers/erase/abi_tag.cc: Avoid
+	spurious fails with check-debug.
+	* testsuite/23_containers/multimap/modifiers/erase/abi_tag.cc:
+	Likewise.
+	* testsuite/23_containers/set/modifiers/erase/abi_tag.cc: Likewise.
+	* testsuite/23_containers/multiset/modifiers/erase/abi_tag.cc:
+	Likewise.
+
+2013-06-22  Paolo Carlini  <paolo.carlini@oracle.com>
+
+	PR libstdc++/57674
+	* include/bits/random.h (binomial_distribution<>::_M_waiting):
+	Add double parameter.
+	* include/bits/random.tcc (binomial_distribution<>::operator()
+	(_UniformRandomNumberGenerator&, const param_type&)): Pass
+	__param._M_q to _M_waiting.
+	(_M_waiting): Adjust.
+	* testsuite/26_numerics/random/binomial_distribution/
+	operators/values.cc: Add tests.
+
+2013-06-21  Paolo Carlini  <paolo.carlini@oracle.com>
+
+	PR libstdc++/57666
+	* include/std/valarray (valarray<>::operator=(const _Expr<>&)):
+	Implement correctly C++11 26.6.2.3/1.
+	* testsuite/26_numerics/valarray/dr630-3.C: New.
+
+2013-06-19  Alan Modra  <amodra@gmail.com>
+
+	Apply mainline patch
+	2013-06-14  Alan Modra  <amodra@gmail.com>
+	* configure.host (abi_baseline_pair): Match powerpc64*.
+
+2013-06-15  Paolo Carlini  <paolo.carlini@oracle.com>
+
+	PR libstdc++/57619
+	* include/bits/unordered_map.h (unordered_map<>::insert,
+	unordered_multimap<>::insert): Use std::forward, not std::move.
+	* testsuite/23_containers/unordered_map/insert/57619.C: New.
+	* testsuite/23_containers/unordered_multimap/insert/57619.C: Likewise.
+
+2013-06-12  Benjamin Kosnik  <bkoz@redhat.com>
+
+	* include/bits/c++config (_GLIBCXX_ABI_TAG_CXX11): Add.
+	* include/bits/stl_map.h (erase): Use abi_tag when C++11.
+	* include/bits/stl_multimap.h: Same.
+	* include/bits/stl_multiset.h: Same.
+	* include/bits/stl_set.h: Same.
+	* include/bits/stl_tree.h: Same.
+	* include/std/complex (real, imag): Use macro for abi_tag.
+
+	* testsuite/lib/libstdc++.exp: Disable inlinling with -fno-inline.
+	* testsuite/util/testsuite_containers.h (erase_external): New
+	declarations.
+	(erase_external_iterators): Same.
+	(linkage_check_cxx98_cxx11_erase): Same.
+	(linkage_check_cxx98_cxx11_erase_iterators): Same.
+	* testsuite/util/testsuite_shared.cc: Define.
+	* testsuite/23_containers/map/modifiers/erase/abi_tag.cc: New.
+	* testsuite/23_containers/map/modifiers/erase/
+	dr130-linkage-check.cc: New.
+	* testsuite/23_containers/multimap/modifiers/erase/abi_tag.cc: New.
+	* testsuite/23_containers/multimap/modifiers/erase/
+	dr130-linkage-check.cc: New.
+	* testsuite/23_containers/multiset/modifiers/erase/abi_tag.cc: New.
+	* testsuite/23_containers/multiset/modifiers/erase/
+	dr130-linkage-check.cc: New.
+	* testsuite/23_containers/set/modifiers/erase/abi_tag.cc: New.
+	* testsuite/23_containers/set/modifiers/erase/dr130-linkage-check.cc:
+	New.
+	* testsuite/ext/profile/mutex_extensions_neg.cc: Adjust line number.
+
+	* testsuite/23_containers/map/dr130.cc: Move...
+	* testsuite/23_containers/map/modifiers/dr130.cc: ...here.
+	* testsuite/23_containers/multimap/dr130.cc: Move ...
+	* testsuite/23_containers/multimap/modifiers/dr130.cc: ...here.
+	* testsuite/23_containers/multiset/dr130.cc: Move...
+	* testsuite/23_containers/multiset/modifiers/dr130.cc: ...here.
+	* testsuite/23_containers/set/dr130.cc: Move...
+	* testsuite/23_containers/set/modifiers/dr130.cc: ...here.
+
+2013-06-11  Matthias Klose  <doko@ubuntu.com>
+
+	* include/Makefile.am (bits_headers): Remove ${bits_host_headers}.
+	(ext_headers): Remove ${ext_host_headers}.
+	(stamp-${host_alias}): Create ${host_builddir}/../ext.
+	(stamp-host): Link ${bits_host_headers} and ${ext_host_headers}.
+	(install-headers): Install ${bits_host_headers} and ${ext_host_headers}.
+	* include/Makefile.in: Regenerate.
+	* include/ext/random: Include ext/opt_random.h.
+
+2013-06-07  Uros Bizjak  <ubizjak@gmail.com>
+
+	* config/abi/post/alpha-linux-gnu/baseline_symbols.txt: Update.
+
+2013-05-31  Release Manager
+
+	* GCC 4.8.1 released.
+
+2013-05-28  Jonathan Wakely  <jwakely.gcc@gmail.com>
+
+	* src/c++11/compatibility-chrono.cc (steady_clock::now()): If
+	!_GLIBCXX_USE_GETTIMEOFDAY perform conversion inline instead of
+	calling non-existent from_time_t.
+
+2013-05-28  Rainer Orth  <ro@CeBiTec.Uni-Bielefeld.DE>
+
+	* config/abi/post/solaris2.10/sparcv9/baseline_symbols.txt:
+	Regenerate.
+
+2013-05-26  Jakub Jelinek  <jakub@redhat.com>
+
+	Backported from mainline
+	2013-05-24  Benjamin Kosnik  <bkoz@redhat.com>
+
+	* include/std/chrono: Wrap clocks in inline namespace _V2.
+	* src/c++11/chrono.cc: Same.
+	* src/c++11/compatibility-chrono.cc: Revert to previous chrono.cc
+	file, with default configure macros selected.
+
+	* config/abi/pre/gnu.ver (GLIBCXX_3.4.19): Use symbols from inline
+	namespace.
+	* config/abi/post/x86_64-linux-gnu/baseline_symbols.txt: Fix up.
+
+	* config/abi/post/i386-linux-gnu/baseline_symbols.txt: Regenerated.
+	* config/abi/post/s390x-linux-gnu/baseline_symbols.txt: Regenerated.
+	* config/abi/post/powerpc64-linux-gnu/baseline_symbols.txt:
+	Regenerated.
+	* config/abi/post/powerpc64-linux-gnu/32/baseline_symbols.txt:
+	Regenerated.
+	* config/abi/post/x86_64-linux-gnu/baseline_symbols.txt: Regenerated.
+	* config/abi/post/x86_64-linux-gnu/32/baseline_symbols.txt:
+	Regenerated.
+	* config/abi/post/powerpc-linux-gnu/baseline_symbols.txt: Regenerated.
+	* config/abi/post/s390-linux-gnu/baseline_symbols.txt: Regenerated.
+	* config/abi/post/i486-linux-gnu/baseline_symbols.txt: Regenerated.
+	* config/abi/post/solaris2.10/baseline_symbols.txt: Regenerated.
+	* config/abi/post/solaris2.10/amd64/baseline_symbols.txt: Regenerated.
+	* config/abi/post/solaris2.10/sparcv9/baseline_symbols.txt:
+	Regenerated.
+	* config/abi/post/solaris2.9/baseline_symbols.txt: Regenerated.
+	* config/abi/post/solaris2.9/sparcv9/baseline_symbols.txt: Regenerated.
+
+2013-05-24  Jakub Jelinek  <jakub@redhat.com>
+
+	* src/c++11/chrono.cc: If _GLIBCXX_USE_CLOCK_GETTIME_SYSCALL,
+	include unistd.h and sys/syscall.h.  If _GLIBCXX_COMPATIBILITY_CXX0X,
+	don't define system_clock::is_steady, system_clock::now() and
+	steady_clock::is_steady.
+	(std::chrono::system_clock::now()): If
+	_GLIBCXX_USE_CLOCK_GETTIME_SYSCALL, call
+	syscall (SYS_clock_gettime, ...) instead of clock_gettime (...).
+	(std::chrono::system_clock::now()): Likewise.  Add weak attribute
+	if _GLIBCXX_COMPATIBILITY_CXX0X and compatibility-chrono.cc will
+	be non-empty.
+	* src/Makefile.am (cxx11_sources): Add compatibility-chrono.cc.
+	(compatibility-chrono.lo, compatibility-chrono.o): New goals.
+	* src/c++11/compatibility-chrono.cc: New file.
+	* acinclude.m4 (GLIBCXX_ENABLE_LIBSTDCXX_TIME): On linux*, check for
+	syscall (SYS_clock_gettime, CLOCK_MONOTONIC, &tp).
+	* testsuite/util/testsuite_abi.cc (check_version): Add
+	GLIBCXX_3.4.19 version and make it the latest.
+	* config/abi/pre/gnu.ver (_ZNSt6chrono12steady_clock3nowEv): Export
+	also @@GLIBCXX_3.4.19.
+	* config/abi/post/i386-linux-gnu/baseline_symbols.txt: Regenerated.
+	* config/abi/post/s390x-linux-gnu/baseline_symbols.txt: Regenerated.
+	* config/abi/post/powerpc64-linux-gnu/baseline_symbols.txt:
+	Regenerated.
+	* config/abi/post/powerpc64-linux-gnu/32/baseline_symbols.txt:
+	Regenerated.
+	* config/abi/post/x86_64-linux-gnu/baseline_symbols.txt: Regenerated.
+	* config/abi/post/x86_64-linux-gnu/32/baseline_symbols.txt:
+	Regenerated.
+	* config/abi/post/powerpc-linux-gnu/baseline_symbols.txt: Regenerated.
+	* config/abi/post/s390-linux-gnu/baseline_symbols.txt: Regenerated.
+	* config/abi/post/i486-linux-gnu/baseline_symbols.txt: Regenerated.
+	* config/abi/post/solaris2.10/baseline_symbols.txt: Regenerated.
+	* config/abi/post/solaris2.10/amd64/baseline_symbols.txt: Regenerated.
+	* config/abi/post/solaris2.10/sparcv9/baseline_symbols.txt:
+	Regenerated.
+	* config/abi/post/solaris2.9/baseline_symbols.txt: Regenerated.
+	* config/abi/post/solaris2.9/sparcv9/baseline_symbols.txt: Regenerated.
+	* config.h.in: Regenerated.
+	* src/Makefile.in: Regenerated.
+	* configure: Regenerated.
+
+2013-05-21  Jonathan Wakely  <jwakely.gcc@gmail.com>
+
+	PR libstdc++/57336
+	* include/std/functional (__invoke): Do not form function types with
+	abstract return type.
+	* testsuite/20_util/reference_wrapper/invoke-3.cc: New.
+
+2013-05-15  Jonathan Wakely  <jwakely.gcc@gmail.com>
+
+	* include/bits/basic_string.h (getline): Fix doxygen comments.
+
+2013-05-14  Evgeniy Stepanov  <eugenis@google.com>
+
+	* src/c++11/system_error.cc (generic_category_instance): Add
+	initializer.
+	(system_category_instance): Likewise.
+	* src/c++11/future.cc (__fec): Likewise.
+
 2013-05-08  Andoni Morales Alastruey <ylatuya@gmail.com>
 
 	PR libstdc++/57212
@@ -26,7 +236,7 @@
 
 2013-04-04  Gerald Pfeifer  <gerald@pfeifer.com>
 
-	* doc/xml/manual/allocator.xml: Adjust link to Dr.Dobb's article.q
+	* doc/xml/manual/allocator.xml: Adjust link to Dr.Dobb's article.
 
 	* doc/xml/manual/appendix_contributing.xml: Adjust link to GNU
 	Coding Standards.
@@ -59,7 +269,6 @@
 	* testsuite/23_containers/array/tuple_interface/
 	tuple_element_debug_neg.cc: Adjust dg-error line number.
 
->>>>>>> .r197495
 2013-03-27  Paolo Carlini  <paolo.carlini@oracle.com>
 
 	PR libstdc++/55977 (partial, std::vector and std::deque bits)

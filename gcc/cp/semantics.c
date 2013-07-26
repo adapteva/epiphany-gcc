@@ -155,6 +155,17 @@ push_deferring_access_checks (deferring_kind deferring)
     }
 }
 
+/* Save the current deferred access states and start deferred access
+   checking, continuing the set of deferred checks in CHECKS.  */
+
+void
+reopen_deferring_access_checks (vec<deferred_access_check, va_gc> * checks)
+{
+  push_deferring_access_checks (dk_deferred);
+  if (!deferred_access_no_check)
+    deferred_access_stack->last().deferred_access_checks = checks;
+}
+
 /* Resume deferring access checks again after we stopped doing
    this previously.  */
 
@@ -7635,11 +7646,6 @@ cxx_eval_indirect_ref (const constexpr_call *call, tree t,
     {
       tree sub = op0;
       STRIP_NOPS (sub);
-      if (TREE_CODE (sub) == POINTER_PLUS_EXPR)
-	{
-	  sub = TREE_OPERAND (sub, 0);
-	  STRIP_NOPS (sub);
-	}
       if (TREE_CODE (sub) == ADDR_EXPR)
 	{
 	  /* We couldn't fold to a constant value.  Make sure it's not
@@ -7990,6 +7996,7 @@ cxx_eval_constant_expression (const constexpr_call *call, tree t,
     case UNGT_EXPR:
     case UNGE_EXPR:
     case UNEQ_EXPR:
+    case LTGT_EXPR:
     case RANGE_EXPR:
     case COMPLEX_EXPR:
       r = cxx_eval_binary_expression (call, t, allow_non_constant, addr,
@@ -8411,7 +8418,11 @@ potential_constant_expression_1 (tree t, bool want_rval, tsubst_flags_t flags)
 		  }
 	      }
 	    else
-	      fun = get_first_fn (fun);
+	      {
+		if (!potential_constant_expression_1 (fun, true, flags))
+		  return false;
+		fun = get_first_fn (fun);
+	      }
 	    /* Skip initial arguments to base constructors.  */
 	    if (DECL_BASE_CONSTRUCTOR_P (fun))
 	      i = num_artificial_parms_for (fun);
@@ -8842,6 +8853,12 @@ potential_constant_expression_1 (tree t, bool want_rval, tsubst_flags_t flags)
 	}
       return false;
 
+    case OMP_ATOMIC:
+    case OMP_ATOMIC_READ:
+    case OMP_ATOMIC_CAPTURE_OLD:
+    case OMP_ATOMIC_CAPTURE_NEW:
+      return false;
+
     default:
       if (objc_is_property_ref (t))
 	return false;
@@ -9061,7 +9078,8 @@ lambda_capture_field_type (tree expr)
 {
   tree type;
   if (type_dependent_expression_p (expr)
-      && !(TREE_TYPE (expr) && TREE_CODE (TREE_TYPE (expr)) == POINTER_TYPE))
+      && !(TREE_TYPE (expr) && TREE_CODE (TREE_TYPE (expr)) == POINTER_TYPE
+	   && !type_uses_auto (TREE_TYPE (expr))))
     {
       type = cxx_make_type (DECLTYPE_TYPE);
       DECLTYPE_TYPE_EXPR (type) = expr;

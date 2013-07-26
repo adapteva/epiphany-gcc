@@ -2877,9 +2877,10 @@ ix86_option_override_internal (bool main_args_p)
       {"pentium", PROCESSOR_PENTIUM, CPU_PENTIUM, 0},
       {"pentium-mmx", PROCESSOR_PENTIUM, CPU_PENTIUM, PTA_MMX},
       {"winchip-c6", PROCESSOR_I486, CPU_NONE, PTA_MMX},
-      {"winchip2", PROCESSOR_I486, CPU_NONE, PTA_MMX | PTA_3DNOW},
-      {"c3", PROCESSOR_I486, CPU_NONE, PTA_MMX | PTA_3DNOW},
-      {"c3-2", PROCESSOR_PENTIUMPRO, CPU_PENTIUMPRO, PTA_MMX | PTA_SSE},
+      {"winchip2", PROCESSOR_I486, CPU_NONE, PTA_MMX | PTA_3DNOW | PTA_PRFCHW},
+      {"c3", PROCESSOR_I486, CPU_NONE, PTA_MMX | PTA_3DNOW | PTA_PRFCHW},
+      {"c3-2", PROCESSOR_PENTIUMPRO, CPU_PENTIUMPRO,
+	PTA_MMX | PTA_SSE | PTA_FXSR},
       {"i686", PROCESSOR_PENTIUMPRO, CPU_PENTIUMPRO, 0},
       {"pentiumpro", PROCESSOR_PENTIUMPRO, CPU_PENTIUMPRO, 0},
       {"pentium2", PROCESSOR_PENTIUMPRO, CPU_PENTIUMPRO, PTA_MMX | PTA_FXSR},
@@ -2902,8 +2903,8 @@ ix86_option_override_internal (bool main_args_p)
 	PTA_64BIT | PTA_MMX | PTA_SSE | PTA_SSE2 | PTA_SSE3
 	| PTA_SSSE3 | PTA_CX16 | PTA_FXSR},
       {"corei7", PROCESSOR_COREI7, CPU_COREI7,
-	PTA_64BIT | PTA_MMX | PTA_SSE | PTA_SSE2 | PTA_SSE3
-	| PTA_SSSE3 | PTA_SSE4_1 | PTA_SSE4_2 | PTA_CX16 | PTA_FXSR},
+	PTA_64BIT | PTA_MMX | PTA_SSE | PTA_SSE2 | PTA_SSE3 | PTA_SSSE3
+	| PTA_SSE4_1 | PTA_SSE4_2 | PTA_CX16 | PTA_POPCNT | PTA_FXSR},
       {"corei7-avx", PROCESSOR_COREI7, CPU_COREI7,
 	PTA_64BIT | PTA_MMX | PTA_SSE | PTA_SSE2 | PTA_SSE3
 	| PTA_SSSE3 | PTA_SSE4_1 | PTA_SSE4_2 | PTA_AVX
@@ -2925,49 +2926,49 @@ ix86_option_override_internal (bool main_args_p)
 	PTA_64BIT | PTA_MMX | PTA_SSE | PTA_SSE2 | PTA_SSE3
 	| PTA_SSSE3 | PTA_CX16 | PTA_MOVBE | PTA_FXSR},
       {"geode", PROCESSOR_GEODE, CPU_GEODE,
-	PTA_MMX | PTA_3DNOW | PTA_3DNOW_A | PTA_PREFETCH_SSE},
+	PTA_MMX | PTA_3DNOW | PTA_3DNOW_A | PTA_PREFETCH_SSE | PTA_PRFCHW},
       {"k6", PROCESSOR_K6, CPU_K6, PTA_MMX},
-      {"k6-2", PROCESSOR_K6, CPU_K6, PTA_MMX | PTA_3DNOW},
-      {"k6-3", PROCESSOR_K6, CPU_K6, PTA_MMX | PTA_3DNOW},
+      {"k6-2", PROCESSOR_K6, CPU_K6, PTA_MMX | PTA_3DNOW | PTA_PRFCHW},
+      {"k6-3", PROCESSOR_K6, CPU_K6, PTA_MMX | PTA_3DNOW | PTA_PRFCHW},
       {"athlon", PROCESSOR_ATHLON, CPU_ATHLON,
-	PTA_MMX | PTA_3DNOW | PTA_3DNOW_A | PTA_PREFETCH_SSE},
+	PTA_MMX | PTA_3DNOW | PTA_3DNOW_A | PTA_PREFETCH_SSE | PTA_PRFCHW},
       {"athlon-tbird", PROCESSOR_ATHLON, CPU_ATHLON,
-	PTA_MMX | PTA_3DNOW | PTA_3DNOW_A | PTA_PREFETCH_SSE},
+	PTA_MMX | PTA_3DNOW | PTA_3DNOW_A | PTA_PREFETCH_SSE | PTA_PRFCHW},
       {"athlon-4", PROCESSOR_ATHLON, CPU_ATHLON,
-	PTA_MMX | PTA_3DNOW | PTA_3DNOW_A | PTA_SSE},
+	PTA_MMX | PTA_3DNOW | PTA_3DNOW_A | PTA_SSE | PTA_PRFCHW | PTA_FXSR},
       {"athlon-xp", PROCESSOR_ATHLON, CPU_ATHLON,
-	PTA_MMX | PTA_3DNOW | PTA_3DNOW_A | PTA_SSE},
+	PTA_MMX | PTA_3DNOW | PTA_3DNOW_A | PTA_SSE | PTA_PRFCHW | PTA_FXSR},
       {"athlon-mp", PROCESSOR_ATHLON, CPU_ATHLON,
-	PTA_MMX | PTA_3DNOW | PTA_3DNOW_A | PTA_SSE},
+	PTA_MMX | PTA_3DNOW | PTA_3DNOW_A | PTA_SSE | PTA_PRFCHW | PTA_FXSR},
       {"x86-64", PROCESSOR_K8, CPU_K8,
-	PTA_64BIT | PTA_MMX | PTA_SSE | PTA_SSE2 | PTA_NO_SAHF},
+	PTA_64BIT | PTA_MMX | PTA_SSE | PTA_SSE2 | PTA_NO_SAHF | PTA_FXSR},
       {"k8", PROCESSOR_K8, CPU_K8,
 	PTA_64BIT | PTA_MMX | PTA_3DNOW | PTA_3DNOW_A | PTA_SSE
-	| PTA_SSE2 | PTA_NO_SAHF},
+	| PTA_SSE2 | PTA_NO_SAHF | PTA_PRFCHW | PTA_FXSR},
       {"k8-sse3", PROCESSOR_K8, CPU_K8,
 	PTA_64BIT | PTA_MMX | PTA_3DNOW | PTA_3DNOW_A | PTA_SSE
-	| PTA_SSE2 | PTA_SSE3 | PTA_NO_SAHF},
+	| PTA_SSE2 | PTA_SSE3 | PTA_NO_SAHF | PTA_PRFCHW | PTA_FXSR},
       {"opteron", PROCESSOR_K8, CPU_K8,
 	PTA_64BIT | PTA_MMX | PTA_3DNOW | PTA_3DNOW_A | PTA_SSE
-	| PTA_SSE2 | PTA_NO_SAHF},
+	| PTA_SSE2 | PTA_NO_SAHF | PTA_PRFCHW | PTA_FXSR},
       {"opteron-sse3", PROCESSOR_K8, CPU_K8,
 	PTA_64BIT | PTA_MMX | PTA_3DNOW | PTA_3DNOW_A | PTA_SSE
-	| PTA_SSE2 | PTA_SSE3 | PTA_NO_SAHF},
+	| PTA_SSE2 | PTA_SSE3 | PTA_NO_SAHF | PTA_PRFCHW | PTA_FXSR},
       {"athlon64", PROCESSOR_K8, CPU_K8,
 	PTA_64BIT | PTA_MMX | PTA_3DNOW | PTA_3DNOW_A | PTA_SSE
-	| PTA_SSE2 | PTA_NO_SAHF},
+	| PTA_SSE2 | PTA_NO_SAHF | PTA_PRFCHW | PTA_FXSR},
       {"athlon64-sse3", PROCESSOR_K8, CPU_K8,
 	PTA_64BIT | PTA_MMX | PTA_3DNOW | PTA_3DNOW_A | PTA_SSE
-	| PTA_SSE2 | PTA_SSE3 | PTA_NO_SAHF},
+	| PTA_SSE2 | PTA_SSE3 | PTA_NO_SAHF | PTA_PRFCHW | PTA_FXSR},
       {"athlon-fx", PROCESSOR_K8, CPU_K8,
 	PTA_64BIT | PTA_MMX | PTA_3DNOW | PTA_3DNOW_A | PTA_SSE
-	| PTA_SSE2 | PTA_NO_SAHF},
+	| PTA_SSE2 | PTA_NO_SAHF | PTA_PRFCHW | PTA_FXSR},
       {"amdfam10", PROCESSOR_AMDFAM10, CPU_AMDFAM10,
-	PTA_64BIT | PTA_MMX | PTA_3DNOW | PTA_3DNOW_A | PTA_SSE
-	| PTA_SSE2 | PTA_SSE3 | PTA_SSE4A | PTA_CX16 | PTA_ABM},
+	PTA_64BIT | PTA_MMX | PTA_3DNOW | PTA_3DNOW_A | PTA_SSE | PTA_SSE2
+	| PTA_SSE3 | PTA_SSE4A | PTA_CX16 | PTA_ABM | PTA_PRFCHW | PTA_FXSR},
       {"barcelona", PROCESSOR_AMDFAM10, CPU_AMDFAM10,
-	PTA_64BIT | PTA_MMX | PTA_3DNOW | PTA_3DNOW_A | PTA_SSE
-	| PTA_SSE2 | PTA_SSE3 | PTA_SSE4A | PTA_CX16 | PTA_ABM},
+	PTA_64BIT | PTA_MMX | PTA_3DNOW | PTA_3DNOW_A | PTA_SSE | PTA_SSE2
+	| PTA_SSE3 | PTA_SSE4A | PTA_CX16 | PTA_ABM | PTA_PRFCHW | PTA_FXSR},
       {"bdver1", PROCESSOR_BDVER1, CPU_BDVER1,
 	PTA_64BIT | PTA_MMX | PTA_SSE | PTA_SSE2 | PTA_SSE3
 	| PTA_SSE4A | PTA_CX16 | PTA_ABM | PTA_SSSE3 | PTA_SSE4_1
@@ -3579,14 +3580,18 @@ ix86_option_override_internal (bool main_args_p)
     ix86_isa_flags |= OPTION_MASK_ISA_MMX & ~ix86_isa_flags_explicit;
 
   /* Enable SSE prefetch.  */
-  if (TARGET_SSE || TARGET_PRFCHW)
+  if (TARGET_SSE || (TARGET_PRFCHW && !TARGET_3DNOW))
     x86_prefetch_sse = true;
 
-  /* Turn on popcnt instruction for -msse4.2 or -mabm.  */
+  /* Enable prefetch{,w} instructions for -m3dnow.  */
+  if (TARGET_3DNOW)
+    ix86_isa_flags |= OPTION_MASK_ISA_PRFCHW & ~ix86_isa_flags_explicit;
+
+  /* Enable popcnt instruction for -msse4.2 or -mabm.  */
   if (TARGET_SSE4_2 || TARGET_ABM)
     ix86_isa_flags |= OPTION_MASK_ISA_POPCNT & ~ix86_isa_flags_explicit;
 
-  /* Turn on lzcnt instruction for -mabm.  */
+  /* Enable lzcnt instruction for -mabm.  */
   if (TARGET_ABM)
     ix86_isa_flags |= OPTION_MASK_ISA_LZCNT & ~ix86_isa_flags_explicit;
 
@@ -6391,7 +6396,7 @@ construct_container (enum machine_mode mode, enum machine_mode orig_mode,
 
   /* Likewise, error if the ABI requires us to return values in the
      x87 registers and the user specified -mno-80387.  */
-  if (!TARGET_80387 && in_return)
+  if (in_return && !TARGET_FLOAT_RETURNS_IN_80387)
     for (i = 0; i < n; i++)
       if (regclass[i] == X86_64_X87_CLASS
 	  || regclass[i] == X86_64_X87UP_CLASS
@@ -8716,17 +8721,12 @@ output_set_got (rtx dest, rtx label ATTRIBUTE_UNUSED)
 
   if (!flag_pic)
     {
+      if (TARGET_MACHO)
+	/* We don't need a pic base, we're not producing pic.  */
+	gcc_unreachable ();
+
       xops[2] = gen_rtx_LABEL_REF (Pmode, label ? label : gen_label_rtx ());
-
       output_asm_insn ("mov%z0\t{%2, %0|%0, %2}", xops);
-
-#if TARGET_MACHO
-      /* Output the Mach-O "canonical" label name ("Lxx$pb") here too.  This
-         is what will be referenced by the Mach-O PIC subsystem.  */
-      if (!label)
-	ASM_OUTPUT_LABEL (asm_out_file, MACHOPIC_FUNCTION_BASE_NAME);
-#endif
-
       targetm.asm_out.internal_label (asm_out_file, "L",
 				      CODE_LABEL_NUMBER (XEXP (xops[2], 0)));
     }
@@ -8739,12 +8739,18 @@ output_set_got (rtx dest, rtx label ATTRIBUTE_UNUSED)
       xops[2] = gen_rtx_SYMBOL_REF (Pmode, ggc_strdup (name));
       xops[2] = gen_rtx_MEM (QImode, xops[2]);
       output_asm_insn ("call\t%X2", xops);
-      /* Output the Mach-O "canonical" label name ("Lxx$pb") here too.  This
-         is what will be referenced by the Mach-O PIC subsystem.  */
+
 #if TARGET_MACHO
-      if (!label)
+      /* Output the Mach-O "canonical" pic base label name ("Lxx$pb") here.
+         This is what will be referenced by the Mach-O PIC subsystem.  */
+      if (machopic_should_output_picbase_label () || !label)
 	ASM_OUTPUT_LABEL (asm_out_file, MACHOPIC_FUNCTION_BASE_NAME);
-      else
+
+      /* When we are restoring the pic base at the site of a nonlocal label,
+         and we decided to emit the pic base above, we will still output a
+         local label used for calculating the correction offset (even though
+         the offset will be 0 in that case).  */
+      if (label)
         targetm.asm_out.internal_label (asm_out_file, "L",
 					   CODE_LABEL_NUMBER (label));
 #endif
@@ -8826,7 +8832,8 @@ ix86_save_reg (unsigned int regno, bool maybe_eh_return)
       && (df_regs_ever_live_p (REAL_PIC_OFFSET_TABLE_REGNUM)
 	  || crtl->profile
 	  || crtl->calls_eh_return
-	  || crtl->uses_const_pool))
+	  || crtl->uses_const_pool
+	  || cfun->has_nonlocal_label))
     return ix86_select_alt_pic_regnum () == INVALID_REGNUM;
 
   if (crtl->calls_eh_return && maybe_eh_return)
@@ -31775,7 +31782,13 @@ ix86_expand_builtin (tree exp, rtx target, rtx subtarget ATTRIBUTE_UNUSED,
 	}
 
       if (target == 0)
-	target = gen_reg_rtx (mode);
+	{
+	  /* mode is VOIDmode if __builtin_rd* has been called
+	     without lhs.  */
+	  if (mode == VOIDmode)
+	    return target;
+	  target = gen_reg_rtx (mode);
+	}
 
       if (TARGET_64BIT)
 	{
@@ -35439,6 +35452,46 @@ ix86_pad_short_function (void)
     }
 }
 
+/* Fix up a Windows system unwinder issue.  If an EH region falls thru into
+   the epilogue, the Windows system unwinder will apply epilogue logic and
+   produce incorrect offsets.  This can be avoided by adding a nop between
+   the last insn that can throw and the first insn of the epilogue.  */
+
+static void
+ix86_seh_fixup_eh_fallthru (void)
+{
+  edge e;
+  edge_iterator ei;
+
+  FOR_EACH_EDGE (e, ei, EXIT_BLOCK_PTR->preds)
+    {
+      rtx insn, next;
+
+      /* Find the beginning of the epilogue.  */
+      for (insn = BB_END (e->src); insn != NULL; insn = PREV_INSN (insn))
+	if (NOTE_P (insn) && NOTE_KIND (insn) == NOTE_INSN_EPILOGUE_BEG)
+	  break;
+      if (insn == NULL)
+	continue;
+
+      /* We only care about preceeding insns that can throw.  */
+      insn = prev_active_insn (insn);
+      if (insn == NULL || !can_throw_internal (insn))
+	continue;
+
+      /* Do not separate calls from their debug information.  */
+      for (next = NEXT_INSN (insn); next != NULL; next = NEXT_INSN (next))
+	if (NOTE_P (next)
+            && (NOTE_KIND (next) == NOTE_INSN_VAR_LOCATION
+                || NOTE_KIND (next) == NOTE_INSN_CALL_ARG_LOCATION))
+	  insn = next;
+	else
+	  break;
+
+      emit_insn_after (gen_nops (const1_rtx), insn);
+    }
+}
+
 /* Implement machine specific optimizations.  We implement padding of returns
    for K8 CPUs and pass to avoid 4 jumps in the single 16 byte window.  */
 static void
@@ -35447,6 +35500,9 @@ ix86_reorg (void)
   /* We are freeing block_for_insn in the toplev to keep compatibility
      with old MDEP_REORGS that are not CFG based.  Recompute it now.  */
   compute_bb_for_insn ();
+
+  if (TARGET_SEH && current_function_has_exception_handlers ())
+    ix86_seh_fixup_eh_fallthru ();
 
   if (optimize && optimize_function_for_speed_p (cfun))
     {
@@ -42200,6 +42256,8 @@ ix86_memmodel_check (unsigned HOST_WIDE_INT val)
 
 #undef TARGET_ATTRIBUTE_TABLE
 #define TARGET_ATTRIBUTE_TABLE ix86_attribute_table
+#undef TARGET_FUNCTION_ATTRIBUTE_INLINABLE_P
+#define TARGET_FUNCTION_ATTRIBUTE_INLINABLE_P hook_bool_const_tree_true
 #if TARGET_DLLIMPORT_DECL_ATTRIBUTES
 #  undef TARGET_MERGE_DECL_ATTRIBUTES
 #  define TARGET_MERGE_DECL_ATTRIBUTES merge_dllimport_decl_attributes

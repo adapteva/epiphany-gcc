@@ -1,3 +1,38 @@
+2013-07-08  Tobias Burnus  <burnus@net-b.de>
+
+	PR fortran/57785
+	* simplify.c (compute_dot_product): Complex conjugate for
+	dot_product.
+	(gfc_simplify_dot_product, gfc_simplify_matmul): Update call.
+
+2013-06-11  Tobias Burnus  <burnus@net-b.de>
+
+	PR fortran/57508
+	* resolve.c (get_temp_from_expr): Don't copy function
+	result attributes to temporary.
+
+2013-06-04  Tobias Burnus  <burnus@net-b.de>
+
+	Backport from mainline
+	2013-05-22  Tobias Burnus  <burnus@net-b.de>
+
+	PR fortran/57364
+	* resolve.c (get_temp_from_expr): Commit created sym.
+
+2013-05-31  Janus Weil  <janus@gcc.gnu.org>
+	    Tobias Burnus  <burnus@net-b.de>
+
+	PR fortran/57217
+	* interface.c (check_dummy_characteristics): Symmetrize type check.
+
+2013-05-31  Release Manager
+
+	* GCC 4.8.1 released.
+
+2013-05-22  Janne Blomqvist  <jb@gcc.gnu.org>
+
+	* intrinsic.texi (RANDOM_SEED): Improve example.
+
 2013-05-07  Tobias Burnus  <burnus@net-b.de>
 
 	Backport from mainline

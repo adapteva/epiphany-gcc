@@ -1027,6 +1027,7 @@ decls_match (tree newdecl, tree olddecl)
 	  else
 	    types_match =
 	      compparms (p1, p2)
+	      && type_memfn_rqual (f1) == type_memfn_rqual (f2)
 	      && (TYPE_ATTRIBUTES (TREE_TYPE (newdecl)) == NULL_TREE
 	          || comp_type_attributes (TREE_TYPE (newdecl),
 					   TREE_TYPE (olddecl)) != 0);
@@ -5199,6 +5200,9 @@ reshape_init_class (tree type, reshape_iter *d, bool first_initializer_p,
       /* Handle designated initializers, as an extension.  */
       if (d->cur->index)
 	{
+	  if (d->cur->index == error_mark_node)
+	    return error_mark_node;
+
 	  if (TREE_CODE (d->cur->index) == INTEGER_CST)
 	    {
 	      if (complain & tf_error)
@@ -10257,7 +10261,7 @@ grokdeclarator (const cp_declarator *declarator,
 	      type = void_type_node;
 	    }
 	}
-      else if (memfn_quals)
+      else if (memfn_quals || rqual)
 	{
 	  if (ctype == NULL_TREE
 	      && TREE_CODE (type) == METHOD_TYPE)
@@ -10265,8 +10269,10 @@ grokdeclarator (const cp_declarator *declarator,
 
 	  if (ctype)
 	    type = build_memfn_type (type, ctype, memfn_quals, rqual);
-	  /* Core issue #547: need to allow this in template type args.  */
-	  else if (template_type_arg && TREE_CODE (type) == FUNCTION_TYPE)
+	  /* Core issue #547: need to allow this in template type args.
+	     Allow it in general in C++11 for alias-declarations.  */
+	  else if ((template_type_arg || cxx_dialect >= cxx11)
+		   && TREE_CODE (type) == FUNCTION_TYPE)
 	    type = apply_memfn_quals (type, memfn_quals, rqual);
 	  else
 	    error ("invalid qualifiers on non-member function type");
@@ -10872,7 +10878,7 @@ local_variable_p_walkfn (tree *tp, int *walk_subtrees,
    DECL, if there is no DECL available.  */
 
 tree
-check_default_argument (tree decl, tree arg)
+check_default_argument (tree decl, tree arg, tsubst_flags_t complain)
 {
   tree var;
   tree decl_type;
@@ -10904,13 +10910,14 @@ check_default_argument (tree decl, tree arg)
      A default argument expression is implicitly converted to the
      parameter type.  */
   ++cp_unevaluated_operand;
-  perform_implicit_conversion_flags (decl_type, arg, tf_warning_or_error,
+  perform_implicit_conversion_flags (decl_type, arg, complain,
 				     LOOKUP_IMPLICIT);
   --cp_unevaluated_operand;
 
   if (warn_zero_as_null_pointer_constant
       && TYPE_PTR_OR_PTRMEM_P (decl_type)
       && null_ptr_cst_p (arg)
+      && (complain & tf_warning)
       && maybe_warn_zero_as_null_pointer_constant (arg, input_location))
     return nullptr_node;
 
@@ -10924,10 +10931,14 @@ check_default_argument (tree decl, tree arg)
   var = cp_walk_tree_without_duplicates (&arg, local_variable_p_walkfn, NULL);
   if (var)
     {
-      if (DECL_NAME (var) == this_identifier)
-	permerror (input_location, "default argument %qE uses %qD", arg, var);
-      else
-	error ("default argument %qE uses local variable %qD", arg, var);
+      if (complain & tf_warning_or_error)
+	{
+	  if (DECL_NAME (var) == this_identifier)
+	    permerror (input_location, "default argument %qE uses %qD",
+		       arg, var);
+	  else
+	    error ("default argument %qE uses local variable %qD", arg, var);
+	}
       return error_mark_node;
     }
 
@@ -11078,7 +11089,7 @@ grokparms (tree parmlist, tree *parms)
 	  if (any_error)
 	    init = NULL_TREE;
 	  else if (init && !processing_template_decl)
-	    init = check_default_argument (decl, init);
+	    init = check_default_argument (decl, init, tf_warning_or_error);
 	}
 
       DECL_CHAIN (decl) = decls;
