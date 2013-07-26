@@ -35,6 +35,7 @@
 	* gcc.c-torture/execute/builtins/vsnprintf-chk.x: Likewise.
 	* gcc.c-torture/execute/builtins/vsprintf-chk.x: Likewise.
 	* gcc.c-torture/execute/zerolen-2.x: Likewise.
+	* gcc.c-torture/execute/builtins/stpcpy-chk.x: New file.
 
 2013-07-24  Joern Rennecke  <joern.rennecke@embecosm.com>
 
