@@ -37,6 +37,9 @@
 	* gcc.c-torture/execute/zerolen-2.x: Likewise.
 	* gcc.c-torture/execute/builtins/stpcpy-chk.x: New file.
 
+	* gcc.dg/pr27095.c: For Epiphany, add -mshort-calls.
+	* gcc.dg/tree-ssa/loop-1.c: Likewise. 
+
 2013-07-24  Joern Rennecke  <joern.rennecke@embecosm.com>
 
 	* mode-switching.c (create_pre_exit): Allow instructions that
