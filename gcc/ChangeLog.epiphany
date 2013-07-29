@@ -7,6 +7,9 @@
 	* predicates.md (float_operation): Allow patterns with three
 	basic sub-patterns.
 
+	testsuite:
+	* gcc.dg/tree-ssa/pr44258.c: Disable scan test for Epiphany.
+
 2013-07-27  Joern Rennecke <joern.rennecke@embecosm.com>
 
 	merged from trunk:
