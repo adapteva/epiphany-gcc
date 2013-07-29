@@ -10,6 +10,10 @@
 	testsuite:
 	* gcc.dg/tree-ssa/pr44258.c: Disable scan test for Epiphany.
 
+	PR rtl-optimization/58021
+	* mode-switching.c (create_pre_exit): Always split off
+	preceding insns if we are not at the basic block head.
+
 2013-07-27  Joern Rennecke <joern.rennecke@embecosm.com>
 
 	merged from trunk:
