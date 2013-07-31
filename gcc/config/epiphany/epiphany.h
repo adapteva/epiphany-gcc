@@ -769,6 +769,15 @@ extern char epiphany_punct_chars[256];
 #define PRINT_OPERAND_PUNCT_VALID_P(CHAR) \
   epiphany_punct_chars[(unsigned char) (CHAR)]
 
+#define ASM_OUTPUT_SYMBOL_REF(FILE, SYM) \
+  do \
+    { \
+      assemble_name ((FILE), (XSTR ((SYM), 0))); \
+      if (flag_pic && ! SYMBOL_REF_LOCAL_P (x)) \
+	fputs ("@PLT", FILE); \
+    } \
+  while (0)
+
 /* This is how to output an element of a case-vector that is absolute.  */
 #define ASM_OUTPUT_ADDR_VEC_ELT(FILE, VALUE)  \
 do { \

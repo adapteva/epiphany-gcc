@@ -1,3 +1,7 @@
+2013-07-31  Joern Rennecke <joern.rennecke@embecosm.com>
+
+	* config/epiphany/epiphany.h (ASM_OUTPUT_SYMBOL_REF): Define.
+
 2013-07-30  Joern Rennecke <joern.rennecke@embecosm.com>
 
 	PR rtl-optimization/58029
