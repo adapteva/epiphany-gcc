@@ -1,6 +1,32 @@
 2013-07-31  Joern Rennecke <joern.rennecke@embecosm.com>
 
+	Overlay (-fpic) support:
+
 	* config/epiphany/epiphany.h (ASM_OUTPUT_SYMBOL_REF): Define.
+	#if 0 for now because assembler is not ready.
+
+	* config/epiphany/epiphany.h (EPIPHANY_LIBRARY_EXTRA_SPEC): Add -fpic.
+	* config/epiphany/epiphany.md (GPR_FP): Change to 15.
+	* config/epiphany/epiphany.c (TARGET_CAN_ELIMINATE): Define.
+	(struct epiphany_frame_info) <initialized>: Now bool.
+	(struct epiphany_frame_info) <frame_offset_known, sft_hd_frame_offset>:
+	New members.
+	(set_lr_slot_offset): New static function.
+	(MUST_SAVE_REGISTER): If frame_pointer_needed, Save GPR_FP.
+	(MUST_SAVE_RETURN_ADDR): Delete usused macro.
+	(epiphany_compute_frame_size): Compute new current_frame_info
+	members.  Avoid un-pairing double word register save.
+	Pad pretend args if that helps building a post-decrement.
+	Remove small_slots overhang.
+	Allow GPR_LR and GPR_FP to be paired up.
+	Make sure first_offset allows fits into add range.
+	(epiphany_emit_save_restore): Use set_lr_slot_offset.
+	(epiphany_expand_prologue): Remove unsued variable save_config.
+	Record LR slot offset when encounterd at first_slot.
+	Use add to set hard frame pointer where necessary.
+	(epiphany_initial_elimination_offset): Use
+	current_frame_info.sft_hd_frame_offset.
+	(epiphany_can_eliminate): New static function.
 
 2013-07-30  Joern Rennecke <joern.rennecke@embecosm.com>
 
