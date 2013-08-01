@@ -886,7 +886,13 @@ struct epiphany_frame_info
   bool frame_offset_known;
   int      stld_sz;             /* Current load/store data size for offset
 				   adjustment. */
-  int      need_fp;             /* value to override "frame_pointer_needed */
+  /* frame_pointer_needed indicates if the middle-end knows that a frame
+     pointer is needed.  NEED_FP will be set in that case, but also
+     when we need a frame pointer purely for overlay runtime backtrace
+     purposes.  In the latter case, we don't want the middle-end to
+     comletely stop frame pointer elimination, since stack offsets are
+     sometimes smaller.  */
+  int      need_fp;
   /* FIRST_SLOT is the slot that is saved first, at the very start of
      the frame, with a POST_MODIFY to allocate the frame, if the size fits,
      or at least the parm and register save areas, otherwise.
@@ -1815,14 +1821,18 @@ epiphany_expand_prologue (void)
 			      FIRST_PSEUDO_REGISTER, addr, 0);
   if (current_frame_info.need_fp)
     {
+      rtx insn;
       long frame_adjust
 	= ((current_frame_info.first_slot_offset - current_frame_info.reg_size)
 	   - current_frame_info.sft_hd_frame_offset);
       if (frame_adjust)
-	frame_insn (gen_addsi3_i (hard_frame_pointer_rtx, stack_pointer_rtx,
-				  GEN_INT (frame_adjust)));
+	insn = gen_addsi3_i (hard_frame_pointer_rtx, stack_pointer_rtx,
+			     GEN_INT (frame_adjust));
       else
-	frame_move_insn (hard_frame_pointer_rtx, stack_pointer_rtx);
+	insn
+	  = gen_rtx_SET (VOIDmode, hard_frame_pointer_rtx, stack_pointer_rtx);
+      (frame_pointer_needed ? frame_insn : emit_insn) (insn);
+	
     }
   /* For large frames, allocate bulk of frame.  This is usually joint with one
      register save.  */
@@ -1855,6 +1865,8 @@ epiphany_expand_prologue (void)
      use an add.  */
   else if (current_frame_info.last_slot_offset)
     {
+      rtx insn, note = NULL_RTX;
+
       mem = gen_frame_mem (BLKmode,
 			   plus_constant (Pmode, stack_pointer_rtx,
 					  current_frame_info.last_slot_offset));
@@ -1863,9 +1875,13 @@ epiphany_expand_prologue (void)
 	{
 	  reg = gen_rtx_REG (Pmode, GPR_IP);
 	  frame_move_insn (reg, off);
+	  note = gen_rtx_PLUS (Pmode, stack_pointer_rtx, off);
+	  note = gen_rtx_SET (VOIDmode, stack_pointer_rtx, note);
 	  off = reg;
 	}
-      frame_insn (gen_stack_adjust_add (off, mem));
+      insn = frame_insn (gen_stack_adjust_add (off, mem));
+      if (note)
+	add_reg_note (insn, REG_FRAME_RELATED_EXPR, note);
     }
 }
 
@@ -1886,11 +1902,12 @@ epiphany_expand_epilogue (int sibcall_p)
       || (current_frame_info.last_slot_offset && current_frame_info.need_fp))
     {
       long frame_adjust
-	= ((current_frame_info.first_slot_offset - current_frame_info.reg_size)
-	   - current_frame_info.sft_hd_frame_offset);
+	= (current_frame_info.sft_hd_frame_offset
+	   - (current_frame_info.first_slot_offset
+	      - current_frame_info.reg_size));
       mem = gen_frame_mem (BLKmode, stack_pointer_rtx);
       if (frame_adjust)
-	emit_insn (gen_stack_adjust_add (GEN_INT (frame_adjust), mem));
+	emit_insn (gen_stack_adjust_addfp (GEN_INT (frame_adjust), mem));
       else
 	emit_insn (gen_stack_adjust_mov (mem));
     }
@@ -1972,6 +1989,9 @@ epiphany_initial_elimination_offset (int from, int to)
     return (current_frame_info.reg_size
 	    - ((current_frame_info.pretend_size + 4) & -8)
 	    + current_frame_info.sft_hd_frame_offset);
+  if (from == TRACE_REGNUM
+      && (to == HARD_FRAME_POINTER_REGNUM || to == STACK_POINTER_REGNUM))
+    return 0;
   gcc_unreachable ();
 }
 
@@ -3013,13 +3033,20 @@ epiphany_start_function (FILE *file, const char *name, tree decl)
 /* Return true if register FROM can be eliminated via register TO.  */
 
 static bool
-epiphany_can_eliminate (const int from ATTRIBUTE_UNUSED, const int to)
+epiphany_can_eliminate (const int from, const int to)
 {
   /* When compiling for overlays, we require a frame pointer in all non-leaf
      functions so that the runtime can easily find all active functions.
-     In that case, also eliminate the argument pointer exclusively to the
-     hard frame pointer.  */
-  return !flag_pic || crtl->is_leaf || to != STACK_POINTER_REGNUM;
+     We still want to eliminate the frame pointer in memory accesses
+     wherever possible, to make use of shorter instruction encodings;
+     OTOH, the hard frame pointer must be always present, even if there
+     was no memory frame reference in this function.  For this reason,
+     we have (use TRACE_REGNUM) in every call insns, to show that the
+     call or callee might use the backtrace; in the pic case, this can be
+     eliminated to the hard frame pointer only.  */
+  return (from != TRACE_REGNUM
+	  || to == (flag_pic && !crtl->is_leaf
+		    ? HARD_FRAME_POINTER_REGNUM : STACK_POINTER_REGNUM));
 }
 
 struct gcc_target targetm = TARGET_INITIALIZER;

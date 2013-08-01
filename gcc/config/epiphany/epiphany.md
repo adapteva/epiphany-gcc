@@ -44,6 +44,7 @@
    (FP_TRUNCATE_REGNUM		75)
    (FP_ANYFP_REGNUM		76)
    (UNKNOWN_REGNUM		77) ; used for addsi3_r and friends
+   (TRACE_REGNUM		78) ; placeholder for GPR_FP use in calls
    ; We represent the return address as an unspec rather than a reg.
    ; If we used a reg, we could use register elimination, but eliminating
    ; to GPR_LR would make the latter visible to dataflow, thus making it
@@ -2175,7 +2176,8 @@
   ;; operands[2] is next_arg_register
   [(parallel [(call (match_operand:SI 0 "call_operand" "")
 		    (match_operand 1 "" ""))
-	     (clobber (reg:SI GPR_LR))])]
+	      (use (reg:SI TRACE_REGNUM))
+	      (clobber (reg:SI GPR_LR))])]
   ""
 {
   bool target_uninterruptible = epiphany_call_uninterruptible_p (operands[0]);
@@ -2191,7 +2193,9 @@
       emit_call_insn
 	(gen_rtx_PARALLEL
 	  (VOIDmode,
-	   gen_rtvec (2, gen_rtx_CALL (VOIDmode, operands[0], operands[1]),
+	   gen_rtvec (3, gen_rtx_CALL (VOIDmode, operands[0], operands[1]),
+			 gen_rtx_USE (VOIDmode,
+				      gen_rtx_REG (SImode, TRACE_REGNUM)),
 			 gen_rtx_CLOBBER (VOIDmode,
 					  gen_rtx_REG (SImode, GPR_LR)))));
       emit_insn (target_uninterruptible ? gen_gie (): gen_gid ());
@@ -2203,6 +2207,7 @@
   [(match_parallel 2 "float_operation"
      [(call (mem:SI (match_operand:SI 0 "call_address_operand" "Csy,r"))
 	    (match_operand 1 "" ""))
+      (use (match_operand:SI 3 "trace_operand" ""))
       (clobber (reg:SI GPR_LR))])]
   ""
   "%f0"
@@ -2213,7 +2218,8 @@
   ;; operands[2] is next_arg_register
   [(parallel [(call (match_operand:SI 0 "call_operand" "")
 		    (match_operand 1 "" ""))
-	     (return)])]
+	      (use (reg:SI TRACE_REGNUM))
+	      (return)])]
   ""
 {
   bool target_uninterruptible = epiphany_call_uninterruptible_p (operands[0]);
@@ -2229,7 +2235,9 @@
       emit_call_insn
 	(gen_rtx_PARALLEL
 	  (VOIDmode,
-	   gen_rtvec (2, gen_rtx_CALL (VOIDmode, operands[0], operands[1]),
+	   gen_rtvec (3, gen_rtx_CALL (VOIDmode, operands[0], operands[1]),
+			 gen_rtx_USE (VOIDmode,
+				      gen_rtx_REG (SImode, TRACE_REGNUM)),
 			 ret_rtx)));
       emit_insn (target_uninterruptible ? gen_gie (): gen_gid ());
       DONE;
@@ -2239,6 +2247,7 @@
 (define_insn "*sibcall_i"
   [(call (mem:SI (match_operand:SI 0 "call_address_operand" "Csy,Rsc"))
 	 (match_operand 1 "" ""))
+   (use (match_operand:SI 2 "trace_operand" ""))
    (return)]
   ""
   "@
@@ -2252,7 +2261,8 @@
   [(parallel [(set (match_operand 0 "gpr_operand" "=r")
 		   (call (match_operand:SI 1 "call_operand" "")
 			 (match_operand 2 "" "")))
-	     (clobber (reg:SI GPR_LR))])]
+	      (use (reg:SI TRACE_REGNUM))
+	      (clobber (reg:SI GPR_LR))])]
   ""
 {
   bool target_uninterruptible = epiphany_call_uninterruptible_p (operands[1]);
@@ -2268,9 +2278,11 @@
       emit_call_insn
 	(gen_rtx_PARALLEL
 	  (VOIDmode,
-	   gen_rtvec (2, gen_rtx_SET
+	   gen_rtvec (3, gen_rtx_SET
 			   (VOIDmode, operands[0],
 			    gen_rtx_CALL (VOIDmode, operands[1], operands[2])),
+			 gen_rtx_USE (VOIDmode,
+				      gen_rtx_REG (SImode, TRACE_REGNUM)),
 			 gen_rtx_CLOBBER (VOIDmode,
 					  gen_rtx_REG (SImode, GPR_LR)))));
       emit_insn (target_uninterruptible ? gen_gie (): gen_gid ());
@@ -2283,6 +2295,7 @@
      [(set (match_operand 0 "gpr_operand" "=r,r")
 	   (call (mem:SI (match_operand:SI 1 "call_address_operand" "Csy,r"))
 	         (match_operand 2 "" "")))
+      (use (match_operand:SI 4 "trace_operand" ""))
       (clobber (reg:SI GPR_LR))])]
   ""
   "%f1"
@@ -2295,7 +2308,8 @@
   [(parallel [(set (match_operand 0 "gpr_operand" "=r")
 		   (call (match_operand:SI 1 "call_operand" "")
 			 (match_operand 2 "" "")))
-	     (return)])]
+	      (use (reg:SI TRACE_REGNUM))
+	      (return)])]
   ""
 {
   bool target_uninterruptible = epiphany_call_uninterruptible_p (operands[1]);
@@ -2311,9 +2325,11 @@
       emit_call_insn
 	(gen_rtx_PARALLEL
 	  (VOIDmode,
-	   gen_rtvec (2, gen_rtx_SET
+	   gen_rtvec (3, gen_rtx_SET
 			   (VOIDmode, operands[0],
 			    gen_rtx_CALL (VOIDmode, operands[1], operands[2])),
+			 gen_rtx_USE (VOIDmode,
+				      gen_rtx_REG (SImode, TRACE_REGNUM)),
 			 ret_rtx)));
       emit_insn (target_uninterruptible ? gen_gie (): gen_gid ());
       DONE;
@@ -2324,6 +2340,7 @@
   [(set (match_operand 0 "gpr_operand" "=r,r")
 	(call (mem:SI (match_operand:SI 1 "call_address_operand" "Csy,Rsc"))
 	      (match_operand 2 "" "")))
+   (use (match_operand:SI 3 "trace_operand" ""))
    (return)]
   ""
   "@
@@ -2384,11 +2401,20 @@
   "reload_completed"
   "add sp,sp,%0")
 
+(define_insn "stack_adjust_addfp"
+  [(set (reg:SI GPR_SP)
+	(plus:SI (reg:SI GPR_FP) (match_operand:SI 0 "arith_operand" "rL")))
+   (clobber (reg:CC CC_REGNUM))
+   (clobber (reg:SI STATUS_REGNUM))
+   (clobber (match_operand:BLK 1 "memory_operand" "=m"))]
+  "reload_completed"
+  "add sp,r15,%0")
+
 (define_insn "stack_adjust_mov"
   [(set (reg:SI GPR_SP) (reg:SI GPR_FP))
    (clobber (match_operand:BLK 0 "memory_operand" "=m"))]
   "reload_completed"
-  "mov sp,fp"
+  "mov sp,r15"
   [(set_attr "type" "move")])
 
 (define_insn "stack_adjust_str"

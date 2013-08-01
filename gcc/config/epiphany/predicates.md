@@ -54,6 +54,10 @@
   return call_address_operand (op, mode);
 })
 
+(define_predicate "trace_operand"
+  (and (match_code "reg")
+       (match_test "REGNO (op) == TRACE_REGNUM || REGNO (op) == GPR_SP || REGNO (op) == GPR_FP")))
+
 ;; general purpose register.
 (define_predicate "gpr_operand"
   (match_code "reg,subreg")
@@ -294,9 +298,12 @@
 
   if (count == 2
       /* Vector ashift has an extra use for the constant factor required to
-	 implement the shift as multiply.  */
+	 implement the shift as multiply.
+	 Calls have an extra use of TRACE_REGNUM.  */
+      || (count == 3 && GET_CODE (XVECEXP (op, 0, 0)) == CALL)
       || (count == 3 && GET_CODE (XVECEXP (op, 0, 0)) == SET
-	  && GET_CODE (XEXP (XVECEXP (op, 0, 0), 1)) == ASHIFT))
+	  && (GET_CODE (XEXP (XVECEXP (op, 0, 0), 1)) == ASHIFT
+	      || GET_CODE (XEXP (XVECEXP (op, 0, 0), 1)) == CALL)))
     return !inserted;
 
   /* combine / recog will pass any old garbage here before checking the

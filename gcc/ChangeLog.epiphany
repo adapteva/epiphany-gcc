@@ -1,3 +1,28 @@
+2013-08-01  Joern Rennecke <joern.rennecke@embecosm.com>
+
+	* config/epiphany/epiphany.h (FIRST_PSEUDO_REGISTER): Bump up to 79.
+	(FIXED_REGISTERS, CALL_USED_REGISTERS): Include TRACE_REGNUM entry.
+	(REG_ALLOC_ORDER, REGISTER_NAMES): Likewise.
+	(REG_CLASS_CONTEENTS) <ALL_REGS>: Likewise.
+	* config/epiphany/epiphany.md (TRACE_REGNUM): New constant.
+	(call, call_i, sibcall, sibcall_i): Add use of trace.
+	(call_value, call_value_i, sibcall_value, sibcall_value_i): Likewise.
+	(stack_adjust_addfp): New pattern.
+	(stack_adjust_mov): Use new hard frame pointer register.
+	* config/epiphany/predicates.md (trace_operand): New predicate.
+	(float_operation): Allow for three-element CALL_INSN patterns.
+	* config/epiphany/epiphany.c (epiphany_expand_prologue):
+	Don't use frame_insn for hard frame pointer initialization when
+	frame_pointer_needed is not set.
+	Add a REG_FRAME_RELATED_NOTE when adding a register to allocate a
+	large frame.
+	(epiphany_expand_epilogue): Fix sign of frame_adjust.
+	Use gen_stack_adjust_addfp.
+	(epiphany_initial_elimination_offset): Define elimination from
+	TRACE_REGNUM.
+	(epiphany_can_eliminate): Only restrict elimination from
+	TRACE_REGNUM.
+
 2013-07-31  Joern Rennecke <joern.rennecke@embecosm.com>
 
 	Overlay (-fpic) support:
