@@ -55,8 +55,7 @@
 })
 
 (define_predicate "trace_operand"
-  (and (match_code "reg")
-       (match_test "REGNO (op) == TRACE_REGNUM || REGNO (op) == GPR_SP || REGNO (op) == GPR_FP")))
+  (match_code "mem"))
 
 ;; general purpose register.
 (define_predicate "gpr_operand"

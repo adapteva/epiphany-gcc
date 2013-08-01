@@ -44,7 +44,6 @@
    (FP_TRUNCATE_REGNUM		75)
    (FP_ANYFP_REGNUM		76)
    (UNKNOWN_REGNUM		77) ; used for addsi3_r and friends
-   (TRACE_REGNUM		78) ; placeholder for GPR_FP use in calls
    ; We represent the return address as an unspec rather than a reg.
    ; If we used a reg, we could use register elimination, but eliminating
    ; to GPR_LR would make the latter visible to dataflow, thus making it
@@ -264,7 +263,7 @@
   ""
 {
   rtx addr
-    = (frame_pointer_needed ? hard_frame_pointer_rtx : stack_pointer_rtx);
+    = (epiphany_need_fp () ? hard_frame_pointer_rtx : stack_pointer_rtx);
 
   if (!MACHINE_FUNCTION (cfun)->lr_slot_known)
     {
@@ -2171,16 +2170,27 @@
   [(set_attr "type" "uncond_branch")])
 
 
+/* For the overlay ABI, calls need to build a readily parsable frame
+   for the benefit of callees (or the intercepting runtime on its behalf,
+   or of it callees);
+   that does not apply to sibcalls, which get satisfied by being handed
+   the sibcaller's caller GRP_SP / GPR_FP.
+   For this reason, we set a flag when we expand a non-sibcall, so that
+   we can tell at register allocation time.
+   We also put in an explicit use of the memory pointed to by the hard frame
+   pointer, so that the frame pointer setting insn is not optimized away.  */
 (define_expand "call"
   ;; operands[1] is stack_size_rtx
   ;; operands[2] is next_arg_register
   [(parallel [(call (match_operand:SI 0 "call_operand" "")
 		    (match_operand 1 "" ""))
-	      (use (reg:SI TRACE_REGNUM))
+	      (use (mem:BLK (reg:SI GPR_FP)))
 	      (clobber (reg:SI GPR_LR))])]
   ""
 {
   bool target_uninterruptible = epiphany_call_uninterruptible_p (operands[0]);
+
+  MACHINE_FUNCTION (cfun)->expanded_non_sibcall = 1;
 
   if (!call_operand (operands[1], VOIDmode))
     operands[0]
@@ -2194,8 +2204,8 @@
 	(gen_rtx_PARALLEL
 	  (VOIDmode,
 	   gen_rtvec (3, gen_rtx_CALL (VOIDmode, operands[0], operands[1]),
-			 gen_rtx_USE (VOIDmode,
-				      gen_rtx_REG (SImode, TRACE_REGNUM)),
+			 gen_rtx_USE (VOIDmode, gen_rtx_MEM (BLKmode,
+				      hard_frame_pointer_rtx)),
 			 gen_rtx_CLOBBER (VOIDmode,
 					  gen_rtx_REG (SImode, GPR_LR)))));
       emit_insn (target_uninterruptible ? gen_gie (): gen_gid ());
@@ -2207,7 +2217,7 @@
   [(match_parallel 2 "float_operation"
      [(call (mem:SI (match_operand:SI 0 "call_address_operand" "Csy,r"))
 	    (match_operand 1 "" ""))
-      (use (match_operand:SI 3 "trace_operand" ""))
+      (use (match_operand:BLK 3 "trace_operand" ""))
       (clobber (reg:SI GPR_LR))])]
   ""
   "%f0"
@@ -2218,7 +2228,6 @@
   ;; operands[2] is next_arg_register
   [(parallel [(call (match_operand:SI 0 "call_operand" "")
 		    (match_operand 1 "" ""))
-	      (use (reg:SI TRACE_REGNUM))
 	      (return)])]
   ""
 {
@@ -2235,9 +2244,7 @@
       emit_call_insn
 	(gen_rtx_PARALLEL
 	  (VOIDmode,
-	   gen_rtvec (3, gen_rtx_CALL (VOIDmode, operands[0], operands[1]),
-			 gen_rtx_USE (VOIDmode,
-				      gen_rtx_REG (SImode, TRACE_REGNUM)),
+	   gen_rtvec (2, gen_rtx_CALL (VOIDmode, operands[0], operands[1]),
 			 ret_rtx)));
       emit_insn (target_uninterruptible ? gen_gie (): gen_gid ());
       DONE;
@@ -2247,7 +2254,6 @@
 (define_insn "*sibcall_i"
   [(call (mem:SI (match_operand:SI 0 "call_address_operand" "Csy,Rsc"))
 	 (match_operand 1 "" ""))
-   (use (match_operand:SI 2 "trace_operand" ""))
    (return)]
   ""
   "@
@@ -2261,11 +2267,13 @@
   [(parallel [(set (match_operand 0 "gpr_operand" "=r")
 		   (call (match_operand:SI 1 "call_operand" "")
 			 (match_operand 2 "" "")))
-	      (use (reg:SI TRACE_REGNUM))
+	      (use (mem:BLK (reg:SI GPR_FP)))
 	      (clobber (reg:SI GPR_LR))])]
   ""
 {
   bool target_uninterruptible = epiphany_call_uninterruptible_p (operands[1]);
+
+  MACHINE_FUNCTION (cfun)->expanded_non_sibcall = 1;
 
   if (!call_operand (operands[1], VOIDmode))
     operands[1]
@@ -2278,13 +2286,13 @@
       emit_call_insn
 	(gen_rtx_PARALLEL
 	  (VOIDmode,
-	   gen_rtvec (3, gen_rtx_SET
-			   (VOIDmode, operands[0],
-			    gen_rtx_CALL (VOIDmode, operands[1], operands[2])),
-			 gen_rtx_USE (VOIDmode,
-				      gen_rtx_REG (SImode, TRACE_REGNUM)),
-			 gen_rtx_CLOBBER (VOIDmode,
-					  gen_rtx_REG (SImode, GPR_LR)))));
+	   gen_rtvec
+	    (3,
+	     gen_rtx_SET (VOIDmode, operands[0],
+			  gen_rtx_CALL (VOIDmode, operands[1], operands[2])),
+	     gen_rtx_USE (VOIDmode, gen_rtx_MEM (BLKmode,
+			  hard_frame_pointer_rtx)),
+	     gen_rtx_CLOBBER (VOIDmode, gen_rtx_REG (SImode, GPR_LR)))));
       emit_insn (target_uninterruptible ? gen_gie (): gen_gid ());
       DONE;
     }
@@ -2295,7 +2303,7 @@
      [(set (match_operand 0 "gpr_operand" "=r,r")
 	   (call (mem:SI (match_operand:SI 1 "call_address_operand" "Csy,r"))
 	         (match_operand 2 "" "")))
-      (use (match_operand:SI 4 "trace_operand" ""))
+      (use (match_operand:BLK 4 "trace_operand" ""))
       (clobber (reg:SI GPR_LR))])]
   ""
   "%f1"
@@ -2308,7 +2316,6 @@
   [(parallel [(set (match_operand 0 "gpr_operand" "=r")
 		   (call (match_operand:SI 1 "call_operand" "")
 			 (match_operand 2 "" "")))
-	      (use (reg:SI TRACE_REGNUM))
 	      (return)])]
   ""
 {
@@ -2325,11 +2332,9 @@
       emit_call_insn
 	(gen_rtx_PARALLEL
 	  (VOIDmode,
-	   gen_rtvec (3, gen_rtx_SET
+	   gen_rtvec (2, gen_rtx_SET
 			   (VOIDmode, operands[0],
 			    gen_rtx_CALL (VOIDmode, operands[1], operands[2])),
-			 gen_rtx_USE (VOIDmode,
-				      gen_rtx_REG (SImode, TRACE_REGNUM)),
 			 ret_rtx)));
       emit_insn (target_uninterruptible ? gen_gie (): gen_gid ());
       DONE;
@@ -2340,7 +2345,6 @@
   [(set (match_operand 0 "gpr_operand" "=r,r")
 	(call (mem:SI (match_operand:SI 1 "call_address_operand" "Csy,Rsc"))
 	      (match_operand 2 "" "")))
-   (use (match_operand:SI 3 "trace_operand" ""))
    (return)]
   ""
   "@

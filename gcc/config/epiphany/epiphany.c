@@ -884,15 +884,15 @@ struct epiphany_frame_info
   HARD_REG_SET gmask;		/* Set of saved gp registers.  */
   bool		initialized;	/* True if frame size already calculated.  */
   bool frame_offset_known;
+  /* Indicate if we need the hard frame pointer, pointing to a suitable frame,
+     for overlay runtime backtrace purposes.  */
+  bool need_trace;
+  /* NEED_FP is set when we need we need a hard frame pointer either
+     as determined by the middle-end by frame_pointer_needed, or as
+     above with NEED_TRACE.  */
+  bool      need_fp;
   int      stld_sz;             /* Current load/store data size for offset
 				   adjustment. */
-  /* frame_pointer_needed indicates if the middle-end knows that a frame
-     pointer is needed.  NEED_FP will be set in that case, but also
-     when we need a frame pointer purely for overlay runtime backtrace
-     purposes.  In the latter case, we don't want the middle-end to
-     comletely stop frame pointer elimination, since stack offsets are
-     sometimes smaller.  */
-  int      need_fp;
   /* FIRST_SLOT is the slot that is saved first, at the very start of
      the frame, with a POST_MODIFY to allocate the frame, if the size fits,
      or at least the parm and register save areas, otherwise.
@@ -1068,15 +1068,22 @@ epiphany_compute_frame_size (int size /* # of var. bytes allocated.  */)
 
   /* We can't just rely on frame_pointer_needed here to pick up overlay
      requirements because we are also called from
-     epiphany_initial_elimination_offset.  */
-  if (frame_pointer_needed || (flag_pic && !crtl->is_leaf))
+     epiphany_initial_elimination_offset.
+     Note also that if a function ends in a sibcall but makes no other call
+     (disregarding sfuncs), it is not considered a leaf function, but
+     it doesn't need to create a overlay ABI frame for the benefit of
+     a callee.  */
+  current_frame_info.need_trace
+    = (flag_pic && !crtl->is_leaf
+       && MACHINE_FUNCTION (cfun)->expanded_non_sibcall);
+  if (frame_pointer_needed || current_frame_info.need_trace)
     {
-      current_frame_info.need_fp = 1;
+      current_frame_info.need_fp = true;
       if (!interrupt_p && !pretend_size)
 	first_slot = GPR_FP;
     }
   else
-    current_frame_info.need_fp = 0;
+    current_frame_info.need_fp = false;
   for (regno = 0; regno <= GPR_LAST; regno++)
     {
       if (MUST_SAVE_REGISTER (regno, interrupt_p))
@@ -1096,6 +1103,9 @@ epiphany_compute_frame_size (int size /* # of var. bytes allocated.  */)
 	    first_slot = regno;
 	  else if (last_slot < 0
 		   && (first_slot ^ regno) != 1
+		   /* Could handle GPR_{LR,FP} in last_slot too... but that'd
+		      need more complex code in expand_prologue.  */
+		   && (!current_frame_info.need_trace || (regno ^ GPR_LR) > 1)
 		   && (!interrupt_p || regno > GPR_1))
 	    last_slot = regno;
 	}
@@ -1225,7 +1235,7 @@ epiphany_compute_frame_size (int size /* # of var. bytes allocated.  */)
      we still need the hard frame pointer to point there for non-leaf
      functions, so if we don't know the location yet, emit
      prologue / eiplogue to find out.  */
-  if (flag_pic && !crtl->is_leaf && !current_frame_info.frame_offset_known)
+  if (current_frame_info.need_trace && !current_frame_info.frame_offset_known)
     {
       /* Pretend it's initialized for now so that we can expand the prologue
 	 without further recursion.  */
@@ -1982,6 +1992,9 @@ epiphany_initial_elimination_offset (int from, int to)
     return current_frame_info.total_size - current_frame_info.reg_size;
   if (from == FRAME_POINTER_REGNUM && to == HARD_FRAME_POINTER_REGNUM)
     return current_frame_info.sft_hd_frame_offset;
+  if (from ==  HARD_FRAME_POINTER_REGNUM && to == STACK_POINTER_REGNUM)
+    return (current_frame_info.total_size - current_frame_info.reg_size
+	    - current_frame_info.sft_hd_frame_offset);
   if (from == ARG_POINTER_REGNUM && to == STACK_POINTER_REGNUM)
     return (current_frame_info.total_size
 	    - ((current_frame_info.pretend_size + 4) & -8));
@@ -1989,9 +2002,6 @@ epiphany_initial_elimination_offset (int from, int to)
     return (current_frame_info.reg_size
 	    - ((current_frame_info.pretend_size + 4) & -8)
 	    + current_frame_info.sft_hd_frame_offset);
-  if (from == TRACE_REGNUM
-      && (to == HARD_FRAME_POINTER_REGNUM || to == STACK_POINTER_REGNUM))
-    return 0;
   gcc_unreachable ();
 }
 
@@ -3037,16 +3047,19 @@ epiphany_can_eliminate (const int from, const int to)
 {
   /* When compiling for overlays, we require a frame pointer in all non-leaf
      functions so that the runtime can easily find all active functions.
-     We still want to eliminate the frame pointer in memory accesses
-     wherever possible, to make use of shorter instruction encodings;
-     OTOH, the hard frame pointer must be always present, even if there
-     was no memory frame reference in this function.  For this reason,
-     we have (use TRACE_REGNUM) in every call insns, to show that the
-     call or callee might use the backtrace; in the pic case, this can be
-     eliminated to the hard frame pointer only.  */
-  return (from != TRACE_REGNUM
-	  || to == (flag_pic && !crtl->is_leaf
-		    ? HARD_FRAME_POINTER_REGNUM : STACK_POINTER_REGNUM));
+     For this reason we put the hard frame pointer in the eliminable
+     regs and deny the elimination in the pic case to make the
+     hard frame pointer unavailable for register allocation.  */
+  if (from == HARD_FRAME_POINTER_REGNUM)
+    return (!flag_pic || crtl->is_leaf
+	    || !MACHINE_FUNCTION (cfun)->expanded_non_sibcall);
+  return true;
+}
+
+bool
+epiphany_need_fp (void)
+{
+  return current_frame_info.need_fp;
 }
 
 struct gcc_target targetm = TARGET_INITIALIZER;

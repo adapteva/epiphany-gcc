@@ -23,6 +23,38 @@
 	(epiphany_can_eliminate): Only restrict elimination from
 	TRACE_REGNUM.
 
+	Backout these changes:
+	* config/epiphany/epiphany.h (FIRST_PSEUDO_REGISTER): Bump up to 79.
+	(FIXED_REGISTERS, CALL_USED_REGISTERS): Include TRACE_REGNUM entry.
+	(REG_ALLOC_ORDER, REGISTER_NAMES): Likewise.
+	(REG_CLASS_CONTEENTS) <ALL_REGS>: Likewise.
+	* config/epiphany/epiphany.md (TRACE_REGNUM): New constant.
+	(sibcall, sibcall_i): Add use of trace.
+	(sibcall_value, sibcall_value_i): Likewise.
+	* config/epiphany/epiphany.c (epiphany_initial_elimination_offset):
+	Define elimination from TRACE_REGNUM.
+	(epiphany_can_eliminate): Only restrict elimination from
+	TRACE_REGNUM.
+
+	* config/epiphany/epiphany-protos.h (epiphany_need_fp): Declare.
+	* config/epiphany/epiphany.c (struct epiphany_frame_info):
+	Change need_fp to bool.
+	New member need_trace.
+	(epiphany_compute_frame_size): Set / use need_trace member.
+	Avoid GPR_LR in last_slot.
+	(piphany_initial_elimination_offset): Handle elimination of
+	HARD_FRAME_POINTER_REGNUM.
+	(epiphany_can_eliminate): Likewise.
+	* config/epiphany/epiphany.h (machine_function): Add member
+	expanded_non_sibcall.
+	(ELIMINABLE_REGS): Add entry for HARD_FRAME_POINTER_REGNUM.
+	* config/epiphany/epiphany.md (reload_insi_ra): Use epiphany_need_fp.
+	(call_i, call_value_i): Use (mem:BLK (reg:SI GPR_FP)) instead
+	of TRACE_REGNUM.
+	(call, call_value): Likewise.
+	Set MACHINE_FUNCTION (cfun)->expanded_non_sibcall.
+	* config/epiphany/predicates.md (trace_operand): Check for MEM.
+
 2013-07-31  Joern Rennecke <joern.rennecke@embecosm.com>
 
 	Overlay (-fpic) support:
