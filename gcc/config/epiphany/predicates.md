@@ -55,7 +55,9 @@
 })
 
 (define_predicate "trace_operand"
-  (match_code "mem"))
+  (and (match_code "mem")
+       (match_test "GET_CODE (XEXP (op, 0)) == PLUS
+		    || GET_CODE (XEXP (op, 0)) == REG")))
 
 ;; general purpose register.
 (define_predicate "gpr_operand"

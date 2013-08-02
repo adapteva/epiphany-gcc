@@ -11,6 +11,9 @@
 	(epiphany_emit_save_restore): Don't worry about last_saved if
 	reg_size is aligned.
 
+	* config/epiphany/predicates.md (trace_operand): Verify that address
+	is a PLUS or REG.
+
 2013-08-01  Joern Rennecke <joern.rennecke@embecosm.com>
 
 	* config/epiphany/epiphany.h (FIRST_PSEUDO_REGISTER): Bump up to 79.
