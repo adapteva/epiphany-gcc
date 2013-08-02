@@ -1212,8 +1212,6 @@ epiphany_compute_frame_size (int size /* # of var. bytes allocated.  */)
 	  first_slot_size = 2 * UNITS_PER_WORD;
 	  first_slot &= ~1;
 	}
-      if (first_slot == GPR_LR)
-	set_lr_slot_offset (first_slot_offset);
     }
   total_size = first_slot_offset + last_slot_offset;
 
@@ -1229,6 +1227,9 @@ epiphany_compute_frame_size (int size /* # of var. bytes allocated.  */)
   current_frame_info.first_slot_offset	= first_slot_offset;
   current_frame_info.first_slot_size	= first_slot_size;
   current_frame_info.last_slot_offset	= last_slot_offset;
+
+  if (first_slot == GPR_LR)
+    set_lr_slot_offset (first_slot_offset);
 
   /* When pretend args are present, the link / frame pointer can not be
      conveniently saved at the start of the frame.  For overlay support,
