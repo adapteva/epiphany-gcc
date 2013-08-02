@@ -986,12 +986,14 @@ set_lr_slot_offset (long lr_slot_offset)
 	= (current_frame_info.first_slot_offset - current_frame_info.reg_size
 	   - lr_slot_offset);
       if (current_frame_info.frame_offset_known)
-	gcc_assert (current_frame_info.sft_hd_frame_offset
-		    = sft_hd_frame_offset);
+	gcc_assert ((current_frame_info.sft_hd_frame_offset
+		     == sft_hd_frame_offset)
+		    || reload_completed);
       else
 	current_frame_info.sft_hd_frame_offset = sft_hd_frame_offset;
       current_frame_info.frame_offset_known = true;
-      lr_slot_offset = 0;
+      lr_slot_offset
+	= current_frame_info.sft_hd_frame_offset - sft_hd_frame_offset;
     }
   lr_slot_offset += current_frame_info.last_slot_offset;
   if (MACHINE_FUNCTION (cfun)->lr_slot_known)
@@ -1130,10 +1132,13 @@ epiphany_compute_frame_size (int size /* # of var. bytes allocated.  */)
   /* If there might be variables with 64-bit alignment requirement, align the
      start of the variables.  */
   if (var_size >= 2 * UNITS_PER_WORD
+      /* Avoid getting a split/unaligned trace.  */
+      || (current_frame_info.need_trace && first_slot != GPR_LR)
       /* We don't want to split a double reg save/restore across two unpaired
 	 stack slots when optimizing.  This rounding could be avoided with
-	 more complex reordering of the register saves, but that would seem
-	 to be a lot of code complexity for little gain.  */
+	 more complex reordering of the register saves, if there is an
+	 unpaired save, but that would seem to be a lot of code complexity
+	 for little gain.  */
       || (reg_size > 8 && optimize))
     reg_size = EPIPHANY_STACK_ALIGN (reg_size);
   if (((total_size + reg_size
@@ -1644,12 +1649,18 @@ epiphany_emit_save_restore (int min, int limit, rtx addr, int epilogue_p)
   int stack_offset
     = current_frame_info.first_slot >= 0 ? epiphany_stack_offset : 0;
   rtx skipped_mem = NULL_RTX;
-  int last_saved = limit - 1;
+  int last_saved = FIRST_PSEUDO_REGISTER;
 
-  if (!optimize)
-    while (last_saved >= 0
-	   && !TEST_HARD_REG_BIT (current_frame_info.gmask, last_saved))
-      last_saved--;
+  /* If there's an odd word out, set up last_saved so we don't miss our
+     last chance to split a double-word save.  */
+  if (current_frame_info.reg_size > 2 * UNITS_PER_WORD
+      && (current_frame_info.reg_size & UNITS_PER_WORD))
+    {
+      last_saved = limit - 1;
+      while (last_saved >= 0
+	     && !TEST_HARD_REG_BIT (current_frame_info.gmask, last_saved))
+	last_saved--;
+    }
   for (i = 0; i < limit; i++)
     {
       enum machine_mode mode = word_mode;

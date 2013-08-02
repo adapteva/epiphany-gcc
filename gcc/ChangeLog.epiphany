@@ -4,6 +4,13 @@
 	Move call to set_lr_slot_offset after the bulk of current_frame_info
 	member initializations.
 
+	* config/epiphany/epiphany.c (set_lr_slot_offset): For
+	frame_offset_known case, fix assert and calculate appropriate
+	lr_slot_offset.
+	(epiphany_compute_frame_size): Avoid getting a split/unaligned trace.
+	(epiphany_emit_save_restore): Don't worry about last_saved if
+	reg_size is aligned.
+
 2013-08-01  Joern Rennecke <joern.rennecke@embecosm.com>
 
 	* config/epiphany/epiphany.h (FIRST_PSEUDO_REGISTER): Bump up to 79.
