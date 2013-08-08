@@ -1926,7 +1926,7 @@ epiphany_expand_epilogue (int sibcall_p)
       long frame_adjust
 	= (current_frame_info.sft_hd_frame_offset
 	   - (current_frame_info.first_slot_offset
-	      - current_frame_info.reg_size));
+	      - (signed long) current_frame_info.reg_size));
       mem = gen_frame_mem (BLKmode, stack_pointer_rtx);
       if (frame_adjust)
 	emit_insn (gen_stack_adjust_addfp (GEN_INT (frame_adjust), mem));

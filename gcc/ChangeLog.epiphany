@@ -1,3 +1,8 @@
+2013-08-08  Joern Rennecke <joern.rennecke@embecosm.com>
+
+	* config/epiphany/epiphany.c (epiphany_expand_epilogue): Avoid
+	unsigned calculation for frame_adjust.
+
 2013-08-02  Joern Rennecke <joern.rennecke@embecosm.com>
 
 	* config/epiphany/epiphany.c (epiphany_compute_frame_size):
