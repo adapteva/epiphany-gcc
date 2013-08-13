@@ -1,3 +1,22 @@
+2013-08-13  Joern Rennecke <joern.rennecke@embecosm.com>
+
+	* config/epiphany/predicates.md (pcrel_operand): New predicate.
+	(move_src_operand): Exclude pcrel_operand for flag_pic.
+	(nonsymbolic_immediate_operand): Rename to ..
+	(nonpcrel_immediate_operand) .. this.  Changed all users.
+	Exclude pcrel_operand.
+	* config/epiphany/constraints.md (Clb): New constraint.
+	* config/epiphany/epiphany.h (ASM_OUTPUT_ADDR_DIFF_ELT):
+	Use mode of BODY.
+	(CASE_VECTOR_SHORTEN_MODE): Define.
+	* config/epiphany/epiphany.md (UNSPEC_CASESI): New constant.
+	(mov<mode>) <SImode>: Use gen_movsi_pcrel.
+	(movsi_pcrel, movsi_pcrel_r, movsi_pcrel_r+[12]): New patterns.
+	(tablejump_internal): Emit expander.
+	(casesi, casesi_load): New patterns.
+	* config/epiphany/epiphany.c (epiphany_secondary_reload):
+	For flag_pic, handle pcrel_operand.
+
 2013-08-02  Joern Rennecke <joern.rennecke@embecosm.com>
 
 	* config/epiphany/epiphany.c (epiphany_compute_frame_size):

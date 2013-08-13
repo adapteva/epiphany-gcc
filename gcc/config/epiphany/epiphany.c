@@ -2126,9 +2126,14 @@ epiphany_legitimate_address_p (enum machine_mode mode, rtx x, bool strict)
 
 static reg_class_t
 epiphany_secondary_reload (bool in_p, rtx x, reg_class_t rclass,
-			enum machine_mode mode ATTRIBUTE_UNUSED,
-			secondary_reload_info *sri)
+			enum machine_mode mode, secondary_reload_info *sri)
 {
+  if (in_p && flag_pic && pcrel_operand (x, mode))
+    {
+      gcc_assert (rclass == GENERAL_REGS);
+      sri->icode = CODE_FOR_movsi_pcrel_r;
+      return NO_REGS;
+    }
   /* This could give more reload inheritance, but we are missing some
      reload infrastructure.  */
  if (0)

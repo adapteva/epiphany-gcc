@@ -794,7 +794,7 @@ do { \
 /* This is how to output an element of a case-vector that is relative.  */
 #define ASM_OUTPUT_ADDR_DIFF_ELT(FILE, BODY, VALUE, REL) \
 do {							\
-  if (CASE_VECTOR_MODE == Pmode) \
+  if (GET_MODE (BODY) == Pmode) \
     asm_fprintf ((FILE), "\t.word"); \
   else \
     asm_fprintf ((FILE), "\t.short"); \
@@ -855,6 +855,16 @@ do \
 /* Specify the machine mode that this machine uses
    for the index in the tablejump instruction.  */
 #define CASE_VECTOR_MODE (TARGET_SMALL16 && optimize_size ? HImode : Pmode)
+
+/* When generating PIC code, we are already need pc-relative switch tables;
+   the cost of a zero-extending load is relatively low compared to the
+   saving in code size (which is at a premium for overlays), so try to
+   use shorter tables unless optimize >= 3 (considering that -O3 is for
+   aggressive size increasing optimizations).  */
+#define CASE_VECTOR_SHORTEN_MODE(MIN, MAX, BODY) \
+  (TARGET_SMALL16 && optimize_size ? HImode \
+   : flag_pic && optimize < 3 && ((MIN) >= 0 && (MAX) < 65535) ? HImode \
+   : Pmode)
 
 /* Define if operations between registers always perform the operation
    on the full register even if a narrower mode is specified.  */
