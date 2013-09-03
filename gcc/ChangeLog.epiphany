@@ -1,3 +1,9 @@
+2013-09-03  Simon Cook  <simon.cook@embecosm.com>
+
+	* config/epiphany/epiphany.h (EPIPHANY_LIBRARY_EXTRA_SPEC): Don't
+	build libraries with -fpic for now.
+	(ASM_OUTPUT_SYMBOL_REF): Enable and only use @PLT for functions.
+
 2013-08-13  Joern Rennecke <joern.rennecke@embecosm.com>
 
 	* config/epiphany/predicates.md (pcrel_operand): New predicate.

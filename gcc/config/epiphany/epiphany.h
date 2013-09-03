@@ -58,7 +58,7 @@ along with GCC; see the file COPYING3.  If not see
 #define ENDFILE_SPEC "crtend.o%s crtn.o%s"
 
 #define EPIPHANY_LIBRARY_EXTRA_SPEC \
-  "-ffixed-r40 -ffixed-r41 -ffixed-r42 -ffixed-r43 -fpic"
+  "-ffixed-r40 -ffixed-r41 -ffixed-r42 -ffixed-r43"
 
 /* In the "spec:" rule,, t-epiphany changes this to epiphany_library_stub_spec
    and epiphany_library_extra_spec, respectively.  */
@@ -771,12 +771,12 @@ extern char epiphany_punct_chars[256];
 #define PRINT_OPERAND_PUNCT_VALID_P(CHAR) \
   epiphany_punct_chars[(unsigned char) (CHAR)]
 
-#if 0 /* FIXME: Assembler is not yet ready.  */
+#if 1 /* FIXME: Assembler is not yet ready.  */
 #define ASM_OUTPUT_SYMBOL_REF(FILE, SYM) \
   do \
     { \
       assemble_name ((FILE), (XSTR ((SYM), 0))); \
-      if (flag_pic && ! SYMBOL_REF_LOCAL_P (x)) \
+      if (flag_pic && ! SYMBOL_REF_LOCAL_P (x) && SYMBOL_REF_FUNCTION_P (SYM)) \
 	fputs ("@PLT", FILE); \
     } \
   while (0)
