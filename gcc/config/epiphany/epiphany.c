@@ -136,6 +136,13 @@ static rtx frame_insn (rtx);
   hook_bool_const_tree_hwi_hwi_const_tree_true
 #define TARGET_ASM_OUTPUT_MI_THUNK epiphany_output_mi_thunk
 
+/* ??? we can use larger offsets for wider-mode sized accesses, but there
+   is no concept of anchors being dependent on the modes that they are used
+   for, so we can only use an offset range that would suit all modes.  */
+#define TARGET_MAX_ANCHOR_OFFSET 2047
+/* We further restrict the minimum to be a multiple of eight.  */
+#define TARGET_MIN_ANCHOR_OFFSET -2040
+
 #include "target-def.h"
 
 #undef TARGET_ASM_ALIGNED_HI_OP
@@ -758,6 +765,11 @@ epiphany_rtx_costs (rtx x, int code, int outer_code, int opno ATTRIBUTE_UNUSED,
 	default:
 	  return false;
 	}
+
+    case PLUS: case MINUS:
+      if (outer_code == SET)
+	*total = 0;
+      return false;
 
     default:
       return false;
@@ -2008,7 +2020,7 @@ epiphany_legitimate_address_p (enum machine_mode mode, rtx x, bool strict)
       && LEGITIMATE_OFFSET_ADDRESS_P (mode, XEXP ((x), 1)))
     return true;
   if (mode == BLKmode)
-    return true;
+    return epiphany_legitimate_address_p (SImode, x, strict);
   return false;
 }
 
