@@ -1,6 +1,14 @@
 2014-04-03  Joern Rennecke  <joern.rennecke@embecosm.com>
 
 gcc:
+	* config/epiphany/epiphany.c (epiphany_expand_epilogue): Don't move
+	stack adjustment offset into a register unless we have to.
+gcc/testsuite:
+	* gcc.target/epiphany/pop-1.c: New test.
+
+2014-04-03  Joern Rennecke  <joern.rennecke@embecosm.com>
+
+gcc:
 	* config/epiphany/epiphany.c (epiphany_rtx_cost): Compare
 	with CC_N_NE / CC_C_LTU / CC_C_GTU carries no extra cost for
 	its operands.

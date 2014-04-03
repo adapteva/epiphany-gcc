@@ -1821,9 +1821,17 @@ epiphany_expand_epilogue (int sibcall_p)
   else if (current_frame_info.last_slot_offset)
     {
       mem = gen_frame_mem (BLKmode, stack_pointer_rtx);
-      reg = gen_rtx_REG (Pmode, GPR_IP);
-      emit_move_insn (reg, GEN_INT (current_frame_info.last_slot_offset));
-      emit_insn (gen_stack_adjust_add (reg, mem));
+      /* We also get in this code path if there is a small, non-zero frame,
+	 but no register to restore.  Don't move the offset to a register
+	 unless we have to.  */
+      off = GEN_INT (current_frame_info.last_slot_offset);
+      if (!SIMM11 (INTVAL (off)))
+	{
+	  reg = gen_rtx_REG (Pmode, GPR_IP);
+	  emit_move_insn (reg, off);
+	  off = reg;
+	}
+      emit_insn (gen_stack_adjust_add (off, mem));
     }
   restore_offset = (interrupt_p
 		    ? - 3 * UNITS_PER_WORD
