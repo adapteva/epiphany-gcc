@@ -1,6 +1,15 @@
 2014-04-03  Joern Rennecke  <joern.rennecke@embecosm.com>
 
 gcc:
+	* config/epiphany/epiphany.c (epiphany_rtx_cost): Compare
+	with CC_N_NE / CC_C_LTU / CC_C_GTU carries no extra cost for
+	its operands.
+gcc/testsuite:
+	* gcc.target/epiphany/btst-1.c: New test.
+
+2014-04-03  Joern Rennecke  <joern.rennecke@embecosm.com>
+
+gcc:
 	PR rtl-optimization/60651
 	* mode-switching.c (optimize_mode_switching): Make sure to emit
 	sets of a lower numbered entity before sets of a higher numbered
