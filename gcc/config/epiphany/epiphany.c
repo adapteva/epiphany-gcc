@@ -139,9 +139,9 @@ static rtx frame_insn (rtx);
 /* ??? we can use larger offsets for wider-mode sized accesses, but there
    is no concept of anchors being dependent on the modes that they are used
    for, so we can only use an offset range that would suit all modes.  */
-#define TARGET_MAX_ANCHOR_OFFSET 2047
+#define TARGET_MAX_ANCHOR_OFFSET (optimize_size ? 31 : 2047)
 /* We further restrict the minimum to be a multiple of eight.  */
-#define TARGET_MIN_ANCHOR_OFFSET -2040
+#define TARGET_MIN_ANCHOR_OFFSET (optimize_size ? 0 : -2040)
 
 #include "target-def.h"
 
@@ -766,10 +766,14 @@ epiphany_rtx_costs (rtx x, int code, int outer_code, int opno ATTRIBUTE_UNUSED,
 	  return false;
 	}
 
-    case PLUS: case MINUS:
-      if (outer_code == SET)
-	*total = 0;
-      return false;
+	
+    case SET:
+      {
+	rtx src = SET_SRC (x);
+	if (BINARY_P (src))
+	  *total = 0;
+	return false;
+      }
 
     default:
       return false;

@@ -1,6 +1,10 @@
 /* { dg-do compile } */
 /* { dg-options "-O2 -fno-common" } */
-/* { dg-final { scan-assembler-times "movt" 4 } } */
+/* ??? we should be able to get down to 4 movt, but first we'll have to
+   teach mov2add about flag handling.  Maybe add the code that was removed in
+   r144425 from regmove to postreload; epiphany needs tweaks to the addsi3
+   expander to generate a CC reg clobber in the pass.  */
+/* { dg-final { scan-assembler-times "movt" 6 } } */
 
 typedef unsigned int uint32_t;
 typedef unsigned int uint16_t;

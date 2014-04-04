@@ -1,3 +1,13 @@
+2014-04-04  Joern Rennecke  <joern.rennecke@embecosm.com>
+
+	* config/epiphany/epiphany.c (epiphany_rtx_costs): Check for
+	code == SET rather than outer_code == SET, to account for
+	asymmetric calling patterns between combine and postreload.
+	* (TARGET_MAX_ANCHOR_OFFSET, TARGET_MIN_ANCHOR_OFFSET): For
+	optimize_size, reduce range to range for short SImode loads/stores.
+	* gcc.target/epiphany/t1068-2.c: Adjust count to what is possible
+	whilst move2add is stumped by flag clobbers.
+
 2014-04-03  Joern Rennecke  <joern.rennecke@embecosm.com>
 
 gcc:
