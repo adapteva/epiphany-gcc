@@ -1,3 +1,7 @@
+2014-05-28  Pierre Langlois  <pierre.langlois@embecosm.com>
+
+	* config/epiphany/epiphany.md (GPR_FP): Change to 11.
+
 2013-09-03  Simon Cook  <simon.cook@embecosm.com>
 
 	* config/epiphany/epiphany.h (EPIPHANY_LIBRARY_EXTRA_SPEC): Don't
