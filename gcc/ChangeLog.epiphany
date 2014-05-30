@@ -1,3 +1,8 @@
+2014-05-30  Pierre Langlois  <pierre.langlois@embecosm.com>
+
+	* config/epiphany/epiphany.h (EPIPHANY_LIBRARY_EXTRA_SPEC): Build
+	libraries with -fpic.
+
 2014-05-28  Pierre Langlois  <pierre.langlois@embecosm.com>
 
 	* config/epiphany/epiphany.md (GPR_FP): Change to 11.
