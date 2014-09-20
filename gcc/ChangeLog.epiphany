@@ -1,3 +1,8 @@
+2014-09-20  Joern Rennecke  <joern.rennecke@embecosm.com>
+
+	* config/epiphany/epiphany.md (sub_f_add_imm): Change constraint of
+	operand 3 to "CnL".
+
 2014-04-04  Joern Rennecke  <joern.rennecke@embecosm.com>
 
 	* config/epiphany/epiphany.c (epiphany_rtx_costs): Check for
