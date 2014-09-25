@@ -148,4 +148,5 @@ EnumValue
 Enum(m1reg) String(r63) Value(63)
 
 fsoftware-cache
+Target Mask(SOFT_CACHE)
 Use software cache

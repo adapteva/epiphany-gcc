@@ -60,7 +60,7 @@ along with GCC; see the file COPYING3.  If not see
 #define CC1_SPEC "%{fsoftware-cache:-fpic}"
 
 #define EPIPHANY_LIBRARY_EXTRA_SPEC \
-  "-ffixed-r41 -ffixed-r41 -ffixed-r42 -ffixed-r43 -fpic"
+  "-ffixed-r40 -ffixed-r41 -ffixed-r42 -ffixed-r43"
 
 /* In the "spec:" rule,, t-epiphany changes this to epiphany_library_stub_spec
    and epiphany_library_extra_spec, respectively.  */
