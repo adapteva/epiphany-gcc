@@ -1,3 +1,8 @@
+2013-10-31  Joern Rennecke <joern.rennecke@embecosm.com>
+
+	* config/epiphany/epiphany.md (stack_adjust_addfp, stack_adjust_mov):
+	Don't hard code frame pointer name, but find it from reg_names.
+
 2014-09-25  Simon Cook  <simon.cook@embecosm.com>
 
 	* config/epiphany/epiphany.h (EPIPHANY_LIBRARY_EXTRA_SPEC): Don't

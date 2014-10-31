@@ -2549,13 +2549,19 @@
    (clobber (reg:SI STATUS_REGNUM))
    (clobber (match_operand:BLK 1 "memory_operand" "=m"))]
   "reload_completed"
-  "add sp,r15,%0")
+{
+  rtx xop[2];
+  xop[0] = operands[0];
+  xop[1] = hard_frame_pointer_rtx;
+  output_asm_insn ("add sp,%1,%0", xop);
+  return "";
+})
 
 (define_insn "stack_adjust_mov"
   [(set (reg:SI GPR_SP) (reg:SI GPR_FP))
    (clobber (match_operand:BLK 0 "memory_operand" "=m"))]
   "reload_completed"
-  "mov sp,r15"
+  { asm_fprintf (asm_out_file, "\tmov sp,%s\n", reg_names[GPR_FP]); return ""; }
   [(set_attr "type" "move")])
 
 (define_insn "stack_adjust_str"
