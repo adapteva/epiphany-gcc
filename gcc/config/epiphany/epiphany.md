@@ -2549,13 +2549,13 @@
    (clobber (reg:SI STATUS_REGNUM))
    (clobber (match_operand:BLK 1 "memory_operand" "=m"))]
   "reload_completed"
-  "add sp,r15,%0")
+  "add sp,fp,%0")
 
 (define_insn "stack_adjust_mov"
   [(set (reg:SI GPR_SP) (reg:SI GPR_FP))
    (clobber (match_operand:BLK 0 "memory_operand" "=m"))]
   "reload_completed"
-  "mov sp,r15"
+  "mov sp,fp"
   [(set_attr "type" "move")])
 
 (define_insn "stack_adjust_str"
