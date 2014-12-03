@@ -1,3 +1,7 @@
+2014-12-03  Joern Rennecke  <joern.rennecke@embecosm.com>
+
+	* gcc.target/epiphany/fcmp-1.c: New test.
+
 2014-04-11  Steve Ellcey  <sellcey@mips.com>
 	    Jakub Jelinek  <jakub@redhat.com>
 
