@@ -65,8 +65,12 @@
 (define_constraint "Cal"
   "Constant for arithmetic/logical operations"
   (match_test "(flag_pic
-		? nonsymbolic_immediate_operand (op, VOIDmode)
+		? nonpcrel_immediate_operand (op, VOIDmode)
 		: immediate_operand (op, VOIDmode))"))
+
+(define_constraint "Clb"
+  "Constant involving a label or overlay-local symbol"
+  (match_operand 0 "pcrel_operand"))
 
 (define_constraint "Csy"
   "Symbolic constant for call/jump instruction"
