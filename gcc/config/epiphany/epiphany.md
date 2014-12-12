@@ -2288,7 +2288,7 @@
    (clobber (reg:CC CC_REGNUM))]
   "flag_pic"
 {
-  rtx diff_vec = PATTERN (next_real_insn (operands[2]));
+  rtx diff_vec = PATTERN (next_nonnote_insn (operands[2]));
   gcc_assert (GET_CODE (diff_vec) == ADDR_DIFF_VEC);
   enum machine_mode mode = GET_MODE (diff_vec);
   int shift = exact_log2 (GET_MODE_SIZE (mode));
