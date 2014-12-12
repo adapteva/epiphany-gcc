@@ -544,8 +544,8 @@ check_result (arith rc, gfc_expr *x, gfc_expr *r, gfc_expr **rp)
 
   if (val == ARITH_UNDERFLOW)
     {
-      if (gfc_option.warn_underflow)
-	gfc_warning (gfc_arith_error (val), &x->where);
+      if (warn_underflow)
+	gfc_warning (OPT_Wunderflow, gfc_arith_error (val), &x->where);
       val = ARITH_OK;
     }
 
@@ -758,7 +758,7 @@ gfc_arith_divide (gfc_expr *op1, gfc_expr *op2, gfc_expr **resultp)
       if (mpc_cmp_si_si (op2->value.complex, 0, 0) == 0)
       {
 	/* In Fortran, return (NaN + NaN I) for any zero divisor.  See
-	   PR 40318. */
+	   PR 40318.  */
 	mpfr_set_nan (mpc_realref (result->value.complex));
 	mpfr_set_nan (mpc_imagref (result->value.complex));
       }
@@ -1915,17 +1915,17 @@ arith_error (arith rc, gfc_typespec *from, gfc_typespec *to, locus *where)
       break;
     case ARITH_OVERFLOW:
       gfc_error ("Arithmetic overflow converting %s to %s at %L. This check "
-		 "can be disabled with the option -fno-range-check",
+		 "can be disabled with the option %<-fno-range-check%>",
 		 gfc_typename (from), gfc_typename (to), where);
       break;
     case ARITH_UNDERFLOW:
       gfc_error ("Arithmetic underflow converting %s to %s at %L. This check "
-		 "can be disabled with the option -fno-range-check",
+		 "can be disabled with the option %<-fno-range-check%>",
 		 gfc_typename (from), gfc_typename (to), where);
       break;
     case ARITH_NAN:
       gfc_error ("Arithmetic NaN converting %s to %s at %L. This check "
-		 "can be disabled with the option -fno-range-check",
+		 "can be disabled with the option %<-fno-range-check%>",
 		 gfc_typename (from), gfc_typename (to), where);
       break;
     case ARITH_DIV0:
@@ -1974,6 +1974,17 @@ gfc_int2int (gfc_expr *src, int kind)
 	  gfc_free_expr (result);
 	  return NULL;
 	}
+    }
+
+  /*  If we do not trap numeric overflow, we need to convert the number to
+      signed, throwing away high-order bits if necessary.  */
+  if (gfc_option.flag_range_check == 0)
+    {
+      int k;
+
+      k = gfc_validate_kind (BT_INTEGER, kind, false);
+      gfc_convert_mpz_to_signed (result->value.integer,
+				 gfc_integer_kinds[k].bit_size);
     }
 
   return result;
@@ -2066,8 +2077,8 @@ gfc_real2real (gfc_expr *src, int kind)
 
   if (rc == ARITH_UNDERFLOW)
     {
-      if (gfc_option.warn_underflow)
-	gfc_warning (gfc_arith_error (rc), &src->where);
+      if (warn_underflow)
+	gfc_warning (OPT_Woverflow, gfc_arith_error (rc), &src->where);
       mpfr_set_ui (result->value.real, 0, GFC_RND_MODE);
     }
   else if (rc != ARITH_OK)
@@ -2097,8 +2108,8 @@ gfc_real2complex (gfc_expr *src, int kind)
 
   if (rc == ARITH_UNDERFLOW)
     {
-      if (gfc_option.warn_underflow)
-	gfc_warning (gfc_arith_error (rc), &src->where);
+      if (warn_underflow)
+	gfc_warning (OPT_Woverflow, gfc_arith_error (rc), &src->where);
       mpfr_set_ui (mpc_realref (result->value.complex), 0, GFC_RND_MODE);
     }
   else if (rc != ARITH_OK)
@@ -2152,8 +2163,8 @@ gfc_complex2real (gfc_expr *src, int kind)
 
   if (rc == ARITH_UNDERFLOW)
     {
-      if (gfc_option.warn_underflow)
-	gfc_warning (gfc_arith_error (rc), &src->where);
+      if (warn_underflow)
+	gfc_warning (OPT_Woverflow, gfc_arith_error (rc), &src->where);
       mpfr_set_ui (result->value.real, 0, GFC_RND_MODE);
     }
   if (rc != ARITH_OK)
@@ -2183,8 +2194,8 @@ gfc_complex2complex (gfc_expr *src, int kind)
 
   if (rc == ARITH_UNDERFLOW)
     {
-      if (gfc_option.warn_underflow)
-	gfc_warning (gfc_arith_error (rc), &src->where);
+      if (warn_underflow)
+	gfc_warning (OPT_Woverflow, gfc_arith_error (rc), &src->where);
       mpfr_set_ui (mpc_realref (result->value.complex), 0, GFC_RND_MODE);
     }
   else if (rc != ARITH_OK)
@@ -2198,8 +2209,8 @@ gfc_complex2complex (gfc_expr *src, int kind)
 
   if (rc == ARITH_UNDERFLOW)
     {
-      if (gfc_option.warn_underflow)
-	gfc_warning (gfc_arith_error (rc), &src->where);
+      if (warn_underflow)
+	gfc_warning (OPT_Woverflow, gfc_arith_error (rc), &src->where);
       mpfr_set_ui (mpc_imagref (result->value.complex), 0, GFC_RND_MODE);
     }
   else if (rc != ARITH_OK)
@@ -2269,7 +2280,7 @@ hollerith2representation (gfc_expr *result, gfc_expr *src)
 
   if (src_len > result_len)
     {
-      gfc_warning ("The Hollerith constant at %L is too long to convert to %s",
+      gfc_warning ("The Hollerith constant at %L is too long to convert to %qs",
 		   &src->where, gfc_typename(&result->ts));
     }
 
@@ -2333,7 +2344,7 @@ gfc_hollerith2complex (gfc_expr *src, int kind)
 }
 
 
-/* Convert Hollerith to character. */
+/* Convert Hollerith to character.  */
 
 gfc_expr *
 gfc_hollerith2character (gfc_expr *src, int kind)

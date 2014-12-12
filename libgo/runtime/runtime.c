@@ -8,8 +8,19 @@
 #include "config.h"
 
 #include "runtime.h"
+#include "arch.h"
 #include "array.h"
-#include "go-panic.h"
+
+enum {
+	maxround = sizeof(uintptr),
+};
+
+// Keep a cached value to make gotraceback fast,
+// since we call it on every call to gentraceback.
+// The cached value is a uint32 in which the low bit
+// is the "crash" setting and the top 31 bits are the
+// gotraceback value.
+static uint32 traceback_cache = ~(uint32)0;
 
 // The GOTRACEBACK environment variable controls the
 // behavior of a Go program that is crashing and exiting.
@@ -21,18 +32,28 @@ int32
 runtime_gotraceback(bool *crash)
 {
 	const byte *p;
+	uint32 x;
 
 	if(crash != nil)
 		*crash = false;
-	p = runtime_getenv("GOTRACEBACK");
-	if(p == nil || p[0] == '\0')
-		return 1;	// default is on
-	if(runtime_strcmp((const char *)p, "crash") == 0) {
-		if(crash != nil)
-			*crash = true;
-		return 2;	// extra information
+	if(runtime_m()->traceback != 0)
+		return runtime_m()->traceback;
+	x = runtime_atomicload(&traceback_cache);
+	if(x == ~(uint32)0) {
+		p = runtime_getenv("GOTRACEBACK");
+		if(p == nil)
+			p = (const byte*)"";
+		if(p[0] == '\0')
+			x = 1<<1;
+		else if(runtime_strcmp((const char *)p, "crash") == 0)
+			x = (2<<1) | 1;
+		else
+			x = runtime_atoi(p)<<1;	
+		runtime_atomicstore(&traceback_cache, x);
 	}
-	return runtime_atoi(p);
+	if(crash != nil)
+		*crash = x&1;
+	return x>>1;
 }
 
 static int32	argc;
@@ -173,6 +194,14 @@ runtime_cputicks(void)
   uint32 low, high;
   asm("rdtsc" : "=a" (low), "=d" (high));
   return (int64)(((uint64)high << 32) | (uint64)low);
+#elif defined (__s390__) || defined (__s390x__)
+  uint64 clock = 0;
+  /* stckf may not write the return variable in case of a clock error, so make
+     it read-write to prevent that the initialisation is optimised out.
+     Note: Targets below z9-109 will crash when executing store clock fast, i.e.
+     we don't support Go for machines older than that.  */
+  asm volatile(".insn s,0xb27c0000,%0" /* stckf */ : "+Q" (clock) : : "cc" );
+  return (int64)clock;
 #else
   // FIXME: implement for other processors.
   return 0;
@@ -219,15 +248,6 @@ runtime_tickspersecond(void)
 	}
 	runtime_unlock(&ticksLock);
 	return res;
-}
-
-int64 runtime_pprof_runtime_cyclesPerSecond(void)
-     __asm__ (GOSYM_PREFIX "runtime_pprof.runtime_cyclesPerSecond");
-
-int64
-runtime_pprof_runtime_cyclesPerSecond(void)
-{
-	return runtime_tickspersecond();
 }
 
 // Called to initialize a new m (including the bootstrap m).
@@ -282,9 +302,12 @@ static struct {
 	const char* name;
 	int32*	value;
 } dbgvar[] = {
+	{"allocfreetrace", &runtime_debug.allocfreetrace},
+	{"efence", &runtime_debug.efence},
 	{"gctrace", &runtime_debug.gctrace},
-	{"schedtrace", &runtime_debug.schedtrace},
+	{"gcdead", &runtime_debug.gcdead},
 	{"scheddetail", &runtime_debug.scheddetail},
+	{"schedtrace", &runtime_debug.schedtrace},
 };
 
 void
@@ -292,6 +315,16 @@ runtime_parsedebugvars(void)
 {
 	const byte *p;
 	intgo i, n;
+	bool tmp;
+	
+	// gotraceback caches the GOTRACEBACK setting in traceback_cache.
+	// gotraceback can be called before the environment is available.
+	// traceback_cache must be reset after the environment is made
+	// available, in order for the environment variable to take effect.
+	// The code is fixed differently in Go 1.4.
+	// This is a limited fix for Go 1.3.3.
+	traceback_cache = ~(uint32)0;
+	runtime_gotraceback(&tmp);
 
 	p = runtime_getenv("GODEBUG");
 	if(p == nil)
@@ -339,15 +372,11 @@ runtime_timediv(int64 v, int32 div, int32 *rem)
 
 uintptr runtime_maxstacksize = 1<<20; // enough until runtime.main sets it for real
 
-intgo runtime_debug_setMaxStack(intgo)
-	__asm__ (GOSYM_PREFIX "runtime_debug.setMaxStack");
+void memclrBytes(Slice)
+     __asm__ (GOSYM_PREFIX "runtime.memclrBytes");
 
-intgo
-runtime_debug_setMaxStack(intgo in)
+void
+memclrBytes(Slice s)
 {
-	intgo out;
-
-	out = runtime_maxstacksize;
-	runtime_maxstacksize = in;
-	return out;
+	runtime_memclr(s.__values, s.__count);
 }

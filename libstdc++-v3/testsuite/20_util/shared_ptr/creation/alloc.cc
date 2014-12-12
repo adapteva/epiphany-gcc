@@ -1,4 +1,4 @@
-// { dg-options "-std=gnu++0x" }
+// { dg-options "-std=gnu++11" }
 
 // Copyright (C) 2007-2014 Free Software Foundation, Inc.
 //
@@ -101,10 +101,19 @@ test02()
 	  == tracker_allocator_counter::get_deallocation_count() );
 }
 
+void
+test03()
+{
+  __gnu_test::CustomPointerAlloc<int> alloc;
+  auto p = std::allocate_shared<int>(alloc, 1);
+  VERIFY( *p == 1 );
+}
+
 int
 main()
 {
   test01();
   test02();
+  test03();
   return 0;
 }

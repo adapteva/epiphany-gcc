@@ -40,7 +40,7 @@ particular release.
    Broken/Partial
       <?dbhtml bgcolor="#B0B0B0" ?>
 -->
-<table frame="all">
+<table frame="all" xml:id="table.cxx11_status">
 <title>C++ 2011 Implementation Status</title>
 
 <tgroup cols="4" align="left" colsep="0" rowsep="1">
@@ -539,10 +539,9 @@ particular release.
       <entry/>
     </row>
     <row>
-      <?dbhtml bgcolor="#C8B0B0" ?>
       <entry>20.6.5</entry>
       <entry>Align</entry>
-      <entry>N</entry>
+      <entry>Y</entry>
       <entry/>
     </row>
     <row>
@@ -811,16 +810,10 @@ particular release.
       <entry/>
     </row>
     <row>
-      <?dbhtml bgcolor="#B0B0B0" ?>
       <entry>20.9.4.3</entry>
       <entry>Type properties</entry>
-      <entry>Partial</entry>
-      <entry>Missing is_trivially_copyable,
-      is_trivially_constructible, is_trivially_default_constructible,
-      is_trivially_copy_constructible, is_trivially_move_constructible,
-      is_trivially_assignable, is_trivially_default_assignable,
-      is_trivially_copy_assignable, is_trivially_move_assignable
-      </entry>
+      <entry>Y</entry>
+      <entry/>
     </row>
     <row>
       <entry>20.9.5</entry>
@@ -871,11 +864,10 @@ particular release.
       <entry/>
     </row>
     <row>
-      <?dbhtml bgcolor="#B0B0B0" ?>
       <entry>20.9.7.6</entry>
       <entry>Other transformations</entry>
-      <entry>Partial</entry>
-      <entry>Missing <code>aligned_union</code>.</entry>
+      <entry>Y</entry>
+      <entry/>
     </row>
     <row>
       <entry>20.10</entry>
@@ -1371,8 +1363,7 @@ particular release.
       <entry>23.2.1</entry>
       <entry>General container requirements</entry>
       <entry>Partial</entry>
-      <entry><code>deque</code> and <code>list</code> do not
-             meet the requirements
+      <entry><code>list</code> does not meet the requirements
              relating to allocator use and propagation.</entry>
     </row>
     <row>
@@ -1412,11 +1403,10 @@ particular release.
       <entry/>
     </row>
     <row>
-      <?dbhtml bgcolor="#B0B0B0" ?>
       <entry>23.3.3</entry>
       <entry>Class template <code>deque</code></entry>
-      <entry>Partial</entry>
-      <entry>Incomplete allocator support.</entry>
+      <entry>Y</entry>
+      <entry/>
     </row>
     <row>
       <entry>23.3.4</entry>
@@ -1640,10 +1630,11 @@ particular release.
       <entry/>
     </row>
     <row>
+      <?dbhtml bgcolor="#B0B0B0" ?>
       <entry>25.3</entry>
       <entry>Mutating sequence operations</entry>
-      <entry>Y</entry>
-      <entry/>
+      <entry>Partial</entry>
+      <entry><code>rotate</code> returns <code>void</code>.</entry>
     </row>
     <row>
       <entry>25.4</entry>
@@ -2130,10 +2121,8 @@ particular release.
       <entry>Iostreams base classes</entry>
       <entry>Partial</entry>
       <entry>
-        Missing move and swap operations on <code>basic_ios</code>.
         Missing <code>io_errc</code> and <code>iostream_category</code>.
         <code>ios_base::failure</code> is not derived from <code>system_error</code>.
-	Missing <code>ios_base::hexfloat</code>.
       </entry>
     </row>
     <row>
@@ -2148,23 +2137,20 @@ particular release.
       <entry>Formatting and manipulators</entry>
       <entry>Partial</entry>
       <entry>
-        Missing move and swap operations
-        Missing <code>get_time</code> and <code>put_time</code> manipulators.
+        Missing <code>get_time</code> manipulator.
       </entry>
     </row>
     <row>
-      <?dbhtml bgcolor="#B0B0B0" ?>
       <entry>27.8</entry>
       <entry>String-based streams</entry>
-      <entry>Partial</entry>
-      <entry>Missing move and swap operations</entry>
+      <entry>Y</entry>
+      <entry/>
     </row>
     <row>
-      <?dbhtml bgcolor="#B0B0B0" ?>
       <entry>27.9</entry>
       <entry>File-based streams</entry>
-      <entry>Partial</entry>
-      <entry>Missing move and swap operations</entry>
+      <entry>Y</entry>
+      <entry/>
     </row>
     <row>
       <entry>
@@ -2448,11 +2434,10 @@ particular release.
       <entry/>
     </row>
     <row>
-      <?dbhtml bgcolor="#B0B0B0" ?>
       <entry>30.5</entry>
       <entry>Condition variables</entry>
-      <entry>Partial</entry>
-      <entry>Missing notify_all_at_thread_exit</entry>
+      <entry>Y</entry>
+      <entry/>
     </row>
     <row>
       <entry>30.5.1</entry>
@@ -2497,11 +2482,10 @@ particular release.
       <entry/>
     </row>
     <row>
-      <?dbhtml bgcolor="#B0B0B0" ?>
       <entry>30.6.5</entry>
       <entry>Class template <code>promise</code></entry>
-      <entry>Partial</entry>
-      <entry>Missing set_*_at_thread_exit</entry>
+      <entry>Y</entry>
+      <entry/>
     </row>
     <row>
       <entry>30.6.6</entry>
@@ -2522,11 +2506,10 @@ particular release.
       <entry/>
     </row>
     <row>
-      <?dbhtml bgcolor="#B0B0B0" ?>
       <entry>30.6.9</entry>
       <entry>Class template <code>packaged_task</code></entry>
-      <entry>Partial</entry>
-      <entry>Missing make_ready_at_thread_exit</entry>
+      <entry>Y</entry>
+      <entry/>
     </row>
     <row>
       <entry>
@@ -2626,8 +2609,8 @@ particular release.
       <emphasis>23.5.5.2 [unord.multimap.cnstr]</emphasis>,
       <emphasis>23.5.6.2 [unord.set.cnstr]</emphasis>,
       <emphasis>23.5.7.2 [unord.multiset.cnstr]</emphasis>
-      The default bucket count is 10 for the default constructors
-      and 0 for the range constructors and initializer-list constructors.
+      The default minimal bucket count is 0 for the default constructors, range
+      constructors and initializer-list constructors.
    </para>
 
    <para>

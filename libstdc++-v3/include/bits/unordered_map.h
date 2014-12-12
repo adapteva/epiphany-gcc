@@ -128,15 +128,18 @@ _GLIBCXX_BEGIN_NAMESPACE_CONTAINER
 
       //construct/destroy/copy
 
+      /// Default constructor.
+      unordered_map() = default;
+
       /**
        *  @brief  Default constructor creates no elements.
-       *  @param __n  Initial number of buckets.
+       *  @param __n  Minimal initial number of buckets.
        *  @param __hf  A hash functor.
        *  @param __eql  A key equality functor.
        *  @param __a  An allocator object.
        */
       explicit
-      unordered_map(size_type __n = 10,
+      unordered_map(size_type __n,
 		    const hasher& __hf = hasher(),
 		    const key_equal& __eql = key_equal(),
 		    const allocator_type& __a = allocator_type())
@@ -157,12 +160,12 @@ _GLIBCXX_BEGIN_NAMESPACE_CONTAINER
        *  distance(__first,__last)).
        */
       template<typename _InputIterator>
-	unordered_map(_InputIterator __f, _InputIterator __l,
+	unordered_map(_InputIterator __first, _InputIterator __last,
 		      size_type __n = 0,
 		      const hasher& __hf = hasher(),
 		      const key_equal& __eql = key_equal(),
 		      const allocator_type& __a = allocator_type())
-	: _M_h(__f, __l, __n, __hf, __eql, __a)
+	: _M_h(__first, __last, __n, __hf, __eql, __a)
 	{ }
 
       /// Copy constructor.
@@ -360,7 +363,7 @@ _GLIBCXX_BEGIN_NAMESPACE_CONTAINER
        *  cause no gains in efficiency.
        *
        *  See
-       *  http://gcc.gnu.org/onlinedocs/libstdc++/manual/bk01pt07ch17.html
+       *  https://gcc.gnu.org/onlinedocs/libstdc++/manual/associative.html#containers.associative.insert_hints
        *  for more on @a hinting.
        *
        *  Insertion requires amortized constant time.
@@ -417,7 +420,7 @@ _GLIBCXX_BEGIN_NAMESPACE_CONTAINER
        *  hint would cause no gains in efficiency.
        *
        *  See
-       *  http://gcc.gnu.org/onlinedocs/libstdc++/manual/bk01pt07ch17.html
+       *  https://gcc.gnu.org/onlinedocs/libstdc++/manual/associative.html#containers.associative.insert_hints
        *  for more on @a hinting.
        *
        *  Insertion requires amortized constant time.
@@ -479,8 +482,8 @@ _GLIBCXX_BEGIN_NAMESPACE_CONTAINER
 
       // LWG 2059.
       iterator
-      erase(iterator __it)
-      { return _M_h.erase(__it); }
+      erase(iterator __position)
+      { return _M_h.erase(__position); }
       //@}
 
       /**
@@ -840,15 +843,18 @@ _GLIBCXX_BEGIN_NAMESPACE_CONTAINER
 
       //construct/destroy/copy
 
+      /// Default constructor.
+      unordered_multimap() = default;
+
       /**
        *  @brief  Default constructor creates no elements.
-       *  @param __n  Initial number of buckets.
+       *  @param __n  Mnimal initial number of buckets.
        *  @param __hf  A hash functor.
        *  @param __eql  A key equality functor.
        *  @param __a  An allocator object.
        */
       explicit
-      unordered_multimap(size_type __n = 10,
+      unordered_multimap(size_type __n,
 			 const hasher& __hf = hasher(),
 			 const key_equal& __eql = key_equal(),
 			 const allocator_type& __a = allocator_type())
@@ -857,24 +863,24 @@ _GLIBCXX_BEGIN_NAMESPACE_CONTAINER
 
       /**
        *  @brief  Builds an %unordered_multimap from a range.
-       *  @param  __first  An input iterator.
+       *  @param  __first An input iterator.
        *  @param  __last  An input iterator.
-       *  @param __n  Minimal initial number of buckets.
-       *  @param __hf  A hash functor.
-       *  @param __eql  A key equality functor.
-       *  @param __a  An allocator object.
+       *  @param __n      Minimal initial number of buckets.
+       *  @param __hf     A hash functor.
+       *  @param __eql    A key equality functor.
+       *  @param __a      An allocator object.
        *
        *  Create an %unordered_multimap consisting of copies of the elements
        *  from [__first,__last).  This is linear in N (where N is
        *  distance(__first,__last)).
        */
       template<typename _InputIterator>
-	unordered_multimap(_InputIterator __f, _InputIterator __l,
+	unordered_multimap(_InputIterator __first, _InputIterator __last,
 			   size_type __n = 0,
 			   const hasher& __hf = hasher(),
 			   const key_equal& __eql = key_equal(),
 			   const allocator_type& __a = allocator_type())
-	: _M_h(__f, __l, __n, __hf, __eql, __a)
+	: _M_h(__first, __last, __n, __hf, __eql, __a)
 	{ }
 
       /// Copy constructor.
@@ -1064,7 +1070,7 @@ _GLIBCXX_BEGIN_NAMESPACE_CONTAINER
        *  cause no gains in efficiency.
        *
        *  See
-       *  http://gcc.gnu.org/onlinedocs/libstdc++/manual/bk01pt07ch17.html
+       *  https://gcc.gnu.org/onlinedocs/libstdc++/manual/associative.html#containers.associative.insert_hints
        *  for more on @a hinting.
        *
        *  Insertion requires amortized constant time.
@@ -1111,7 +1117,7 @@ _GLIBCXX_BEGIN_NAMESPACE_CONTAINER
        *  cause no gains in efficiency.
        *
        *  See
-       *  http://gcc.gnu.org/onlinedocs/libstdc++/manual/bk01pt07ch17.html
+       *  https://gcc.gnu.org/onlinedocs/libstdc++/manual/associative.html#containers.associative.insert_hints
        *  for more on @a hinting.
        *
        *  Insertion requires amortized constant time.
@@ -1174,8 +1180,8 @@ _GLIBCXX_BEGIN_NAMESPACE_CONTAINER
 
       // LWG 2059.
       iterator
-      erase(iterator __it)
-      { return _M_h.erase(__it); }
+      erase(iterator __position)
+      { return _M_h.erase(__position); }
       //@}
 
       /**

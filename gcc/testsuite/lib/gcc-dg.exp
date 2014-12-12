@@ -144,11 +144,6 @@ proc gcc-dg-test-1 { target_compile prog do_what extra_tool_flags } {
 	    # The following line is needed for targets like the i960 where
 	    # the default output file is b.out.  Sigh.
 	}
-	"dso" {
-	    set compile_type "executable"
-	    set output_file "[file rootname [file tail $prog]].so"
-	    set extra_tool_flags "$extra_tool_flags -fPIC -shared"
-	}
 	"repo" {
 	    set compile_type "object"
 	    set output_file "[file rootname [file tail $prog]].o"
@@ -214,27 +209,6 @@ proc gcc-dg-test { prog do_what extra_tool_flags } {
     return [gcc-dg-test-1 gcc_target_compile $prog $do_what $extra_tool_flags]
 }
 
-# Usage: { dg-build-dso "file.ext" }
-# Compiles the specified file into "file.so" (treating that compilation as
-# a separate test) for use by the main test, and schedules it for removal
-# when the main test is complete.  The DSO source file should not use "dg-do".
-# This relies on a couple of local variable names in dg-test.
-
-proc dg-build-dso { args } {
-    global dg-do-what-default
-    upvar prog main_file
-    upvar dg-final-code final-code
-
-    set file [lindex $args 1]
-    set dir "[file dirname $main_file]"
-    set dg-do-what-default dso
-    dg-test -keep-output $dir/$file "" ""
-    set dg-do-what-default compile
-
-    set output_file "[file rootname [file tail $file]].so"
-    append final-code "remove-build-file $output_file"
-}
-
 proc gcc-dg-prune { system text } {
     global additional_prunes
 
@@ -257,6 +231,11 @@ proc gcc-dg-prune { system text } {
     if [regexp "(^|\n)\[^\n\]*: region \[^\n\]* is full" $text] {
 	# The format here is important.  See dg.exp.
 	return "::unsupported::memory full"
+    }
+
+    if { [regexp "(^|\n)\[^\n\]*: relocation truncated to fit" $text]
+          && [check_effective_target_tiny] } {
+        return "::unsupported::memory full"
     }
 
     # Likewise, if we see ".text exceeds local store range" or
@@ -302,6 +281,8 @@ if { [info procs ${tool}_load] != [list] \
 	    }
 	    set result [list $status [lindex $result 1]]
 	}
+
+	set result [list [lindex $result 0] [prune_file_path [lindex $result 1]]]
 	return $result
     }
 }
@@ -321,8 +302,8 @@ proc set-target-env-var { } {
     foreach env_var $set_target_env_var {
 	set var [lindex $env_var 0]
 	set value [lindex $env_var 1]
-	if [info exists env($var)] {
-	    lappend saved_target_env_var [list $var 1 $env($var)]
+	if [info exists ::env($var)] {
+	    lappend saved_target_env_var [list $var 1 $::env($var)]
 	} else {
 	    lappend saved_target_env_var [list $var 0]
 	}
@@ -363,7 +344,7 @@ proc search_for { file pattern } {
 
 # Modified dg-runtest that can cycle through a list of optimization options
 # as c-torture does.
-proc gcc-dg-runtest { testcases default-extra-flags } {
+proc gcc-dg-runtest { testcases flags default-extra-flags } {
     global runtests
 
     # Some callers set torture options themselves; don't override those.
@@ -393,9 +374,9 @@ proc gcc-dg-runtest { testcases default-extra-flags } {
 
 	set nshort [file tail [file dirname $test]]/[file tail $test]
 
-	foreach flags $option_list {
-	    verbose "Testing $nshort, $flags" 1
-	    dg-test $test $flags ${default-extra-flags}
+	foreach flags_t $option_list {
+	    verbose "Testing $nshort, $flags $flags_t" 1
+	    dg-test $test "$flags $flags_t" ${default-extra-flags}
 	}
     }
 

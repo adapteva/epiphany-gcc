@@ -42,6 +42,12 @@
 #include "langhooks-def.h"
 #include "plugin.h"
 #include "real.h"
+#include "hashtab.h"
+#include "hash-set.h"
+#include "vec.h"
+#include "machmode.h"
+#include "hard-reg-set.h"
+#include "input.h"
 #include "function.h"	/* For pass_by_reference.  */
 
 #include "ada.h"
@@ -174,8 +180,10 @@ gnat_init_options_struct (struct gcc_options *opts)
   /* Uninitialized really means uninitialized in Ada.  */
   opts->x_flag_zero_initialized_in_bss = 0;
 
-  /* We can delete dead instructions that may throw exceptions in Ada.  */
-  opts->x_flag_delete_dead_exceptions = 1;
+  /* We don't care about errno in Ada and it causes __builtin_sqrt to
+     call the libm function rather than do it inline.  */
+  opts->x_flag_errno_math = 0;
+  opts->frontend_set_flag_errno_math = true;
 }
 
 /* Initialize for option processing.  */
@@ -230,6 +238,7 @@ gnat_init_options (unsigned int decoded_options_count,
 #undef flag_compare_debug
 #undef flag_short_enums
 #undef flag_stack_check
+int gnat_encodings = 0;
 int optimize;
 int optimize_size;
 int flag_compare_debug;
@@ -283,8 +292,8 @@ internal_error_function (diagnostic_context *context,
   text_info tinfo;
   char *buffer, *p, *loc;
   String_Template temp, temp_loc;
-  Fat_Pointer fp, fp_loc;
-  expanded_location s;
+  String_Pointer sp, sp_loc;
+  expanded_location xloc;
 
   /* Warn if plugins present.  */
   warn_if_plugins ();
@@ -311,21 +320,21 @@ internal_error_function (diagnostic_context *context,
 
   temp.Low_Bound = 1;
   temp.High_Bound = p - buffer;
-  fp.Bounds = &temp;
-  fp.Array = buffer;
+  sp.Bounds = &temp;
+  sp.Array = buffer;
 
-  s = expand_location (input_location);
-  if (context->show_column && s.column != 0)
-    asprintf (&loc, "%s:%d:%d", s.file, s.line, s.column);
+  xloc = expand_location (input_location);
+  if (context->show_column && xloc.column != 0)
+    asprintf (&loc, "%s:%d:%d", xloc.file, xloc.line, xloc.column);
   else
-    asprintf (&loc, "%s:%d", s.file, s.line);
+    asprintf (&loc, "%s:%d", xloc.file, xloc.line);
   temp_loc.Low_Bound = 1;
   temp_loc.High_Bound = strlen (loc);
-  fp_loc.Bounds = &temp_loc;
-  fp_loc.Array = loc;
+  sp_loc.Bounds = &temp_loc;
+  sp_loc.Array = loc;
 
   Current_Error_Node = error_gnat_node;
-  Compiler_Abort (fp, -1, fp_loc);
+  Compiler_Abort (sp, sp_loc, true);
 }
 
 /* Perform all the initialization steps that are language-specific.  */
@@ -379,17 +388,21 @@ gnat_init_gcc_eh (void)
      right exception regions.  */
   using_eh_for_cleanups ();
 
-  /* Turn on -fexceptions and -fnon-call-exceptions.  The first one triggers
-     the generation of the necessary exception tables.  The second one is
-     useful for two reasons: 1/ we map some asynchronous signals like SEGV to
-     exceptions, so we need to ensure that the insns which can lead to such
-     signals are correctly attached to the exception region they pertain to,
-     2/ Some calls to pure subprograms are handled as libcall blocks and then
-     marked as "cannot trap" if the flag is not set (see emit_libcall_block).
-     We should not let this be since it is possible for such calls to actually
-     raise in Ada.  */
+  /* Turn on -fexceptions, -fnon-call-exceptions and -fdelete-dead-exceptions.
+     The first one triggers the generation of the necessary exception tables.
+     The second one is useful for two reasons: 1/ we map some asynchronous
+     signals like SEGV to exceptions, so we need to ensure that the insns
+     which can lead to such signals are correctly attached to the exception
+     region they pertain to, 2/ some calls to pure subprograms are handled as
+     libcall blocks and then marked as "cannot trap" if the flag is not set
+     (see emit_libcall_block).  We should not let this be since it is possible
+     for such calls to actually raise in Ada.
+     The third one is an optimization that makes it possible to delete dead
+     instructions that may throw exceptions, most notably loads and stores,
+     as permitted in Ada.  */
   flag_exceptions = 1;
   flag_non_call_exceptions = 1;
+  flag_delete_dead_exceptions = 1;
 
   init_eh ();
 }
@@ -407,10 +420,8 @@ gnat_init_gcc_fp (void)
     flag_signed_zeros = 0;
 
   /* Assume that FP operations can trap if S'Machine_Overflow is true,
-     but don't override the user if not.
-
-     ??? Alpha/VMS enables FP traps without declaring it.  */
-  if (Machine_Overflows_On_Target || TARGET_ABI_OPEN_VMS)
+     but don't override the user if not.  */
+  if (Machine_Overflows_On_Target)
     flag_trapping_math = 1;
   else if (!global_options_set.x_flag_trapping_math)
     flag_trapping_math = 0;
@@ -464,8 +475,6 @@ gnat_print_type (FILE *file, tree node, int indent)
       else if (TYPE_HAS_ACTUAL_BOUNDS_P (node))
 	print_node (file, "actual bounds", TYPE_ACTUAL_BOUNDS (node),
 		    indent + 4);
-      else if (TYPE_VAX_FLOATING_POINT_P (node))
-	;
       else
 	print_node (file, "index type", TYPE_INDEX_TYPE (node), indent + 4);
 
@@ -712,10 +721,13 @@ enumerate_modes (void (*f) (const char *, int, int, int, int, int, int, int))
     = { "float", "double", "long double" };
   int iloop;
 
+  /* We are going to compute it below.  */
+  fp_arith_may_widen = false;
+
   for (iloop = 0; iloop < NUM_MACHINE_MODES; iloop++)
     {
-      enum machine_mode i = (enum machine_mode) iloop;
-      enum machine_mode inner_mode = i;
+      machine_mode i = (machine_mode) iloop;
+      machine_mode inner_mode = i;
       bool float_p = false;
       bool complex_p = false;
       bool vector_p = false;
@@ -761,6 +773,15 @@ enumerate_modes (void (*f) (const char *, int, int, int, int, int, int, int))
 	  if (!fmt)
 	    continue;
 
+	  /* Be conservative and consider that floating-point arithmetics may
+	     use wider intermediate results as soon as there is an extended
+	     Motorola or Intel mode supported by the machine.  */
+	  if (fmt == &ieee_extended_motorola_format
+	      || fmt == &ieee_extended_intel_96_format
+	      || fmt == &ieee_extended_intel_96_round_53_format
+	      || fmt == &ieee_extended_intel_128_format)
+	    fp_arith_may_widen = true;
+
 	  if (fmt->b == 2)
 	    digs = (fmt->p - 1) * 1233 / 4096; /* scale by log (2) */
 
@@ -769,11 +790,6 @@ enumerate_modes (void (*f) (const char *, int, int, int, int, int, int, int))
 
 	  else
 	    gcc_unreachable();
-
-	  if (fmt == &vax_f_format
-	      || fmt == &vax_d_format
-	      || fmt == &vax_g_format)
-	    float_rep = VAX_Native;
 	}
 
       /* First register any C types for this mode that the front end
@@ -806,7 +822,7 @@ enumerate_modes (void (*f) (const char *, int, int, int, int, int, int, int))
 int
 fp_prec_to_size (int prec)
 {
-  enum machine_mode mode;
+  machine_mode mode;
 
   for (mode = GET_CLASS_NARROWEST_MODE (MODE_FLOAT); mode != VOIDmode;
        mode = GET_MODE_WIDER_MODE (mode))
@@ -821,7 +837,7 @@ fp_prec_to_size (int prec)
 int
 fp_size_to_prec (int size)
 {
-  enum machine_mode mode;
+  machine_mode mode;
 
   for (mode = GET_CLASS_NARROWEST_MODE (MODE_FLOAT); mode != VOIDmode;
        mode = GET_MODE_WIDER_MODE (mode))

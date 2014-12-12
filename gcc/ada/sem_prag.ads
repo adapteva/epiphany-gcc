@@ -6,7 +6,7 @@
 --                                                                          --
 --                                 S p e c                                  --
 --                                                                          --
---          Copyright (C) 1992-2013, Free Software Foundation, Inc.         --
+--          Copyright (C) 1992-2014, Free Software Foundation, Inc.         --
 --                                                                          --
 -- GNAT is free software;  you can  redistribute it  and/or modify it under --
 -- terms of the  GNU General Public License as published  by the Free Soft- --
@@ -170,6 +170,25 @@ package Sem_Prag is
    --  state, variable or package instantiation denoted by Item_Id requires the
    --  use of indicator/option Part_Of. If this is the case, emit an error.
 
+   procedure Collect_Subprogram_Inputs_Outputs
+     (Subp_Id      : Entity_Id;
+      Synthesize   : Boolean := False;
+      Subp_Inputs  : in out Elist_Id;
+      Subp_Outputs : in out Elist_Id;
+      Global_Seen  : out Boolean);
+   --  Subsidiary to the analysis of pragmas Depends, Global, Refined_Depends
+   --  and Refined_Global. The routine is also used by GNATprove. Collect all
+   --  inputs and outputs of subprogram Subp_Id in lists Subp_Inputs (inputs)
+   --  and Subp_Outputs (outputs). The inputs and outputs are gathered from:
+   --    1) The formal parameters of the subprogram
+   --    2) The items of pragma [Refined_]Global
+   --         or
+   --    3) The items of pragma [Refined_]Depends if there is no pragma
+   --       [Refined_]Global present and flag Synthesize is set to True.
+   --  If the subprogram has no inputs and/or outputs, then the returned list
+   --  is No_Elist. Flag Global_Seen is set when the related subprogram has
+   --  pragma [Refined_]Global.
+
    function Delay_Config_Pragma_Analyze (N : Node_Id) return Boolean;
    --  N is a pragma appearing in a configuration pragma file. Most such
    --  pragmas are analyzed when the file is read, before parsing and analyzing
@@ -250,13 +269,11 @@ package Sem_Prag is
    --  dealing with subprogram body stubs or expression functions.
 
    procedure Set_Encoded_Interface_Name (E : Entity_Id; S : Node_Id);
-   --  This routine is used to set an encoded interface name. The node S is an
-   --  N_String_Literal node for the external name to be set, and E is an
+   --  This routine is used to set an encoded interface name. The node S is
+   --  an N_String_Literal node for the external name to be set, and E is an
    --  entity whose Interface_Name field is to be set. In the normal case where
    --  S contains a name that is a valid C identifier, then S is simply set as
-   --  the value of the Interface_Name. Otherwise it is encoded. See the body
-   --  for details of the encoding. This encoding is only done on VMS systems,
-   --  since it seems pretty silly, but is needed to pass some dubious tests in
-   --  the test suite.
+   --  the value of the Interface_Name. Otherwise it is encoded as needed by
+   --  particular operating systems. See the body for details of the encoding.
 
 end Sem_Prag;

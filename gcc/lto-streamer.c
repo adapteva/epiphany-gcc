@@ -27,6 +27,14 @@ along with GCC; see the file COPYING3.  If not see
 #include "toplev.h"
 #include "flags.h"
 #include "tree.h"
+#include "predict.h"
+#include "vec.h"
+#include "hashtab.h"
+#include "hash-set.h"
+#include "machmode.h"
+#include "hard-reg-set.h"
+#include "input.h"
+#include "function.h"
 #include "basic-block.h"
 #include "tree-ssa-alias.h"
 #include "internal-fn.h"
@@ -35,8 +43,13 @@ along with GCC; see the file COPYING3.  If not see
 #include "gimple.h"
 #include "bitmap.h"
 #include "diagnostic-core.h"
+#include "hash-map.h"
+#include "plugin-api.h"
+#include "ipa-ref.h"
+#include "cgraph.h"
 #include "tree-streamer.h"
 #include "lto-streamer.h"
+#include "lto-section-names.h"
 #include "streamer-hooks.h"
 
 /* Statistics gathered during LTO, WPA and LTRANS.  */
@@ -47,6 +60,7 @@ struct lto_stats_d lto_stats;
 static bitmap_obstack lto_obstack;
 static bool lto_obstack_initialized;
 
+const char *section_name_prefix = LTO_SECTION_NAME_PREFIX;
 
 /* Return a string representing LTO tag TAG.  */
 
@@ -176,7 +190,7 @@ lto_get_section_name (int section_type, const char *name, struct lto_file_decl_d
     sprintf (post, "." HOST_WIDE_INT_PRINT_HEX_PURE, f->id);
   else
     sprintf (post, "." HOST_WIDE_INT_PRINT_HEX_PURE, get_random_seed (false)); 
-  return concat (LTO_SECTION_NAME_PREFIX, sep, add, post, NULL);
+  return concat (section_name_prefix, sep, add, post, NULL);
 }
 
 
@@ -289,7 +303,7 @@ tree_entry_hasher::equal (const value_type *e1, const compare_type *e2)
   return (e1->key == e2->key);
 }
 
-static hash_table <tree_hash_entry> tree_htab;
+static hash_table<tree_hash_entry> *tree_htab;
 #endif
 
 /* Initialization common to the LTO reader and writer.  */
@@ -304,7 +318,7 @@ lto_streamer_init (void)
   streamer_check_handled_ts_structures ();
 
 #ifdef LTO_STREAMER_DEBUG
-  tree_htab.create (31);
+  tree_htab = new hash_table<tree_hash_entry> (31);
 #endif
 }
 
@@ -314,7 +328,7 @@ lto_streamer_init (void)
 bool
 gate_lto_out (void)
 {
-  return ((flag_generate_lto || in_lto_p)
+  return ((flag_generate_lto || flag_generate_offload || in_lto_p)
 	  /* Don't bother doing anything if the program has errors.  */
 	  && !seen_error ());
 }
@@ -339,7 +353,7 @@ lto_orig_address_map (tree t, intptr_t orig_t)
 
   ent.key = t;
   ent.value = orig_t;
-  slot = tree_htab.find_slot (&ent, INSERT);
+  slot = tree_htab->find_slot (&ent, INSERT);
   gcc_assert (!*slot);
   *slot = XNEW (struct tree_hash_entry);
   **slot = ent;
@@ -356,7 +370,7 @@ lto_orig_address_get (tree t)
   struct tree_hash_entry **slot;
 
   ent.key = t;
-  slot = tree_htab.find_slot (&ent, NO_INSERT);
+  slot = tree_htab->find_slot (&ent, NO_INSERT);
   return (slot ? (*slot)->value : 0);
 }
 
@@ -370,10 +384,10 @@ lto_orig_address_remove (tree t)
   struct tree_hash_entry **slot;
 
   ent.key = t;
-  slot = tree_htab.find_slot (&ent, NO_INSERT);
+  slot = tree_htab->find_slot (&ent, NO_INSERT);
   gcc_assert (slot);
   free (*slot);
-  tree_htab.clear_slot (slot);
+  tree_htab->clear_slot (slot);
 }
 #endif
 

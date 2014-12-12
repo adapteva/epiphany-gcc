@@ -1,4 +1,4 @@
-// { dg-options "-std=gnu++0x" }
+// { dg-options "-std=gnu++11" }
 // { dg-do compile }
 
 // Copyright (C) 2008-2014 Free Software Foundation, Inc.
@@ -35,7 +35,7 @@ test01()
 
   std::shared_ptr<A> a;
   std::unique_ptr<A> u;
-  a = u; // { dg-error "cannot bind" }
+  a = u; // { dg-error "" }
 
   return 0;
 }

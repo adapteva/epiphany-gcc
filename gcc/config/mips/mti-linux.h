@@ -20,7 +20,7 @@ along with GCC; see the file COPYING3.  If not see
 /* This target is a multilib target, specify the sysroot paths.  */
 #undef SYSROOT_SUFFIX_SPEC
 #define SYSROOT_SUFFIX_SPEC \
-    "%{mips32:/mips32}%{mips64:/mips64}%{mips64r2:/mips64r2}%{mips16:/mips16}%{mmicromips:/micromips}%{mabi=64:/64}%{mel|EL:/el}%{msoft-float:/sof}%{mfp64:/fp64}%{mnan=2008:/nan2008}"
+    "%{mips32:/mips32}%{mips64:/mips64}%{mips64r2:/mips64r2}%{mips16:/mips16}%{mmicromips:/micromips}%{mabi=64:/64}%{mel|EL:/el}%{msoft-float:/sof}%{mnan=2008:/nan2008}"
 
 #undef DRIVER_SELF_SPECS
 #define DRIVER_SELF_SPECS						\
@@ -39,8 +39,13 @@ along with GCC; see the file COPYING3.  If not see
      or -mgp setting.  */						\
   "%{!mabi=*: %{" MIPS_32BIT_OPTION_SPEC ": -mabi=32;: -mabi=n32}}",	\
 									\
+  /* If no FP ABI option is specified, infer one from the		\
+     ABI/ISA level.  */							\
+  "%{!msoft-float: %{!msingle-float: %{!mfp*: %{mabi=32: %{"		\
+  MIPS_FPXX_OPTION_SPEC ": -mfpxx}}}}}",				\
+									\
   /* Base SPECs.  */							\
   BASE_DRIVER_SELF_SPECS						\
 									\
   /* Use the standard linux specs for everything else.  */		\
-  LINUX64_DRIVER_SELF_SPECS
+  LINUX_DRIVER_SELF_SPECS

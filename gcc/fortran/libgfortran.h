@@ -22,6 +22,8 @@ along with GCC; see the file COPYING3.  If not see
    Note that no features were obsoleted nor deleted in F2003.
    Please remember to keep those definitions in sync with
    gfortran.texi.  */
+/* For now, use F2015 = GFC_STD_GNU.  */
+#define GFC_STD_F2015	        (1<<5)	/* PLACEHOLDER for Fortran 2015.  */
 #define GFC_STD_F2008_TS	(1<<9)	/* POST-F2008 technical reports.  */
 #define GFC_STD_F2008_OBS	(1<<8)	/* Obsolescent in F2008.  */
 #define GFC_STD_F2008		(1<<7)	/* New in F2008.  */
@@ -35,13 +37,14 @@ along with GCC; see the file COPYING3.  If not see
 					   obsolescent in later standards.  */
 
 
-/* Bitmasks for the various FPE that can be enabled.  */
-#define GFC_FPE_INVALID    (1<<0)
-#define GFC_FPE_DENORMAL   (1<<1)
-#define GFC_FPE_ZERO       (1<<2)
-#define GFC_FPE_OVERFLOW   (1<<3)
-#define GFC_FPE_UNDERFLOW  (1<<4)
-#define GFC_FPE_INEXACT    (1<<5)
+/* Bitmasks for the various FPE that can be enabled.  These need to be straight integers
+   e.g., 8 instead of (1<<3), because they will be included in Fortran source.  */
+#define GFC_FPE_INVALID      1
+#define GFC_FPE_DENORMAL     2
+#define GFC_FPE_ZERO         4
+#define GFC_FPE_OVERFLOW     8
+#define GFC_FPE_UNDERFLOW   16
+#define GFC_FPE_INEXACT     32
 
 /* Defines for floating-point rounding modes.  */
 #define GFC_FPE_DOWNWARD   1
@@ -49,6 +52,10 @@ along with GCC; see the file COPYING3.  If not see
 #define GFC_FPE_TOWARDZERO 3
 #define GFC_FPE_UPWARD     4
 
+/* Size of the buffer required to store FPU state for any target.
+   In particular, this has to be larger than fenv_t on all glibc targets.
+   Currently, the winner is x86_64 with 32 bytes.  */
+#define GFC_FPE_STATE_BUFFER_SIZE 32
 
 /* Bitmasks for the various runtime checks that can be enabled.  */
 #define GFC_RTCHECK_BOUNDS      (1<<0)
@@ -110,9 +117,26 @@ typedef enum
   GFC_STAT_UNLOCKED = 0,
   GFC_STAT_LOCKED,
   GFC_STAT_LOCKED_OTHER_IMAGE,
-  GFC_STAT_STOPPED_IMAGE = 6000 /* See LIBERROR_INQUIRE_INTERNAL_UNIT above. */
+  GFC_STAT_STOPPED_IMAGE = 6000, /* See LIBERROR_INQUIRE_INTERNAL_UNIT above. */
+  GFC_STAT_FAILED_IMAGE
 }
 libgfortran_stat_codes;
+
+typedef enum
+{
+  GFC_CAF_ATOMIC_ADD = 1,
+  GFC_CAF_ATOMIC_AND,
+  GFC_CAF_ATOMIC_OR,
+  GFC_CAF_ATOMIC_XOR
+} libcaf_atomic_codes;
+
+
+/* For CO_REDUCE.  */
+#define GFC_CAF_BYREF      (1<<0)
+#define GFC_CAF_HIDDENLEN  (1<<1)
+#define GFC_CAF_ARG_VALUE  (1<<2)
+#define GFC_CAF_ARG_DESC   (1<<3)
+
 
 /* Default unit number for preconnected standard input and output.  */
 #define GFC_STDIN_UNIT_NUMBER 5

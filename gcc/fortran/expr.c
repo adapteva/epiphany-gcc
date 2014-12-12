@@ -21,6 +21,7 @@ along with GCC; see the file COPYING3.  If not see
 #include "config.h"
 #include "system.h"
 #include "coretypes.h"
+#include "flags.h"
 #include "gfortran.h"
 #include "arith.h"
 #include "match.h"
@@ -1955,7 +1956,7 @@ scalarize_intrinsic_call (gfc_expr *e)
   for (; a; a = a->next)
     {
       n++;
-      if (a->expr->expr_type != EXPR_ARRAY)
+      if (!a->expr || a->expr->expr_type != EXPR_ARRAY)
 	continue;
       array_arg = n;
       expr = gfc_copy_expr (a->expr);
@@ -2203,9 +2204,9 @@ check_alloc_comp_init (gfc_expr *e)
       if (comp->attr.allocatable
           && ctor->expr->expr_type != EXPR_NULL)
         {
-	  gfc_error("Invalid initialization expression for ALLOCATABLE "
-	            "component '%s' in structure constructor at %L",
-	            comp->name, &ctor->expr->where);
+	  gfc_error ("Invalid initialization expression for ALLOCATABLE "
+		     "component %qs in structure constructor at %L",
+		     comp->name, &ctor->expr->where);
 	  return false;
 	}
     }
@@ -2314,7 +2315,7 @@ check_inquiry (gfc_expr *e, int not_restricted)
 	    && (ap->expr->symtree->n.sym->ts.u.cl->length == NULL
 		|| ap->expr->symtree->n.sym->ts.deferred))
 	  {
-	    gfc_error ("Assumed or deferred character length variable '%s' "
+	    gfc_error ("Assumed or deferred character length variable %qs "
 			" in constant expression at %L",
 			ap->expr->symtree->n.sym->name,
 			&ap->expr->where);
@@ -2380,8 +2381,8 @@ check_transformational (gfc_expr *e)
 
   if (functions[i] == NULL)
     {
-      gfc_error("transformational intrinsic '%s' at %L is not permitted "
-		"in an initialization expression", name, &e->where);
+      gfc_error ("transformational intrinsic %qs at %L is not permitted "
+		 "in an initialization expression", name, &e->where);
       return MATCH_ERROR;
     }
 
@@ -2460,13 +2461,27 @@ gfc_check_init_expr (gfc_expr *e)
 
       {
 	gfc_intrinsic_sym* isym;
-	gfc_symbol* sym;
+	gfc_symbol* sym = e->symtree->n.sym;
 
-	sym = e->symtree->n.sym;
+	/* Special case for IEEE_SELECTED_REAL_KIND from the intrinsic
+	   module IEEE_ARITHMETIC, which is allowed in initialization
+	   expressions.  */
+	if (!strcmp(sym->name, "ieee_selected_real_kind")
+	    && sym->from_intmod == INTMOD_IEEE_ARITHMETIC)
+	  {
+	    gfc_expr *new_expr = gfc_simplify_ieee_selected_real_kind (e);
+	    if (new_expr)
+	      {
+		gfc_replace_expr (e, new_expr);
+		t = true;
+		break;
+	      }
+	  }
+
 	if (!gfc_is_intrinsic (sym, 0, e->where)
 	    || (m = gfc_intrinsic_func_interface (e, 0)) != MATCH_YES)
 	  {
-	    gfc_error ("Function '%s' in initialization expression at %L "
+	    gfc_error ("Function %qs in initialization expression at %L "
 		       "must be an intrinsic function",
 		       e->symtree->n.sym->name, &e->where);
 	    break;
@@ -2478,7 +2493,7 @@ gfc_check_init_expr (gfc_expr *e)
 	    && (m = check_transformational (e)) == MATCH_NO
 	    && (m = check_elemental (e)) == MATCH_NO)
 	  {
-	    gfc_error ("Intrinsic function '%s' at %L is not permitted "
+	    gfc_error ("Intrinsic function %qs at %L is not permitted "
 		       "in an initialization expression",
 		       e->symtree->n.sym->name, &e->where);
 	    m = MATCH_ERROR;
@@ -2513,8 +2528,8 @@ gfc_check_init_expr (gfc_expr *e)
 	     is invalid.  */
 	  if (!e->symtree->n.sym->value)
 	    {
-	      gfc_error("PARAMETER '%s' is used at %L before its definition "
-			"is complete", e->symtree->n.sym->name, &e->where);
+	      gfc_error ("PARAMETER %qs is used at %L before its definition "
+			 "is complete", e->symtree->n.sym->name, &e->where);
 	      t = false;
 	    }
 	  else
@@ -2533,25 +2548,25 @@ gfc_check_init_expr (gfc_expr *e)
 	  switch (e->symtree->n.sym->as->type)
 	    {
 	      case AS_ASSUMED_SIZE:
-		gfc_error ("Assumed size array '%s' at %L is not permitted "
+		gfc_error ("Assumed size array %qs at %L is not permitted "
 			   "in an initialization expression",
 			   e->symtree->n.sym->name, &e->where);
 		break;
 
 	      case AS_ASSUMED_SHAPE:
-		gfc_error ("Assumed shape array '%s' at %L is not permitted "
+		gfc_error ("Assumed shape array %qs at %L is not permitted "
 			   "in an initialization expression",
 			   e->symtree->n.sym->name, &e->where);
 		break;
 
 	      case AS_DEFERRED:
-		gfc_error ("Deferred array '%s' at %L is not permitted "
+		gfc_error ("Deferred array %qs at %L is not permitted "
 			   "in an initialization expression",
 			   e->symtree->n.sym->name, &e->where);
 		break;
 
 	      case AS_EXPLICIT:
-		gfc_error ("Array '%s' at %L is a variable, which does "
+		gfc_error ("Array %qs at %L is a variable, which does "
 			   "not reduce to a constant expression",
 			   e->symtree->n.sym->name, &e->where);
 		break;
@@ -2561,7 +2576,7 @@ gfc_check_init_expr (gfc_expr *e)
 	  }
 	}
       else
-	gfc_error ("Parameter '%s' at %L has not been declared or is "
+	gfc_error ("Parameter %qs at %L has not been declared or is "
 		   "a variable, which does not reduce to a constant "
 		   "expression", e->symtree->n.sym->name, &e->where);
 
@@ -2714,28 +2729,28 @@ external_spec_function (gfc_expr *e)
 
   if (f->attr.proc == PROC_ST_FUNCTION)
     {
-      gfc_error ("Specification function '%s' at %L cannot be a statement "
+      gfc_error ("Specification function %qs at %L cannot be a statement "
 		 "function", f->name, &e->where);
       return false;
     }
 
   if (f->attr.proc == PROC_INTERNAL)
     {
-      gfc_error ("Specification function '%s' at %L cannot be an internal "
+      gfc_error ("Specification function %qs at %L cannot be an internal "
 		 "function", f->name, &e->where);
       return false;
     }
 
   if (!f->attr.pure && !f->attr.elemental)
     {
-      gfc_error ("Specification function '%s' at %L must be PURE", f->name,
+      gfc_error ("Specification function %qs at %L must be PURE", f->name,
 		 &e->where);
       return false;
     }
 
   if (f->attr.recursive)
     {
-      gfc_error ("Specification function '%s' at %L cannot be RECURSIVE",
+      gfc_error ("Specification function %qs at %L cannot be RECURSIVE",
 		 f->name, &e->where);
       return false;
     }
@@ -2869,21 +2884,21 @@ check_restricted (gfc_expr *e)
       if (sym->attr.dummy && sym->ns == gfc_current_ns
 	  && sym->ns->proc_name && sym->ns->proc_name->attr.elemental)
 	{
-	  gfc_error ("Dummy argument '%s' not allowed in expression at %L",
+	  gfc_error ("Dummy argument %qs not allowed in expression at %L",
 		     sym->name, &e->where);
 	  break;
 	}
 
       if (sym->attr.optional)
 	{
-	  gfc_error ("Dummy argument '%s' at %L cannot be OPTIONAL",
+	  gfc_error ("Dummy argument %qs at %L cannot be OPTIONAL",
 		     sym->name, &e->where);
 	  break;
 	}
 
       if (sym->attr.intent == INTENT_OUT)
 	{
-	  gfc_error ("Dummy argument '%s' at %L cannot be INTENT(OUT)",
+	  gfc_error ("Dummy argument %qs at %L cannot be INTENT(OUT)",
 		     sym->name, &e->where);
 	  break;
 	}
@@ -2914,7 +2929,7 @@ check_restricted (gfc_expr *e)
 	  break;
 	}
 
-      gfc_error ("Variable '%s' cannot appear in the expression at %L",
+      gfc_error ("Variable %qs cannot appear in the expression at %L",
 		 sym->name, &e->where);
       /* Prevent a repetition of the error.  */
       e->error = 1;
@@ -2977,7 +2992,7 @@ gfc_specification_expr (gfc_expr *e)
       && !gfc_pure (e->symtree->n.sym)
       && (!comp || !comp->attr.pure))
     {
-      gfc_error ("Function '%s' at %L must be PURE",
+      gfc_error ("Function %qs at %L must be PURE",
 		 e->symtree->n.sym->name, &e->where);
       /* Prevent repeat error messages.  */
       e->symtree->n.sym->attr.pure = 1;
@@ -3123,7 +3138,7 @@ gfc_check_assign (gfc_expr *lvalue, gfc_expr *rvalue, int conform)
 
       if (bad_proc)
 	{
-	  gfc_error ("'%s' at %L is not a VALUE", sym->name, &lvalue->where);
+	  gfc_error ("%qs at %L is not a VALUE", sym->name, &lvalue->where);
 	  return false;
 	}
     }
@@ -3156,9 +3171,10 @@ gfc_check_assign (gfc_expr *lvalue, gfc_expr *rvalue, int conform)
     }
 
   /* This is possibly a typo: x = f() instead of x => f().  */
-  if (gfc_option.warn_surprising
+  if (warn_surprising
       && rvalue->expr_type == EXPR_FUNCTION && gfc_expr_attr (rvalue).pointer)
-    gfc_warning ("POINTER-valued function appears on right-hand side of "
+    gfc_warning (OPT_Wsurprising,
+		 "POINTER-valued function appears on right-hand side of "
 		 "assignment at %L", &rvalue->where);
 
   /* Check size of array assignments.  */
@@ -3182,10 +3198,11 @@ gfc_check_assign (gfc_expr *lvalue, gfc_expr *rvalue, int conform)
   if (rvalue->is_boz && lvalue->ts.type != BT_INTEGER)
     {
       int rc;
-      if (gfc_option.warn_surprising)
-        gfc_warning ("BOZ literal at %L is bitwise transferred "
-                     "non-integer symbol '%s'", &rvalue->where,
-                     lvalue->symtree->n.sym->name);
+      if (warn_surprising)
+	gfc_warning (OPT_Wsurprising,
+		     "BOZ literal at %L is bitwise transferred "
+		     "non-integer symbol %qs", &rvalue->where,
+		     lvalue->symtree->n.sym->name);
       if (!gfc_convert_boz (rvalue, &lvalue->ts))
 	return false;
       if ((rc = gfc_range_check (rvalue)) != ARITH_OK)
@@ -3213,7 +3230,7 @@ gfc_check_assign (gfc_expr *lvalue, gfc_expr *rvalue, int conform)
   if (rvalue->expr_type == EXPR_CONSTANT && lvalue->ts.type == rvalue->ts.type
       && (lvalue->ts.type == BT_REAL || lvalue->ts.type == BT_COMPLEX))
     {
-      if (lvalue->ts.kind < rvalue->ts.kind && gfc_option.gfc_warn_conversion)
+      if (lvalue->ts.kind < rvalue->ts.kind && warn_conversion)
 	{
 	  /* As a special bonus, don't warn about REAL rvalues which are not
 	     changed by the conversion if -Wconversion is specified.  */
@@ -3231,23 +3248,25 @@ gfc_check_assign (gfc_expr *lvalue, gfc_expr *rvalue, int conform)
 	      mpfr_sub (diff, rv, rvalue->value.real, GFC_RND_MODE);
 
 	      if (!mpfr_zero_p (diff))
-		gfc_warning ("Change of value in conversion from "
-			     " %s to %s at %L", gfc_typename (&rvalue->ts),
+		gfc_warning (OPT_Wconversion, 
+			     "Change of value in conversion from "
+			     " %qs to %qs at %L", gfc_typename (&rvalue->ts),
 			     gfc_typename (&lvalue->ts), &rvalue->where);
 
 	      mpfr_clear (rv);
 	      mpfr_clear (diff);
 	    }
 	  else
-	    gfc_warning ("Possible change of value in conversion from %s "
-			 "to %s at %L",gfc_typename (&rvalue->ts),
+	    gfc_warning (OPT_Wconversion,
+			 "Possible change of value in conversion from %qs "
+			 "to %qs at %L", gfc_typename (&rvalue->ts),
 			 gfc_typename (&lvalue->ts), &rvalue->where);
 
 	}
-      else if (gfc_option.warn_conversion_extra
-	       && lvalue->ts.kind > rvalue->ts.kind)
+      else if (warn_conversion_extra && lvalue->ts.kind > rvalue->ts.kind)
 	{
-	  gfc_warning ("Conversion from %s to %s at %L",
+	  gfc_warning (OPT_Wconversion_extra,
+		       "Conversion from %qs to %qs at %L",
 		       gfc_typename (&rvalue->ts),
 		       gfc_typename (&lvalue->ts), &rvalue->where);
 	}
@@ -3312,7 +3331,7 @@ gfc_check_pointer_assign (gfc_expr *lvalue, gfc_expr *rvalue)
   if (lhs_attr.flavor == FL_PROCEDURE && lhs_attr.use_assoc
       && !lhs_attr.proc_pointer)
     {
-      gfc_error ("'%s' in the pointer assignment at %L cannot be an "
+      gfc_error ("%qs in the pointer assignment at %L cannot be an "
 		 "l-value since it is a procedure",
 		 lvalue->symtree->n.sym->name, &lvalue->where);
       return false;
@@ -3335,7 +3354,7 @@ gfc_check_pointer_assign (gfc_expr *lvalue, gfc_expr *rvalue)
 
 	  if (ref->u.ar.type != AR_SECTION)
 	    {
-	      gfc_error ("Expected bounds specification for '%s' at %L",
+	      gfc_error ("Expected bounds specification for %qs at %L",
 			 lvalue->symtree->n.sym->name, &lvalue->where);
 	      return false;
 	    }
@@ -3442,7 +3461,7 @@ gfc_check_pointer_assign (gfc_expr *lvalue, gfc_expr *rvalue)
 	      for (ns = gfc_current_ns; ns; ns = ns->parent)
 		if (sym == ns->proc_name)
 		  {
-		    gfc_error ("Function result '%s' is invalid as proc-target "
+		    gfc_error ("Function result %qs is invalid as proc-target "
 			       "in procedure pointer assignment at %L",
 			       sym->name, &rvalue->where);
 		    return false;
@@ -3451,7 +3470,7 @@ gfc_check_pointer_assign (gfc_expr *lvalue, gfc_expr *rvalue)
 	}
       if (attr.abstract)
 	{
-	  gfc_error ("Abstract interface '%s' is invalid "
+	  gfc_error ("Abstract interface %qs is invalid "
 		     "in procedure pointer assignment at %L",
 		     rvalue->symtree->name, &rvalue->where);
 	  return false;
@@ -3461,7 +3480,7 @@ gfc_check_pointer_assign (gfc_expr *lvalue, gfc_expr *rvalue)
 	{
 	  if (attr.proc == PROC_ST_FUNCTION)
 	    {
-	      gfc_error ("Statement function '%s' is invalid "
+	      gfc_error ("Statement function %qs is invalid "
 			 "in procedure pointer assignment at %L",
 			 rvalue->symtree->name, &rvalue->where);
 	      return false;
@@ -3474,7 +3493,7 @@ gfc_check_pointer_assign (gfc_expr *lvalue, gfc_expr *rvalue)
 	  if (attr.intrinsic && gfc_intrinsic_actual_ok (rvalue->symtree->name,
 							 attr.subroutine) == 0)
 	    {
-	      gfc_error ("Intrinsic '%s' at %L is invalid in procedure pointer "
+	      gfc_error ("Intrinsic %qs at %L is invalid in procedure pointer "
 			 "assignment", rvalue->symtree->name, &rvalue->where);
 	      return false;
 	    }
@@ -3482,7 +3501,7 @@ gfc_check_pointer_assign (gfc_expr *lvalue, gfc_expr *rvalue)
       /* Check for F08:C730.  */
       if (attr.elemental && !attr.intrinsic)
 	{
-	  gfc_error ("Nonintrinsic elemental procedure '%s' is invalid "
+	  gfc_error ("Nonintrinsic elemental procedure %qs is invalid "
 		     "in procedure pointer assignment at %L",
 		     rvalue->symtree->name, &rvalue->where);
 	  return false;
@@ -3561,14 +3580,14 @@ gfc_check_pointer_assign (gfc_expr *lvalue, gfc_expr *rvalue)
       if (s1->attr.if_source == IFSRC_UNKNOWN
 	  && gfc_explicit_interface_required (s2, err, sizeof(err)))
 	{
-	  gfc_error ("Explicit interface required for '%s' at %L: %s",
+	  gfc_error ("Explicit interface required for %qs at %L: %s",
 		     s1->name, &lvalue->where, err);
 	  return false;
 	}
       if (s2->attr.if_source == IFSRC_UNKNOWN
 	  && gfc_explicit_interface_required (s1, err, sizeof(err)))
 	{
-	  gfc_error ("Explicit interface required for '%s' at %L: %s",
+	  gfc_error ("Explicit interface required for %qs at %L: %s",
 		     s2->name, &rvalue->where, err);
 	  return false;
 	}
@@ -3585,7 +3604,7 @@ gfc_check_pointer_assign (gfc_expr *lvalue, gfc_expr *rvalue)
       if (!s2->attr.intrinsic && s2->attr.if_source == IFSRC_UNKNOWN
 	  && !s2->attr.external && !s2->attr.subroutine && !s2->attr.function)
 	{
-	  gfc_error ("Procedure pointer target '%s' at %L must be either an "
+	  gfc_error ("Procedure pointer target %qs at %L must be either an "
 		     "intrinsic, host or use associated, referenced or have "
 		     "the EXTERNAL attribute", s2->name, &rvalue->where);
 	  return false;
@@ -3736,7 +3755,7 @@ gfc_check_pointer_assign (gfc_expr *lvalue, gfc_expr *rvalue)
     }
 
   /* Warn if it is the LHS pointer may lives longer than the RHS target.  */
-  if (gfc_option.warn_target_lifetime
+  if (warn_target_lifetime
       && rvalue->expr_type == EXPR_VARIABLE
       && !rvalue->symtree->n.sym->attr.save
       && !attr.pointer && !rvalue->symtree->n.sym->attr.host_assoc
@@ -3769,7 +3788,8 @@ gfc_check_pointer_assign (gfc_expr *lvalue, gfc_expr *rvalue)
 	  }
 
       if (warn)
-	gfc_warning ("Pointer at %L in pointer assignment might outlive the "
+	gfc_warning (OPT_Wtarget_lifetime,
+		     "Pointer at %L in pointer assignment might outlive the "
 		     "pointer target", &lvalue->where);
     }
 
@@ -4546,7 +4566,7 @@ gfc_is_simply_contiguous (gfc_expr *expr, bool strict)
   for (ref = expr->ref; ref; ref = ref->next)
     {
       if (ar)
-	return false; /* Array shall be last part-ref. */
+	return false; /* Array shall be last part-ref.  */
 
       if (ref->type == REF_COMPONENT)
 	part_ref  = ref;
@@ -4738,7 +4758,7 @@ gfc_check_vardef_context (gfc_expr* e, bool pointer, bool alloc_obj,
   if (!pointer && sym->attr.flavor == FL_PARAMETER)
     {
       if (context)
-	gfc_error ("Named constant '%s' in variable definition context (%s)"
+	gfc_error ("Named constant %qs in variable definition context (%s)"
 		   " at %L", sym->name, context, &e->where);
       return false;
     }
@@ -4747,7 +4767,7 @@ gfc_check_vardef_context (gfc_expr* e, bool pointer, bool alloc_obj,
       && !(sym->attr.flavor == FL_PROCEDURE && sym->attr.proc_pointer))
     {
       if (context)
-	gfc_error ("'%s' in variable definition context (%s) at %L is not"
+	gfc_error ("%qs in variable definition context (%s) at %L is not"
 		   " a variable", sym->name, context, &e->where);
       return false;
     }
@@ -4800,7 +4820,7 @@ gfc_check_vardef_context (gfc_expr* e, bool pointer, bool alloc_obj,
       if (pointer && is_pointer)
 	{
 	  if (context)
-	    gfc_error ("Dummy argument '%s' with INTENT(IN) in pointer"
+	    gfc_error ("Dummy argument %qs with INTENT(IN) in pointer"
 		       " association context (%s) at %L",
 		       sym->name, context, &e->where);
 	  return false;
@@ -4808,7 +4828,7 @@ gfc_check_vardef_context (gfc_expr* e, bool pointer, bool alloc_obj,
       if (!pointer && !is_pointer && !sym->attr.pointer)
 	{
 	  if (context)
-	    gfc_error ("Dummy argument '%s' with INTENT(IN) in variable"
+	    gfc_error ("Dummy argument %qs with INTENT(IN) in variable"
 		       " definition context (%s) at %L",
 		       sym->name, context, &e->where);
 	  return false;
@@ -4821,7 +4841,7 @@ gfc_check_vardef_context (gfc_expr* e, bool pointer, bool alloc_obj,
       if (pointer && is_pointer)
 	{
 	  if (context)
-	    gfc_error ("Variable '%s' is PROTECTED and can not appear in a"
+	    gfc_error ("Variable %qs is PROTECTED and can not appear in a"
 		       " pointer association context (%s) at %L",
 		       sym->name, context, &e->where);
 	  return false;
@@ -4829,7 +4849,7 @@ gfc_check_vardef_context (gfc_expr* e, bool pointer, bool alloc_obj,
       if (!pointer && !is_pointer)
 	{
 	  if (context)
-	    gfc_error ("Variable '%s' is PROTECTED and can not appear in a"
+	    gfc_error ("Variable %qs is PROTECTED and can not appear in a"
 		       " variable definition context (%s) at %L",
 		       sym->name, context, &e->where);
 	  return false;
@@ -4841,7 +4861,7 @@ gfc_check_vardef_context (gfc_expr* e, bool pointer, bool alloc_obj,
   if (!pointer && !own_scope && gfc_pure (NULL) && gfc_impure_variable (sym))
     {
       if (context)
-	gfc_error ("Variable '%s' can not appear in a variable definition"
+	gfc_error ("Variable %qs can not appear in a variable definition"
 		   " context (%s) at %L in PURE procedure",
 		   sym->name, context, &e->where);
       return false;
@@ -4900,11 +4920,11 @@ gfc_check_vardef_context (gfc_expr* e, bool pointer, bool alloc_obj,
 	  if (context)
 	    {
 	      if (assoc->target->expr_type == EXPR_VARIABLE)
-		gfc_error ("'%s' at %L associated to vector-indexed target can"
+		gfc_error ("%qs at %L associated to vector-indexed target can"
 			   " not be used in a variable definition context (%s)",
 			   name, &e->where, context);
 	      else
-		gfc_error ("'%s' at %L associated to expression can"
+		gfc_error ("%qs at %L associated to expression can"
 			   " not be used in a variable definition context (%s)",
 			   name, &e->where, context);
 	    }
@@ -4915,7 +4935,7 @@ gfc_check_vardef_context (gfc_expr* e, bool pointer, bool alloc_obj,
       if (!gfc_check_vardef_context (assoc->target, pointer, false, false, NULL))
 	{
 	  if (context)
-	    gfc_error ("Associate-name '%s' can not appear in a variable"
+	    gfc_error_1 ("Associate-name '%s' can not appear in a variable"
 		       " definition context (%s) at %L because its target"
 		       " at %L can not, either",
 		       name, context, &e->where,
@@ -4956,11 +4976,13 @@ gfc_check_vardef_context (gfc_expr* e, bool pointer, bool alloc_obj,
 			  en = n->expr;
 			  if (gfc_dep_compare_expr (ec, en) == 0)
 			    {
-			      gfc_error_now ("Elements with the same value at %L"
-					     " and %L in vector subscript"
-					     " in a variable definition"
-					     " context (%s)", &(ec->where),
-					     &(en->where), context);
+			      if (context)
+				gfc_error_now_1 ("Elements with the same value "
+						 "at %L and %L in vector "
+						 "subscript in a variable "
+						 "definition context (%s)",
+						 &(ec->where), &(en->where),
+						 context);
 			      return false;
 			    }
 			}

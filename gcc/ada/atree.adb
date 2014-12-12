@@ -6,7 +6,7 @@
 --                                                                          --
 --                                 B o d y                                  --
 --                                                                          --
---          Copyright (C) 1992-2013, Free Software Foundation, Inc.         --
+--          Copyright (C) 1992-2014, Free Software Foundation, Inc.         --
 --                                                                          --
 -- GNAT is free software;  you can  redistribute it  and/or modify it under --
 -- terms of the  GNU General Public License as published  by the Free Soft- --
@@ -891,6 +891,16 @@ package body Atree is
          Set_Field3 (New_Id, Possible_Copy (Field3 (New_Id)));
          Set_Field4 (New_Id, Possible_Copy (Field4 (New_Id)));
          Set_Field5 (New_Id, Possible_Copy (Field5 (New_Id)));
+
+         --  Explicitly copy the aspect specifications as those do not reside
+         --  in a node field.
+
+         if Permits_Aspect_Specifications (Source)
+           and then Has_Aspects (Source)
+         then
+            Set_Aspect_Specifications
+              (New_Id, Copy_List (Aspect_Specifications (Source)));
+         end if;
 
          --  Set Entity field to Empty to ensure that no entity references
          --  are shared between the two, if the source is already analyzed.
@@ -1800,18 +1810,17 @@ package body Atree is
       New_Node := New_Copy (Source);
       Fix_Parents (Ref_Node => Source, Fix_Node => New_Node);
 
-      --  We now set the parent of the new node to be the same as the
-      --  parent of the source. Almost always this parent will be
-      --  replaced by a new value when the relocated node is reattached
-      --  to the tree, but by doing it now, we ensure that this node is
-      --  not even temporarily disconnected from the tree. Note that this
-      --  does not happen free, because in the list case, the parent does
-      --  not get set.
+      --  We now set the parent of the new node to be the same as the parent of
+      --  the source. Almost always this parent will be replaced by a new value
+      --  when the relocated node is reattached to the tree, but by doing it
+      --  now, we ensure that this node is not even temporarily disconnected
+      --  from the tree. Note that this does not happen free, because in the
+      --  list case, the parent does not get set.
 
       Set_Parent (New_Node, Parent (Source));
 
-      --  If the node being relocated was a rewriting of some original
-      --  node, then the relocated node has the same original node.
+      --  If the node being relocated was a rewriting of some original node,
+      --  then the relocated node has the same original node.
 
       if Orig_Nodes.Table (Source) /= Source then
          Orig_Nodes.Table (New_Node) := Orig_Nodes.Table (Source);

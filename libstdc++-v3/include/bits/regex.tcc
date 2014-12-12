@@ -28,12 +28,12 @@
  *  Do not attempt to use it directly. @headername{regex}
  */
 
-// See below __regex_algo_impl to get what this is talking about. The default
-// value 1 indicated a conservative optimization without giving up worst case
-// performance.
-#ifndef _GLIBCXX_REGEX_DFS_QUANTIFIERS_LIMIT
-#define _GLIBCXX_REGEX_DFS_QUANTIFIERS_LIMIT 1
-#endif
+// A non-standard switch to let the user pick the matching algorithm.
+// If _GLIBCXX_REGEX_USE_THOMPSON_NFA is defined, the thompson NFA
+// algorithm will be used. This algorithm is not enabled by default,
+// and cannot be used if the regex contains back-references, but has better
+// (polynomial instead of exponential) worst case performance.
+// See __regex_algo_impl below.
 
 namespace std _GLIBCXX_VISIBILITY(default)
 {
@@ -66,24 +66,16 @@ _GLIBCXX_BEGIN_NAMESPACE_VERSION
       for (auto& __it : __res)
 	__it.matched = false;
 
-      // This function decide which executor to use under given circumstances.
-      // The _S_auto policy now is the following: if a NFA has no
-      // back-references and has more than _GLIBCXX_REGEX_DFS_QUANTIFIERS_LIMIT
-      // quantifiers (*, +, ?), the BFS executor will be used, other wise
-      // DFS executor. This is because DFS executor has a exponential upper
-      // bound, but better best-case performace. Meanwhile, BFS executor can
-      // effectively prevent from exponential-long time matching (which must
-      // contains many quantifiers), but it's slower in average.
-      //
-      // For simple regex, BFS executor could be 2 or more times slower than
-      // DFS executor.
-      //
-      // Of course, BFS executor cannot handle back-references.
+      // __policy is used by testsuites so that they can use Thompson NFA
+      // without defining a macro. Users should define
+      // _GLIBCXX_REGEX_USE_THOMPSON_NFA if they need to use this approach.
       bool __ret;
       if (!__re._M_automaton->_M_has_backref
-	  && (__policy == _RegexExecutorPolicy::_S_alternate
-	      || __re._M_automaton->_M_quant_count
-		> _GLIBCXX_REGEX_DFS_QUANTIFIERS_LIMIT))
+	  && !(__re._M_flags & regex_constants::ECMAScript)
+#ifndef _GLIBCXX_REGEX_USE_THOMPSON_NFA
+	  && __policy == _RegexExecutorPolicy::_S_alternate
+#endif
+	  )
 	{
 	  _Executor<_BiIter, _Alloc, _TraitsT, false>
 	    __executor(__s, __e, __m, __re, __flags);
@@ -343,7 +335,7 @@ _GLIBCXX_BEGIN_NAMESPACE_VERSION
 	{"s", ctype_base::space},
 	{"alnum", ctype_base::alnum},
 	{"alpha", ctype_base::alpha},
-	{"blank", {0, _RegexMask::_S_blank}},
+	{"blank", ctype_base::blank},
 	{"cntrl", ctype_base::cntrl},
 	{"digit", ctype_base::digit},
 	{"graph", ctype_base::graph},
@@ -385,11 +377,7 @@ _GLIBCXX_BEGIN_NAMESPACE_VERSION
       return __fctyp.is(__f._M_base, __c)
 	// [[:w:]]
 	|| ((__f._M_extended & _RegexMask::_S_under)
-	    && __c == __fctyp.widen('_'))
-	// [[:blank:]]
-	|| ((__f._M_extended & _RegexMask::_S_blank)
-	    && (__c == __fctyp.widen(' ')
-		|| __c == __fctyp.widen('\t')));
+	    && __c == __fctyp.widen('_'));
     }
 
   template<typename _Ch_type>
@@ -581,7 +569,9 @@ _GLIBCXX_BEGIN_NAMESPACE_VERSION
 				   | regex_constants::match_continuous))
 		    {
 		      _GLIBCXX_DEBUG_ASSERT(_M_match[0].matched);
-		      _M_match.at(_M_match.size()).first = __prefix_first;
+		      auto& __prefix = _M_match.at(_M_match.size());
+		      __prefix.first = __prefix_first;
+		      __prefix.matched = __prefix.first != __prefix.second;
 		      _M_match._M_in_iterator = true;
 		      _M_match._M_begin = _M_begin;
 		      return *this;
@@ -594,7 +584,9 @@ _GLIBCXX_BEGIN_NAMESPACE_VERSION
 	  if (regex_search(__start, _M_end, _M_match, *_M_pregex, _M_flags))
 	    {
 	      _GLIBCXX_DEBUG_ASSERT(_M_match[0].matched);
-	      _M_match.at(_M_match.size()).first = __prefix_first;
+	      auto& __prefix = _M_match.at(_M_match.size());
+	      __prefix.first = __prefix_first;
+	      __prefix.matched = __prefix.first != __prefix.second;
 	      _M_match._M_in_iterator = true;
 	      _M_match._M_begin = _M_begin;
 	    }

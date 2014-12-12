@@ -397,7 +397,7 @@ build_common_decl (gfc_common_head *com, tree union_type, bool is_init)
 	 blank common blocks may be of different sizes.  */
       if (!tree_int_cst_equal (DECL_SIZE_UNIT (decl), size)
 	  && strcmp (com->name, BLANK_COMMON_NAME))
-	gfc_warning ("Named COMMON block '%s' at %L shall be of the "
+	gfc_warning ("Named COMMON block %qs at %L shall be of the "
 		     "same size as elsewhere (%lu vs %lu bytes)", com->name,
 		     &com->where,
 		     (unsigned long) TREE_INT_CST_LOW (size),
@@ -454,7 +454,12 @@ build_common_decl (gfc_common_head *com, tree union_type, bool is_init)
       gfc_set_decl_location (decl, &com->where);
 
       if (com->threadprivate)
-	DECL_TLS_MODEL (decl) = decl_default_tls_model (decl);
+	set_decl_tls_model (decl, decl_default_tls_model (decl));
+
+      if (com->omp_declare_target)
+	DECL_ATTRIBUTES (decl)
+	  = tree_cons (get_identifier ("omp declare target"),
+		       NULL_TREE, DECL_ATTRIBUTES (decl));
 
       /* Place the back end declaration for this common block in
          GLOBAL_BINDING_LEVEL.  */
@@ -703,8 +708,9 @@ create_common (gfc_common_head *com, segment_info *head, bool saw_equiv)
 	DECL_IGNORED_P (var_decl) = 1;
       if (s->sym->attr.target)
 	TREE_ADDRESSABLE (var_decl) = 1;
-      /* Fake variables are not visible from other translation units. */
+      /* Fake variables are not visible from other translation units.  */
       TREE_PUBLIC (var_decl) = 0;
+      gfc_finish_decl_attrs (var_decl, &s->sym->attr);
 
       /* To preserve identifier names in COMMON, chain to procedure
          scope unless at top level in a module definition.  */
@@ -902,7 +908,7 @@ confirm_condition (segment_info *s1, gfc_equiv *eq1, segment_info *s2,
   offset2 = calculate_offset (eq2->expr);
 
   if (s1->offset + offset1 != s2->offset + offset2)
-    gfc_error ("Inconsistent equivalence rules involving '%s' at %L and "
+    gfc_error_1 ("Inconsistent equivalence rules involving '%s' at %L and "
 	       "'%s' at %L", s1->sym->name, &s1->sym->declared_at,
 	       s2->sym->name, &s2->sym->declared_at);
 }
@@ -1127,15 +1133,15 @@ translate_common (gfc_common_head *common, gfc_symbol *var_list)
 	      /* The required offset conflicts with previous alignment
 		 requirements.  Insert padding immediately before this
 		 segment.  */
-	      if (gfc_option.warn_align_commons)
+	      if (warn_align_commons)
 		{
 		  if (strcmp (common->name, BLANK_COMMON_NAME))
-		    gfc_warning ("Padding of %d bytes required before '%s' in "
-				 "COMMON '%s' at %L; reorder elements or use "
+		    gfc_warning ("Padding of %d bytes required before %qs in "
+				 "COMMON %qs at %L; reorder elements or use "
 				 "-fno-align-commons", (int)offset,
 				 s->sym->name, common->name, &common->where);
 		  else
-		    gfc_warning ("Padding of %d bytes required before '%s' in "
+		    gfc_warning ("Padding of %d bytes required before %qs in "
 				 "COMMON at %L; reorder elements or use "
 				 "-fno-align-commons", (int)offset,
 				 s->sym->name, &common->where);
@@ -1161,15 +1167,17 @@ translate_common (gfc_common_head *common, gfc_symbol *var_list)
       return;
     }
 
-  if (common_segment->offset != 0 && gfc_option.warn_align_commons)
+  if (common_segment->offset != 0 && warn_align_commons)
     {
       if (strcmp (common->name, BLANK_COMMON_NAME))
-	gfc_warning ("COMMON '%s' at %L requires %d bytes of padding; "
-		     "reorder elements or use -fno-align-commons",
+	gfc_warning (OPT_Walign_commons,
+		     "COMMON %qs at %L requires %d bytes of padding; "
+		     "reorder elements or use %<-fno-align-commons%>",
 		     common->name, &common->where, (int)common_segment->offset);
       else
-	gfc_warning ("COMMON at %L requires %d bytes of padding; "
-		     "reorder elements or use -fno-align-commons",
+	gfc_warning (OPT_Walign_commons,
+		     "COMMON at %L requires %d bytes of padding; "
+		     "reorder elements or use %<-fno-align-commons%>",
 		     &common->where, (int)common_segment->offset);
     }
 

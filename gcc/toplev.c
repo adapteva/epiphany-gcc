@@ -43,6 +43,10 @@ along with GCC; see the file COPYING3.  If not see
 #include "recog.h"
 #include "output.h"
 #include "except.h"
+#include "hashtab.h"
+#include "hash-set.h"
+#include "vec.h"
+#include "machmode.h"
 #include "function.h"
 #include "toplev.h"
 #include "expr.h"
@@ -55,6 +59,7 @@ along with GCC; see the file COPYING3.  If not see
 #include "params.h"
 #include "reload.h"
 #include "ira.h"
+#include "lra.h"
 #include "dwarf2asm.h"
 #include "debug.h"
 #include "target.h"
@@ -62,6 +67,12 @@ along with GCC; see the file COPYING3.  If not see
 #include "langhooks.h"
 #include "cfgloop.h" /* for init_set_costs */
 #include "hosthooks.h"
+#include "predict.h"
+#include "basic-block.h"
+#include "hash-map.h"
+#include "is-a.h"
+#include "plugin-api.h"
+#include "ipa-ref.h"
 #include "cgraph.h"
 #include "opts.h"
 #include "opts-diagnostic.h"
@@ -75,10 +86,18 @@ along with GCC; see the file COPYING3.  If not see
 #include "gimple-expr.h"
 #include "gimple.h"
 #include "plugin.h"
-#include "diagnostic-color.h"
 #include "context.h"
 #include "pass_manager.h"
+#include "auto-profile.h"
+#include "dwarf2out.h"
+#include "bitmap.h"
+#include "ipa-reference.h"
+#include "ipa-prop.h"
+#include "gcse.h"
+#include "insn-codes.h"
 #include "optabs.h"
+#include "tree-chkp.h"
+#include "omp-low.h"
 
 #if defined(DBX_DEBUGGING_INFO) || defined(XCOFF_DEBUGGING_INFO)
 #include "dbxout.h"
@@ -93,8 +112,10 @@ along with GCC; see the file COPYING3.  If not see
 				   declarations for e.g. AIX 4.x.  */
 #endif
 
+#include <new>
+
 static void general_init (const char *);
-static void do_compile (void);
+static void do_compile ();
 static void process_options (void);
 static void backend_init (void);
 static int lang_dependent_init (const char *);
@@ -282,16 +303,7 @@ init_local_tick (void)
 static void
 init_random_seed (void)
 {
-  if (flag_random_seed)
-    {
-      char *endp;
-
-      /* When the driver passed in a hex number don't crc it again */
-      random_seed = strtoul (flag_random_seed, &endp, 0);
-      if (!(endp > flag_random_seed && *endp == 0))
-        random_seed = crc32_string (0, flag_random_seed);
-    }
-  else if (!random_seed)
+  if (!random_seed)
     random_seed = local_tick ^ getpid ();  /* Old racey fallback method */
 }
 
@@ -314,6 +326,15 @@ set_random_seed (const char *val)
 {
   const char *old = flag_random_seed;
   flag_random_seed = val;
+  if (flag_random_seed)
+    {
+      char *endp;
+
+      /* When the driver passed in a hex number don't crc it again */
+      random_seed = strtoul (flag_random_seed, &endp, 0);
+      if (!(endp > flag_random_seed && *endp == 0))
+        random_seed = crc32_string (0, flag_random_seed);
+    }
   return old;
 }
 
@@ -393,7 +414,7 @@ wrapup_global_declaration_2 (tree decl)
     {
       varpool_node *node;
       bool needed = true;
-      node = varpool_get_node (decl);
+      node = varpool_node::get (decl);
 
       if (!node && flag_ltrans)
 	needed = false;
@@ -401,7 +422,7 @@ wrapup_global_declaration_2 (tree decl)
 	needed = false;
       else if (node && node->alias)
 	needed = false;
-      else if (!cgraph_global_info_ready
+      else if (!symtab->global_info_ready
 	       && (TREE_USED (decl)
 		   || TREE_USED (DECL_ASSEMBLER_NAME (decl))))
 	/* needed */;
@@ -577,6 +598,11 @@ compile_file (void)
       if (flag_sanitize & SANITIZE_THREAD)
 	tsan_finish_file ();
 
+      if (flag_check_pointer_bounds)
+	chkp_finish_file ();
+
+      omp_finish_file ();
+
       output_shared_constant_pool ();
       output_object_blocks ();
       finish_tm_clone_pairs ();
@@ -612,7 +638,7 @@ compile_file (void)
      We used to emit an undefined reference here, but this produces
      link errors if an object file with IL is stored into a shared
      library without invoking lto1.  */
-  if (flag_generate_lto)
+  if (flag_generate_lto || flag_generate_offload)
     {
 #if defined ASM_OUTPUT_ALIGNED_DECL_COMMON
       ASM_OUTPUT_ALIGNED_DECL_COMMON (asm_out_file, NULL_TREE,
@@ -626,23 +652,23 @@ compile_file (void)
 			 (unsigned HOST_WIDE_INT) 1,
 			 (unsigned HOST_WIDE_INT) 1);
 #endif
-      /* Let linker plugin know that this is a slim object and must be LTOed
-         even when user did not ask for it.  */
-      if (!flag_fat_lto_objects)
-        {
+    }
+
+  /* Let linker plugin know that this is a slim object and must be LTOed
+     even when user did not ask for it.  */
+  if (flag_generate_lto && !flag_fat_lto_objects)
+    {
 #if defined ASM_OUTPUT_ALIGNED_DECL_COMMON
-	  ASM_OUTPUT_ALIGNED_DECL_COMMON (asm_out_file, NULL_TREE,
-					  "__gnu_lto_slim",
-					  (unsigned HOST_WIDE_INT) 1, 8);
+      ASM_OUTPUT_ALIGNED_DECL_COMMON (asm_out_file, NULL_TREE, "__gnu_lto_slim",
+				      (unsigned HOST_WIDE_INT) 1, 8);
 #elif defined ASM_OUTPUT_ALIGNED_COMMON
-	  ASM_OUTPUT_ALIGNED_COMMON (asm_out_file, "__gnu_lto_slim",
-				     (unsigned HOST_WIDE_INT) 1, 8);
+      ASM_OUTPUT_ALIGNED_COMMON (asm_out_file, "__gnu_lto_slim",
+				 (unsigned HOST_WIDE_INT) 1, 8);
 #else
-	  ASM_OUTPUT_COMMON (asm_out_file, "__gnu_lto_slim",
-			     (unsigned HOST_WIDE_INT) 1,
-			     (unsigned HOST_WIDE_INT) 1);
+      ASM_OUTPUT_COMMON (asm_out_file, "__gnu_lto_slim",
+			 (unsigned HOST_WIDE_INT) 1,
+			 (unsigned HOST_WIDE_INT) 1);
 #endif
-        }
     }
 
   /* Attach a special .ident directive to the end of the file to identify
@@ -659,6 +685,10 @@ compile_file (void)
       ident_str = ACONCAT (("GCC: ", pkg_version, version_string, NULL));
       targetm.asm_out.output_ident (ident_str);
     }
+
+  /* Auto profile finalization. */
+  if (flag_auto_profile)
+    end_auto_profile ();
 
   /* Invoke registered plugin callbacks.  */
   invoke_plugin_callbacks (PLUGIN_FINISH_UNIT, NULL);
@@ -914,10 +944,18 @@ init_asm_output (const char *name)
 	}
       if (!strcmp (asm_file_name, "-"))
 	asm_out_file = stdout;
-      else
+      else if (!canonical_filename_eq (asm_file_name, name)
+	       || !strcmp (asm_file_name, HOST_BIT_BUCKET))
 	asm_out_file = fopen (asm_file_name, "w");
+      else
+	/* Use fatal_error (UNKOWN_LOCATION) instead of just fatal_error to
+	   prevent gcc from printing the first line in the current file. */
+	fatal_error (UNKNOWN_LOCATION,
+		     "input file %qs is the same as output file",
+		     asm_file_name);
       if (asm_out_file == 0)
-	fatal_error ("can%'t open %s for writing: %m", asm_file_name);
+	fatal_error (UNKNOWN_LOCATION,
+		     "can%'t open %qs for writing: %m", asm_file_name);
     }
 
   if (!flag_syntax_only)
@@ -957,7 +995,7 @@ init_asm_output (const char *name)
 static void *
 realloc_for_line_map (void *ptr, size_t len)
 {
-  return GGC_RESIZEVAR (void, ptr, len);
+  return ggc_realloc (ptr, len);
 }
 
 /* A helper function: used as the allocator function for
@@ -1052,16 +1090,19 @@ output_stack_usage (void)
 
   if (warn_stack_usage >= 0)
     {
+      const location_t loc = DECL_SOURCE_LOCATION (current_function_decl);
+
       if (stack_usage_kind == DYNAMIC)
-	warning (OPT_Wstack_usage_, "stack usage might be unbounded");
+	warning_at (loc, OPT_Wstack_usage_, "stack usage might be unbounded");
       else if (stack_usage > warn_stack_usage)
 	{
 	  if (stack_usage_kind == DYNAMIC_BOUNDED)
-	    warning (OPT_Wstack_usage_, "stack usage might be %wd bytes",
-		     stack_usage);
+	    warning_at (loc,
+			OPT_Wstack_usage_, "stack usage might be %wd bytes",
+			stack_usage);
 	  else
-	    warning (OPT_Wstack_usage_, "stack usage is %wd bytes",
-		     stack_usage);
+	    warning_at (loc, OPT_Wstack_usage_, "stack usage is %wd bytes",
+			stack_usage);
 	}
     }
 }
@@ -1112,11 +1153,6 @@ general_init (const char *argv0)
   /* Set a default printer.  Language specific initializations will
      override it later.  */
   tree_diagnostics_defaults (global_dc);
-  /* FIXME: This should probably be moved to C-family
-     language-specific initializations.  */
-  /* By default print macro expansion contexts in the diagnostic
-     finalizer -- for tokens resulting from macro expansion.  */
-  diagnostic_finalizer (global_dc) = virt_loc_aware_diagnostic_finalizer;
 
   global_dc->show_caret
     = global_options_init.x_flag_diagnostics_show_caret;
@@ -1156,8 +1192,9 @@ general_init (const char *argv0)
      table.  */
   init_ggc ();
   init_stringpool ();
-  line_table = ggc_alloc_line_maps ();
-  linemap_init (line_table);
+  input_location = UNKNOWN_LOCATION;
+  line_table = ggc_alloc<line_maps> ();
+  linemap_init (line_table, BUILTINS_LOCATION);
   line_table->reallocator = realloc_for_line_map;
   line_table->round_alloc_size = ggc_round_alloc_size;
   init_ttree ();
@@ -1175,6 +1212,7 @@ general_init (const char *argv0)
   /* Create the singleton holder for global state.
      Doing so also creates the pass manager and with it the passes.  */
   g = new gcc::context ();
+  symtab = ggc_cleared_alloc <symbol_table> ();
 
   statistics_early_init ();
   finish_params ();
@@ -1229,18 +1267,25 @@ process_options (void)
 
   maximum_field_alignment = initial_max_fld_align * BITS_PER_UNIT;
 
-  /* Default to -fdiagnostics-color=auto if GCC_COLORS is in the environment,
-     otherwise default to -fdiagnostics-color=never.  */
-  if (!global_options_set.x_flag_diagnostics_show_color
-      && getenv ("GCC_COLORS"))
-    pp_show_color (global_dc->printer)
-      = colorize_init (DIAGNOSTICS_COLOR_AUTO);
-
   /* Allow the front end to perform consistency checks and do further
      initialization based on the command line options.  This hook also
      sets the original filename if appropriate (e.g. foo.i -> foo.c)
      so we can correctly initialize debug output.  */
   no_backend = lang_hooks.post_options (&main_input_filename);
+
+  /* Set default values for parameters relation to the Scalar Reduction
+     of Aggregates passes (SRA and IP-SRA).  We must do this here, rather
+     than in opts.c:default_options_optimization as historically these
+     tuning heuristics have been based on MOVE_RATIO, which on some
+     targets requires other symbols from the backend.  */
+  maybe_set_param_value
+    (PARAM_SRA_MAX_SCALARIZATION_SIZE_SPEED,
+     get_move_ratio (true) * UNITS_PER_WORD,
+     global_options.x_param_values, global_options_set.x_param_values);
+  maybe_set_param_value
+    (PARAM_SRA_MAX_SCALARIZATION_SIZE_SIZE,
+     get_move_ratio (false) * UNITS_PER_WORD,
+     global_options.x_param_values, global_options_set.x_param_values);
 
   /* Some machines may reject certain combinations of options.  */
   targetm.target_option.override ();
@@ -1272,29 +1317,36 @@ process_options (void)
   else
     aux_base_name = "gccaux";
 
-#ifndef HAVE_cloog
+#ifndef HAVE_isl
   if (flag_graphite
       || flag_graphite_identity
       || flag_loop_block
       || flag_loop_interchange
       || flag_loop_strip_mine
-      || flag_loop_parallelize_all)
-    sorry ("Graphite loop optimizations cannot be used (-fgraphite, "
-	   "-fgraphite-identity, -floop-block, "
+      || flag_loop_parallelize_all
+      || flag_loop_unroll_jam)
+    sorry ("Graphite loop optimizations cannot be used (ISL is not available)" 
+	   "(-fgraphite, -fgraphite-identity, -floop-block, "
 	   "-floop-interchange, -floop-strip-mine, -floop-parallelize-all, "
-	   "and -ftree-loop-linear)");
+	   "-floop-unroll-and-jam, and -ftree-loop-linear)");
 #endif
+
+  if (flag_check_pointer_bounds)
+    {
+      if (targetm.chkp_bound_mode () == VOIDmode)
+	error ("-fcheck-pointer-bounds is not supported for this target");
+    }
 
   /* One region RA really helps to decrease the code size.  */
   if (flag_ira_region == IRA_REGION_AUTODETECT)
     flag_ira_region
       = optimize_size || !optimize ? IRA_REGION_ONE : IRA_REGION_MIXED;
 
-  if (flag_strict_volatile_bitfields > 0 && !abi_version_at_least (2))
+  if (!abi_version_at_least (2))
     {
-      warning (0, "-fstrict-volatile-bitfields disabled; "
-	       "it is incompatible with ABI versions < 2");
-      flag_strict_volatile_bitfields = 0;
+      /* -fabi-version=1 support was removed after GCC 4.9.  */
+      error ("%<-fabi-version=1%> is no longer supported");
+      flag_abi_version = 2;
     }
 
   /* Unrolling all loops implies that standard loop unrolling must also
@@ -1415,7 +1467,7 @@ process_options (void)
     debug_hooks = &vmsdbg_debug_hooks;
 #endif
   else
-    error ("target system does not support the \"%s\" debug format",
+    error ("target system does not support the %qs debug format",
 	   debug_type_names[write_symbols]);
 
   /* We know which debug output will be used so we can set flag_var_tracking
@@ -1552,9 +1604,18 @@ process_options (void)
     warn_stack_protect = 0;
 
   /* Address Sanitizer needs porting to each target architecture.  */
+
   if ((flag_sanitize & SANITIZE_ADDRESS)
-      && (targetm.asan_shadow_offset == NULL
-	  || !FRAME_GROWS_DOWNWARD))
+      && !FRAME_GROWS_DOWNWARD)
+    {
+      warning (0,
+	       "-fsanitize=address and -fsanitize=kernel-address "
+	       "are not supported for this target");
+      flag_sanitize &= ~SANITIZE_ADDRESS;
+    }
+
+  if ((flag_sanitize & SANITIZE_USER_ADDRESS)
+      && targetm.asan_shadow_offset == NULL)
     {
       warning (0, "-fsanitize=address not supported for this target");
       flag_sanitize &= ~SANITIZE_ADDRESS;
@@ -1583,14 +1644,6 @@ backend_init_target (void)
   /* Initialize alignment variables.  */
   init_alignments ();
 
-  /* This reinitializes hard_frame_pointer, and calls init_reg_modes_target()
-     to initialize reg_raw_mode[].  */
-  init_emit_regs ();
-
-  /* This invokes target hooks to set fixed_reg[] etc, which is
-     mode-dependent.  */
-  init_regs ();
-
   /* This depends on stack_pointer_rtx.  */
   init_fake_stack_mems ();
 
@@ -1601,6 +1654,9 @@ backend_init_target (void)
   /* Depends on HARD_FRAME_POINTER_REGNUM.  */
   init_reload ();
 
+  /* Depends on the enabled attribute.  */
+  recog_init ();
+
   /* The following initialization functions need to generate rtl, so
      provide a dummy function context for them.  */
   init_dummy_function_start ();
@@ -1609,6 +1665,10 @@ backend_init_target (void)
      on a mode change.  */
   init_expmed ();
   init_lower_subreg ();
+  init_set_costs ();
+
+  init_expr_target ();
+  ira_init ();
 
   /* We may need to recompute regno_save_code[] and regno_restore_code[]
      after a mode change as well.  */
@@ -1629,9 +1689,13 @@ backend_init (void)
   init_varasm_once ();
   save_register_info ();
 
-  /* Initialize the target-specific back end pieces.  */
-  ira_init_once ();
-  backend_init_target ();
+  /* Middle end needs this initialization for default mem attributes
+     used by early calls to make_decl_rtl.  */
+  init_emit_regs ();
+
+  /* Middle end needs this initialization for mode tables used to assign
+     modes to vector variables.  */
+  init_regs ();
 }
 
 /* Initialize excess precision settings.  */
@@ -1684,19 +1748,29 @@ lang_dependent_init_target (void)
      generated from the target machine description.  */
   init_optabs ();
 
-  /* The following initialization functions need to generate rtl, so
-     provide a dummy function context for them.  */
-  init_dummy_function_start ();
+  gcc_assert (!this_target_rtl->target_specific_initialized);
+}
 
-  /* Do the target-specific parts of expr initialization.  */
-  init_expr_target ();
+/* Perform initializations that are lang-dependent or target-dependent.
+   but matters only for late optimizations and RTL generation.  */
 
-  /* Although the actions of these functions are language-independent,
-     they use optabs, so we cannot call them from backend_init.  */
-  init_set_costs ();
-  ira_init ();
+static int rtl_initialized;
 
-  expand_dummy_function_end ();
+void
+initialize_rtl (void)
+{
+  /* Initialization done just once per compilation, but delayed
+     till code generation.  */
+  if (!rtl_initialized)
+    ira_init_once ();
+  rtl_initialized = true;
+
+  /* Target specific RTL backend initialization.  */
+  if (!this_target_rtl->target_specific_initialized)
+    {
+      backend_init_target ();
+      this_target_rtl->target_specific_initialized = true;
+    }
 }
 
 /* Language-dependent initialization.  Returns nonzero on success.  */
@@ -1781,8 +1855,15 @@ target_reinit (void)
       regno_reg_rtx = NULL;
     }
 
-  /* Reinitialize RTL backend.  */
-  backend_init_target ();
+  this_target_rtl->target_specific_initialized = false;
+
+  /* This initializes hard_frame_pointer, and calls init_reg_modes_target()
+     to initialize reg_raw_mode[].  */
+  init_emit_regs ();
+
+  /* This invokes target hooks to set fixed_reg[] etc, which is
+     mode-dependent.  */
+  init_regs ();
 
   /* Reinitialize lang-dependent parts.  */
   lang_dependent_init_target ();
@@ -1857,7 +1938,7 @@ finalize (bool no_backend)
 
       g->get_passes ()->finish_optimization_passes ();
 
-      ira_finish_once ();
+      lra_finish_once ();
     }
 
   if (mem_report)
@@ -1870,27 +1951,49 @@ finalize (bool no_backend)
   lang_hooks.finish ();
 }
 
+static bool
+standard_type_bitsize (int bitsize)
+{
+  /* As a special exception, we always want __int128 enabled if possible.  */
+  if (bitsize == 128)
+    return false;
+  if (bitsize == CHAR_TYPE_SIZE
+      || bitsize == SHORT_TYPE_SIZE
+      || bitsize == INT_TYPE_SIZE
+      || bitsize == LONG_TYPE_SIZE
+      || bitsize == LONG_LONG_TYPE_SIZE)
+    return true;
+  return false;
+}
+
 /* Initialize the compiler, and compile the input file.  */
 static void
-do_compile (void)
+do_compile ()
 {
-  /* Initialize timing first.  The C front ends read the main file in
-     the post_options hook, and C++ does file timings.  */
-  if (time_report || !quiet_flag  || flag_detailed_statistics)
-    timevar_init ();
-  timevar_start (TV_TOTAL);
-
   process_options ();
 
   /* Don't do any more if an error has already occurred.  */
   if (!seen_error ())
     {
+      int i;
+
       timevar_start (TV_PHASE_SETUP);
 
       /* This must be run always, because it is needed to compute the FP
 	 predefined macros, such as __LDBL_MAX__, for targets using non
 	 default FP formats.  */
       init_adjust_machine_modes ();
+      init_derived_machine_modes ();
+
+      /* This must happen after the backend has a chance to process
+	 command line options, but before the parsers are
+	 initialized.  */
+      for (i = 0; i < NUM_INT_N_ENTS; i ++)
+	if (targetm.scalar_mode_supported_p (int_n_data[i].m)
+	    && ! standard_type_bitsize (int_n_data[i].bitsize))
+	  int_n_enabled_p[i] = true;
+	else
+	  int_n_enabled_p[i] = false;
 
       /* Set up the back-end if requested.  */
       if (!no_backend)
@@ -1903,7 +2006,7 @@ do_compile (void)
 
           ggc_protect_identifiers = true;
 
-          init_cgraph ();
+	  symtab->initialize ();
           init_final (main_input_filename);
           coverage_init (aux_base_name);
           statistics_init ();
@@ -1924,10 +2027,28 @@ do_compile (void)
 
       timevar_stop (TV_PHASE_FINALIZE);
     }
+}
 
-  /* Stop timing and print the times.  */
+toplev::toplev (bool use_TV_TOTAL)
+  : m_use_TV_TOTAL (use_TV_TOTAL)
+{
+  if (!m_use_TV_TOTAL)
+    start_timevars ();
+}
+
+toplev::~toplev ()
+{
   timevar_stop (TV_TOTAL);
   timevar_print (stderr);
+}
+
+void
+toplev::start_timevars ()
+{
+  if (time_report || !quiet_flag  || flag_detailed_statistics)
+    timevar_init ();
+
+  timevar_start (TV_TOTAL);
 }
 
 /* Entry point of cc1, cc1plus, jc1, f771, etc.
@@ -1937,7 +2058,7 @@ do_compile (void)
    It is not safe to call this function more than once.  */
 
 int
-toplev_main (int argc, char **argv)
+toplev::main (int argc, char **argv)
 {
   /* Parsing and gimplification sometimes need quite large stack.
      Increase stack size limits if possible.  */
@@ -1987,7 +2108,11 @@ toplev_main (int argc, char **argv)
 
   /* Exit early if we can (e.g. -help).  */
   if (!exit_after_options)
-    do_compile ();
+    {
+      if (m_use_TV_TOTAL)
+	start_timevars ();
+      do_compile ();
+    }
 
   if (warningcount || errorcount || werrorcount)
     print_ignored_options ();
@@ -2004,4 +2129,35 @@ toplev_main (int argc, char **argv)
     return (FATAL_EXIT_CODE);
 
   return (SUCCESS_EXIT_CODE);
+}
+
+/* For those that want to, this function aims to clean up enough state that
+   you can call toplev::main again. */
+void
+toplev::finalize (void)
+{
+  rtl_initialized = false;
+  this_target_rtl->target_specific_initialized = false;
+
+  /* Needs to be called before cgraph_c_finalize since it uses symtab.  */
+  ipa_reference_c_finalize ();
+
+  cgraph_c_finalize ();
+  cgraphunit_c_finalize ();
+  dwarf2out_c_finalize ();
+  gcse_c_finalize ();
+  ipa_cp_c_finalize ();
+  ira_costs_c_finalize ();
+  params_c_finalize ();
+
+  finalize_options_struct (&global_options);
+  finalize_options_struct (&global_options_set);
+
+  XDELETEVEC (save_decoded_options);
+
+  /* Clean up the context (and pass_manager etc). */
+  delete g;
+  g = NULL;
+
+  obstack_free (&opts_obstack, NULL);
 }

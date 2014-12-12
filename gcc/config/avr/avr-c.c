@@ -298,8 +298,6 @@ avr_cpu_cpp_builtins (struct cpp_reader *pfile)
 
   if (avr_current_arch->macro)
     cpp_define_formatted (pfile, "__AVR_ARCH__=%s", avr_current_arch->macro);
-  if (avr_current_device->macro)
-    cpp_define (pfile, avr_current_device->macro);
   if (AVR_HAVE_RAMPD)    cpp_define (pfile, "__AVR_HAVE_RAMPD__");
   if (AVR_HAVE_RAMPX)    cpp_define (pfile, "__AVR_HAVE_RAMPX__");
   if (AVR_HAVE_RAMPY)    cpp_define (pfile, "__AVR_HAVE_RAMPY__");
@@ -323,6 +321,23 @@ avr_cpu_cpp_builtins (struct cpp_reader *pfile)
     }
   if (AVR_XMEGA)
     cpp_define (pfile, "__AVR_XMEGA__");
+
+  if (AVR_TINY)
+    {
+      cpp_define (pfile, "__AVR_TINY__");
+
+      /* Define macro "__AVR_TINY_PM_BASE_ADDRESS__" with mapped program memory
+         start address.  This macro shall be used where mapped program
+         memory is accessed, eg. copying data section (__do_copy_data)
+         contents to data memory region.
+         NOTE:
+         Program memory of AVR_TINY devices cannot be accessed directly,
+         it has been mapped to the data memory.  For AVR_TINY devices
+         (ATtiny4/5/9/10/20 and 40) mapped program memory starts at 0x4000. */
+
+      cpp_define (pfile, "__AVR_TINY_PM_BASE_ADDRESS__=0x4000");
+    }
+
   if (avr_current_arch->have_eijmp_eicall)
     {
       cpp_define (pfile, "__AVR_HAVE_EIJMP_EICALL__");
@@ -347,7 +362,7 @@ avr_cpu_cpp_builtins (struct cpp_reader *pfile)
   if (TARGET_NO_INTERRUPTS)
     cpp_define (pfile, "__NO_INTERRUPTS__");
 
-  if (avr_current_device->dev_attribute & AVR_ERRATA_SKIP)
+  if (TARGET_SKIP_BUG)
     {
       cpp_define (pfile, "__AVR_ERRATA_SKIP__");
 
@@ -355,7 +370,7 @@ avr_cpu_cpp_builtins (struct cpp_reader *pfile)
         cpp_define (pfile, "__AVR_ERRATA_SKIP_JMP_CALL__");
     }
 
-  if (avr_current_device->dev_attribute & AVR_ISA_RMW)
+  if (TARGET_RMW)
     cpp_define (pfile, "__AVR_ISA_RMW__");
 
   cpp_define_formatted (pfile, "__AVR_SFR_OFFSET__=0x%x",
@@ -371,14 +386,17 @@ avr_cpu_cpp_builtins (struct cpp_reader *pfile)
      (as mentioned in ISO/IEC DTR 18037; Annex F.2) which is not
      implemented in GCC up to now.  */
 
-  if (!strcmp (lang_hooks.name, "GNU C"))
+  if (lang_GNU_C ())
     {
       for (i = 0; i < ADDR_SPACE_COUNT; i++)
         if (!ADDR_SPACE_GENERIC_P (i)
             /* Only supply __FLASH<n> macro if the address space is reasonable
                for this target.  The address space qualifier itself is still
                supported, but using it will throw an error.  */
-            && avr_addrspace[i].segment < avr_current_device->n_flash)
+            && avr_addrspace[i].segment < avr_n_flash
+	    /* Only support __MEMX macro if we have LPM.  */
+	    && (AVR_HAVE_LPM || avr_addrspace[i].pointer_size <= 2))
+
           {
             const char *name = avr_addrspace[i].name;
             char *Name = (char*) alloca (1 + strlen (name));

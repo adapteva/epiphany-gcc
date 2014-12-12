@@ -102,11 +102,16 @@ define_builtin_macros_for_compilation_flags (cpp_reader *pfile)
     cpp_define (pfile, "__FAST_MATH__");
   if (flag_signaling_nans)
     cpp_define (pfile, "__SUPPORT_SNAN__");
+  if (!flag_errno_math)
+    cpp_define (pfile, "__NO_MATH_ERRNO__");
 
   cpp_define_formatted (pfile, "__FINITE_MATH_ONLY__=%d",
 			flag_finite_math_only);
   if (flag_cilkplus)
     cpp_define (pfile, "__cilk=200");
+
+  if (flag_check_pointer_bounds)
+    cpp_define (pfile, "__CHKP__");
 }
 
 
@@ -175,7 +180,7 @@ define_builtin_macros_for_type_sizes (cpp_reader *pfile)
   /* ptr_type_node can't be used here since ptr_mode is only set when
      toplev calls backend_init which is not done with -E switch.  */
   cpp_define_formatted (pfile, "__SIZEOF_POINTER__=%d",
-			POINTER_SIZE / BITS_PER_UNIT);
+			1 << ceil_log2 ((POINTER_SIZE + BITS_PER_UNIT - 1) / BITS_PER_UNIT));
 }
 
 

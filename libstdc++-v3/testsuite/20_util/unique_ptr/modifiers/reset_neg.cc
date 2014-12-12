@@ -1,5 +1,5 @@
 // { dg-do compile }
-// { dg-options "-std=gnu++0x" }
+// { dg-options "-std=gnu++11" }
 
 // Copyright (C) 2008-2014 Free Software Foundation, Inc.
 //
@@ -32,7 +32,7 @@ struct B : A
 void test01()
 {
   std::unique_ptr<B[]> up;
-  up.reset(new A[3]);		// { dg-error "invalid conversion" }
+  up.reset(new A[3]);		// { dg-error "" }
 }
 
 // { dg-prune-output "include" }

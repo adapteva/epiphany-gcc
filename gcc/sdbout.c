@@ -125,7 +125,7 @@ static void sdbout_end_prologue		(unsigned int, const char *);
 static void sdbout_begin_function	(tree);
 static void sdbout_end_function		(unsigned int);
 static void sdbout_toplevel_data	(tree);
-static void sdbout_label		(rtx);
+static void sdbout_label		(rtx_code_label *);
 static char *gen_fake_label		(void);
 static int plain_type			(tree);
 static int template_name_p		(tree);
@@ -302,7 +302,7 @@ const struct gcc_debug_hooks sdb_debug_hooks =
   debug_nothing_tree,		         /* outlining_inline_function */
   sdbout_label,			         /* label */
   debug_nothing_int,		         /* handle_pch */
-  debug_nothing_rtx,		         /* var_location */
+  debug_nothing_rtx_insn,	         /* var_location */
   debug_nothing_void,                    /* switch_text_section */
   debug_nothing_tree_tree,		 /* set_name */
   0,                                     /* start_end_main_source_file */
@@ -739,13 +739,16 @@ sdbout_symbol (tree decl, int local)
       if (!DECL_RTL_SET_P (decl))
 	return;
 
-      SET_DECL_RTL (decl,
-		    eliminate_regs (DECL_RTL (decl), VOIDmode, NULL_RTX));
+      value = DECL_RTL (decl);
+
+      if (!is_global_var (decl))
+	value = eliminate_regs (value, VOIDmode, NULL_RTX);
+
+      SET_DECL_RTL (decl, value);
 #ifdef LEAF_REG_REMAP
       if (crtl->uses_only_leaf_regs)
-	leaf_renumber_regs_insn (DECL_RTL (decl));
+	leaf_renumber_regs_insn (value);
 #endif
-      value = DECL_RTL (decl);
 
       /* Don't mention a variable at all
 	 if it was completely optimized into nothingness.
@@ -1017,7 +1020,7 @@ static void
 sdbout_one_type (tree type)
 {
   if (current_function_decl != NULL_TREE
-      && DECL_SECTION_NAME (current_function_decl) != NULL_TREE)
+      && DECL_SECTION_NAME (current_function_decl) != NULL)
     ; /* Don't change section amid function.  */
   else
     switch_to_section (current_function_section ());
@@ -1597,7 +1600,7 @@ sdbout_end_epilogue (unsigned int line ATTRIBUTE_UNUSED,
    is present.  */
 
 static void
-sdbout_label (rtx insn)
+sdbout_label (rtx_code_label *insn)
 {
   PUT_SDB_DEF (LABEL_NAME (insn));
   PUT_SDB_VAL (insn);

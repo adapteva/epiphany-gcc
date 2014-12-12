@@ -170,7 +170,7 @@ c_finish_omp_atomic (location_t loc, enum tree_code code,
     {
       /* Make sure LHS is simple enough so that goa_lhs_expr_p can recognize
 	 it even after unsharing function body.  */
-      tree var = create_tmp_var_raw (TREE_TYPE (addr), NULL);
+      tree var = create_tmp_var_raw (TREE_TYPE (addr));
       DECL_CONTEXT (var) = current_function_decl;
       addr = build4 (TARGET_EXPR, TREE_TYPE (addr), var, addr, NULL, NULL);
     }
@@ -396,7 +396,7 @@ c_finish_omp_for (location_t locus, enum tree_code code, tree declv,
   bool fail = false;
   int i;
 
-  if (code == CILK_SIMD
+  if ((code == CILK_SIMD || code == CILK_FOR)
       && !c_check_cilk_loop (locus, TREE_VEC_ELT (declv, 0)))
     fail = true;
 
@@ -515,7 +515,10 @@ c_finish_omp_for (location_t locus, enum tree_code code, tree declv,
 		  || TREE_CODE (cond) == EQ_EXPR)
 		{
 		  if (!INTEGRAL_TYPE_P (TREE_TYPE (decl)))
-		    cond_ok = false;
+		    {
+		      if (code != CILK_SIMD && code != CILK_FOR)
+			cond_ok = false;
+		    }
 		  else if (operand_equal_p (TREE_OPERAND (cond, 1),
 					    TYPE_MIN_VALUE (TREE_TYPE (decl)),
 					    0))
@@ -526,7 +529,7 @@ c_finish_omp_for (location_t locus, enum tree_code code, tree declv,
 					    0))
 		    TREE_SET_CODE (cond, TREE_CODE (cond) == NE_EXPR
 					 ? LT_EXPR : GE_EXPR);
-		  else if (code != CILK_SIMD)
+		  else if (code != CILK_SIMD && code != CILK_FOR)
 		    cond_ok = false;
 		}
 	    }
@@ -789,8 +792,13 @@ c_omp_split_clauses (location_t loc, enum tree_code code,
 	  else if ((mask & (OMP_CLAUSE_MASK_1 << PRAGMA_OMP_CLAUSE_NUM_TEAMS))
 		   != 0)
 	    {
-	      /* This must be #pragma omp {,target }teams distribute.  */
-	      gcc_assert (code == OMP_DISTRIBUTE);
+	      /* This must be one of
+		 #pragma omp {,target }teams distribute
+		 #pragma omp target teams
+		 #pragma omp {,target }teams distribute simd.  */
+	      gcc_assert (code == OMP_DISTRIBUTE
+			  || code == OMP_TEAMS
+			  || code == OMP_SIMD);
 	      s = C_OMP_CLAUSE_SPLIT_TEAMS;
 	    }
 	  else if ((mask & (OMP_CLAUSE_MASK_1

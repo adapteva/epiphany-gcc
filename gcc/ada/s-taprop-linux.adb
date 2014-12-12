@@ -39,6 +39,7 @@ pragma Polling (Off);
 --  operations. It causes infinite loops and other problems.
 
 with Interfaces.C;
+with Interfaces.C.Extensions;
 
 with System.Task_Info;
 with System.Tasking.Debug;
@@ -61,6 +62,7 @@ package body System.Task_Primitives.Operations is
    use System.Tasking.Debug;
    use System.Tasking;
    use Interfaces.C;
+   use Interfaces.C.Extensions;
    use System.OS_Interface;
    use System.Parameters;
    use System.OS_Primitives;
@@ -629,12 +631,12 @@ package body System.Task_Primitives.Operations is
 
       procedure timeval_to_duration
         (T    : not null access timeval;
-         sec  : not null access C.long;
+         sec  : not null access C.Extensions.long_long;
          usec : not null access C.long);
       pragma Import (C, timeval_to_duration, "__gnat_timeval_to_duration");
 
       Micro  : constant := 10**6;
-      sec    : aliased C.long;
+      sec    : aliased C.Extensions.long_long;
       usec   : aliased C.long;
       TV     : aliased timeval;
       Result : int;
@@ -1076,9 +1078,11 @@ package body System.Task_Primitives.Operations is
 
    procedure Abort_Task (T : Task_Id) is
       Result : Interfaces.C.int;
-      ESRCH  : constant := 3; -- No such process
+
+      ESRCH : constant := 3; -- No such process
       --  It can happen that T has already vanished, in which case pthread_kill
       --  returns ESRCH, so we don't consider that to be an error.
+
    begin
       if Abort_Handler_Installed then
          Result :=
@@ -1512,7 +1516,9 @@ package body System.Task_Primitives.Operations is
                System.OS_Interface.CPU_ZERO (Size, CPU_Set);
 
                for Proc in T.Common.Domain'Range loop
-                  System.OS_Interface.CPU_SET (int (Proc), Size, CPU_Set);
+                  if T.Common.Domain (Proc) then
+                     System.OS_Interface.CPU_SET (int (Proc), Size, CPU_Set);
+                  end if;
                end loop;
             end if;
 

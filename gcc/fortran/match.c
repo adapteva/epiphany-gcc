@@ -532,7 +532,7 @@ gfc_match_name (char *buffer)
   c = gfc_next_ascii_char ();
   if (!(ISALPHA (c) || (c == '_' && gfc_option.flag_allow_leading_underscore)))
     {
-      if (gfc_error_flag_test () == 0 && c != '(')
+      if (!gfc_error_flag_test () && c != '(')
 	gfc_error ("Invalid character in name at %C");
       gfc_current_locus = old_loc;
       return MATCH_NO;
@@ -557,106 +557,13 @@ gfc_match_name (char *buffer)
 
   if (c == '$' && !gfc_option.flag_dollar_ok)
     {
-      gfc_fatal_error ("Invalid character '$' at %L. Use -fdollar-ok to allow "
-		       "it as an extension", &old_loc);
+      gfc_fatal_error ("Invalid character %<$%> at %L. Use %<-fdollar-ok%> to "
+		       "allow it as an extension", &old_loc);
       return MATCH_ERROR;
     }
 
   buffer[i] = '\0';
   gfc_current_locus = old_loc;
-
-  return MATCH_YES;
-}
-
-
-/* Match a valid name for C, which is almost the same as for Fortran,
-   except that you can start with an underscore, etc..  It could have
-   been done by modifying the gfc_match_name, but this way other
-   things C allows can be done, such as no limits on the length.
-   Also, by rewriting it, we use the gfc_next_char_C() to prevent the
-   input characters from being automatically lower cased, since C is
-   case sensitive.  The parameter, buffer, is used to return the name
-   that is matched.  Return MATCH_ERROR if the name is not a valid C
-   name, MATCH_NO if what we're seeing isn't a name, and MATCH_YES if
-   we successfully match a C name.  */
-
-match
-gfc_match_name_C (const char **buffer)
-{
-  locus old_loc;
-  size_t i = 0;
-  gfc_char_t c;
-  char* buf;
-  size_t cursz = 16;
-
-  old_loc = gfc_current_locus;
-  gfc_gobble_whitespace ();
-
-  /* Get the next char (first possible char of name) and see if
-     it's valid for C (either a letter or an underscore).  */
-  c = gfc_next_char_literal (INSTRING_WARN);
-
-  /* If the user put nothing expect spaces between the quotes, it is valid
-     and simply means there is no name= specifier and the name is the Fortran
-     symbol name, all lowercase.  */
-  if (c == '"' || c == '\'')
-    {
-      gfc_current_locus = old_loc;
-      return MATCH_YES;
-    }
-
-  if (!ISALPHA (c) && c != '_')
-    {
-      gfc_error ("Invalid C name in NAME= specifier at %C");
-      return MATCH_ERROR;
-    }
-
-  buf = XNEWVEC (char, cursz);
-  /* Continue to read valid variable name characters.  */
-  do
-    {
-      gcc_assert (gfc_wide_fits_in_byte (c));
-
-      buf[i++] = (unsigned char) c;
-
-      if (i >= cursz)
-	{
-	  cursz *= 2;
-	  buf = XRESIZEVEC (char, buf, cursz);
-	}
-
-      old_loc = gfc_current_locus;
-
-      /* Get next char; param means we're in a string.  */
-      c = gfc_next_char_literal (INSTRING_WARN);
-    } while (ISALNUM (c) || c == '_');
-
-  /* The binding label will be needed later anyway, so just insert it
-     into the symbol table.  */
-  buf[i] = '\0';
-  *buffer = IDENTIFIER_POINTER (get_identifier (buf));
-  XDELETEVEC (buf);
-  gfc_current_locus = old_loc;
-
-  /* See if we stopped because of whitespace.  */
-  if (c == ' ')
-    {
-      gfc_gobble_whitespace ();
-      c = gfc_peek_ascii_char ();
-      if (c != '"' && c != '\'')
-        {
-          gfc_error ("Embedded space in NAME= specifier at %C");
-          return MATCH_ERROR;
-        }
-    }
-
-  /* If we stopped because we had an invalid character for a C name, report
-     that to the user by returning MATCH_NO.  */
-  if (c != '"' && c != '\'')
-    {
-      gfc_error ("Invalid C name in NAME= specifier at %C");
-      return MATCH_ERROR;
-    }
 
   return MATCH_YES;
 }
@@ -1590,7 +1497,7 @@ gfc_match_if (gfc_statement *if_type)
 
   /* All else has failed, so give up.  See if any of the matchers has
      stored an error message of some sort.  */
-  if (gfc_error_check () == 0)
+  if (!gfc_error_check ())
     gfc_error ("Unclassifiable statement in IF-clause at %C");
 
   gfc_free_expr (expr);
@@ -1758,7 +1665,8 @@ gfc_match_critical (void)
 
   if (gfc_option.coarray == GFC_FCOARRAY_NONE)
     {
-       gfc_fatal_error ("Coarrays disabled at %C, use -fcoarray= to enable");
+       gfc_fatal_error ("Coarrays disabled at %C, use %<-fcoarray=%> to "
+			"enable");
        return MATCH_ERROR;
     }
 
@@ -2595,7 +2503,10 @@ match_exit_cycle (gfc_statement st, gfc_exec_op op)
       && o != NULL
       && o->state == COMP_OMP_STRUCTURED_BLOCK
       && (o->head->op == EXEC_OMP_DO
-	  || o->head->op == EXEC_OMP_PARALLEL_DO))
+	  || o->head->op == EXEC_OMP_PARALLEL_DO
+	  || o->head->op == EXEC_OMP_SIMD
+	  || o->head->op == EXEC_OMP_DO_SIMD
+	  || o->head->op == EXEC_OMP_PARALLEL_DO_SIMD))
     {
       int collapse = 1;
       gcc_assert (o->head->next != NULL
@@ -2816,7 +2727,7 @@ lock_unlock_statement (gfc_statement st)
 
   if (gfc_option.coarray == GFC_FCOARRAY_NONE)
     {
-       gfc_fatal_error ("Coarrays disabled at %C, use -fcoarray= to enable");
+       gfc_fatal_error ("Coarrays disabled at %C, use %<-fcoarray=%> to enable");
        return MATCH_ERROR;
     }
 
@@ -3012,7 +2923,8 @@ sync_statement (gfc_statement st)
 
   if (gfc_option.coarray == GFC_FCOARRAY_NONE)
     {
-       gfc_fatal_error ("Coarrays disabled at %C, use -fcoarray= to enable");
+       gfc_fatal_error ("Coarrays disabled at %C, use %<-fcoarray=%> to "
+			"enable");
        return MATCH_ERROR;
     }
 
@@ -3636,7 +3548,7 @@ alloc_opt_list:
 	  /* The next 2 conditionals check C631.  */
 	  if (ts.type != BT_UNKNOWN)
 	    {
-	      gfc_error ("SOURCE tag at %L conflicts with the typespec at %L",
+	      gfc_error_1 ("SOURCE tag at %L conflicts with the typespec at %L",
 			 &tmp->where, &old_locus);
 	      goto cleanup;
 	    }
@@ -3673,7 +3585,7 @@ alloc_opt_list:
 	  /* Check F08:C637.  */
 	  if (ts.type != BT_UNKNOWN)
 	    {
-	      gfc_error ("MOLD tag at %L conflicts with the typespec at %L",
+	      gfc_error_1 ("MOLD tag at %L conflicts with the typespec at %L",
 			 &tmp->where, &old_locus);
 	      goto cleanup;
 	    }
@@ -3699,7 +3611,7 @@ alloc_opt_list:
   /* Check F08:C637.  */
   if (source && mold)
     {
-      gfc_error ("MOLD tag at %L conflicts with SOURCE tag at %L",
+      gfc_error_1 ("MOLD tag at %L conflicts with SOURCE tag at %L",
 		  &mold->where, &source->where);
       goto cleanup;
     }
@@ -4387,23 +4299,23 @@ gfc_match_common (void)
                   /* If we find an error, just print it and continue,
                      cause it's just semantic, and we can see if there
                      are more errors.  */
-                  gfc_error_now ("Variable '%s' at %L in common block '%s' "
-                                 "at %C must be declared with a C "
-                                 "interoperable kind since common block "
-                                 "'%s' is bind(c)",
-                                 sym->name, &(sym->declared_at), t->name,
-                                 t->name);
+                  gfc_error_now_1 ("Variable '%s' at %L in common block '%s' "
+				   "at %C must be declared with a C "
+				   "interoperable kind since common block "
+				   "'%s' is bind(c)",
+				   sym->name, &(sym->declared_at), t->name,
+				   t->name);
                 }
 
               if (sym->attr.is_bind_c == 1)
-                gfc_error_now ("Variable '%s' in common block "
-                               "'%s' at %C can not be bind(c) since "
-                               "it is not global", sym->name, t->name);
+                gfc_error_now ("Variable %qs in common block %qs at %C can not "
+                               "be bind(c) since it is not global", sym->name,
+			       t->name);
             }
 
 	  if (sym->attr.in_common)
 	    {
-	      gfc_error ("Symbol '%s' at %C is already in a COMMON block",
+	      gfc_error ("Symbol %qs at %C is already in a COMMON block",
 			 sym->name);
 	      goto cleanup;
 	    }
@@ -4558,6 +4470,30 @@ gfc_free_namelist (gfc_namelist *name)
 
   for (; name; name = n)
     {
+      n = name->next;
+      free (name);
+    }
+}
+
+
+/* Free an OpenMP namelist structure.  */
+
+void
+gfc_free_omp_namelist (gfc_omp_namelist *name)
+{
+  gfc_omp_namelist *n;
+
+  for (; name; name = n)
+    {
+      gfc_free_expr (name->expr);
+      if (name->udr)
+	{
+	  if (name->udr->combiner)
+	    gfc_free_statement (name->udr->combiner);
+	  if (name->udr->initializer)
+	    gfc_free_statement (name->udr->initializer);
+	  free (name->udr);
+	}
       n = name->next;
       free (name);
     }
@@ -4902,7 +4838,9 @@ recursive_stmt_fcn (gfc_expr *e, gfc_symbol *sym)
 match
 gfc_match_st_function (void)
 {
-  gfc_error_buf old_error;
+  gfc_error_buf old_error_1;
+  output_buffer old_error;
+
   gfc_symbol *sym;
   gfc_expr *expr;
   match m;
@@ -4911,7 +4849,7 @@ gfc_match_st_function (void)
   if (m != MATCH_YES)
     return m;
 
-  gfc_push_error (&old_error);
+  gfc_push_error (&old_error, &old_error_1);
 
   if (!gfc_add_procedure (&sym->attr, PROC_ST_FUNCTION, sym->name, NULL))
     goto undo_error;
@@ -4923,7 +4861,8 @@ gfc_match_st_function (void)
   if (m == MATCH_NO)
     goto undo_error;
 
-  gfc_free_error (&old_error);
+  gfc_free_error (&old_error, &old_error_1);
+
   if (m == MATCH_ERROR)
     return m;
 
@@ -4941,7 +4880,7 @@ gfc_match_st_function (void)
   return MATCH_YES;
 
 undo_error:
-  gfc_pop_error (&old_error);
+  gfc_pop_error (&old_error, &old_error_1);
   return MATCH_NO;
 }
 

@@ -19,6 +19,8 @@ You should have received a copy of the GNU General Public License
 along with GCC; see the file COPYING3.  If not see
 <http://www.gnu.org/licenses/>.  */
 
+#ifndef AVR_ARCH_H
+#define AVR_ARCH_H
 
 /* This enum supplies indices into the avr_arch_types[] table below. */
 
@@ -35,6 +37,7 @@ enum avr_arch
   ARCH_AVR5,
   ARCH_AVR51,
   ARCH_AVR6,
+  ARCH_AVRTINY,
   ARCH_AVRXMEGA2,
   ARCH_AVRXMEGA4,
   ARCH_AVRXMEGA5,
@@ -75,6 +78,9 @@ typedef struct
      and thus also the RAMPX, RAMPY and RAMPZ registers.  */
   int have_rampd;
 
+  /* This is a TINY core. */
+  int tiny_p;
+
   /* Default start of data section address for architecture.  */
   int default_data_section_start;
 
@@ -109,10 +115,13 @@ typedef struct
   /* Start of data section.  */
   int data_section_start;
 
+  /* Start of text section. */
+  int text_section_start;
+
   /* Number of 64k segments in the flash.  */
   int n_flash;
 
-  /* Name of device library.  */
+  /* Old name of device library.  */
   const char *const library_name;
 } avr_mcu_t;
 
@@ -170,3 +179,5 @@ extern const avr_arch_t *avr_current_arch;
 
 extern const avr_mcu_t avr_mcu_types[];
 extern const avr_mcu_t *avr_current_device;
+
+#endif /* AVR_ARCH_H */

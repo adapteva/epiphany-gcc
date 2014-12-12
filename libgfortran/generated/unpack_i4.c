@@ -99,11 +99,13 @@ unpack0_i4 (gfc_array_i4 *ret, const gfc_array_i4 *vector,
 	  rs *= extent[n];
 	}
       ret->offset = 0;
-      ret->base_addr = xmalloc (rs * sizeof (GFC_INTEGER_4));
+      ret->base_addr = xmallocarray (rs, sizeof (GFC_INTEGER_4));
     }
   else
     {
       dim = GFC_DESCRIPTOR_RANK (ret);
+      /* Initialize to avoid -Wmaybe-uninitialized complaints.  */
+      rstride[0] = 1;
       for (n = 0; n < dim; n++)
 	{
 	  count[n] = 0;
@@ -244,11 +246,13 @@ unpack1_i4 (gfc_array_i4 *ret, const gfc_array_i4 *vector,
 	  rs *= extent[n];
 	}
       ret->offset = 0;
-      ret->base_addr = xmalloc (rs * sizeof (GFC_INTEGER_4));
+      ret->base_addr = xmallocarray (rs, sizeof (GFC_INTEGER_4));
     }
   else
     {
       dim = GFC_DESCRIPTOR_RANK (ret);
+      /* Initialize to avoid -Wmaybe-uninitialized complaints.  */
+      rstride[0] = 1;
       for (n = 0; n < dim; n++)
 	{
 	  count[n] = 0;

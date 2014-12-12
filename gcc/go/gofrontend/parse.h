@@ -179,10 +179,10 @@ class Parse
   Function_type* signature(Typed_identifier*, Location);
   bool parameters(Typed_identifier_list**, bool* is_varargs);
   Typed_identifier_list* parameter_list(bool* is_varargs);
-  void parameter_decl(bool, Typed_identifier_list*, bool*, bool*);
+  void parameter_decl(bool, Typed_identifier_list*, bool*, bool*, bool*);
   bool result(Typed_identifier_list**);
   Location block();
-  Type* interface_type();
+  Type* interface_type(bool record);
   void method_spec(Typed_identifier_list*);
   void declaration();
   bool declaration_may_start_here();
@@ -236,7 +236,7 @@ class Parse
 			 bool* is_type_switch, bool* is_parenthesized);
   Type* reassociate_chan_direction(Channel_type*, Location);
   Expression* qualified_expr(Expression*, Location);
-  Expression* id_to_expression(const std::string&, Location);
+  Expression* id_to_expression(const std::string&, Location, bool);
   void statement(Label*);
   bool statement_may_start_here();
   void labeled_stmt(const std::string&, Location);

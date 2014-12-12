@@ -24,7 +24,15 @@ along with GCC; see the file COPYING3.  If not see
 #include "coretypes.h"
 #include "tm.h"
 #include "rtl.h"
+#include "predict.h"
+#include "basic-block.h"
 #include "valtrack.h"
+#include "hashtab.h"
+#include "hash-set.h"
+#include "vec.h"
+#include "machmode.h"
+#include "hard-reg-set.h"
+#include "input.h"
 #include "function.h"
 #include "regs.h"
 #include "emit-rtl.h"
@@ -34,7 +42,7 @@ along with GCC; see the file COPYING3.  If not see
    instructions.  */
 
 static rtx
-gen_lowpart_for_debug (enum machine_mode mode, rtx x)
+gen_lowpart_for_debug (machine_mode mode, rtx x)
 {
   rtx result = gen_lowpart_if_possible (mode, x);
   if (result)
@@ -51,7 +59,7 @@ gen_lowpart_for_debug (enum machine_mode mode, rtx x)
    the same addresses without modifying the corresponding registers.  */
 
 static rtx
-cleanup_auto_inc_dec (rtx src, enum machine_mode mem_mode ATTRIBUTE_UNUSED)
+cleanup_auto_inc_dec (rtx src, machine_mode mem_mode ATTRIBUTE_UNUSED)
 {
   rtx x = src;
 #ifdef AUTO_INC_DEC
@@ -177,11 +185,12 @@ propagate_for_debug_subst (rtx from, const_rtx old_rtx, void *data)
    of THIS_BASIC_BLOCK.  */
 
 void
-propagate_for_debug (rtx insn, rtx last, rtx dest, rtx src,
+propagate_for_debug (rtx_insn *insn, rtx_insn *last, rtx dest, rtx src,
 		     basic_block this_basic_block)
 {
-  rtx next, loc, end = NEXT_INSN (BB_END (this_basic_block));
-  rtx (*saved_rtl_hook_no_emit) (enum machine_mode, rtx);
+  rtx_insn *next, *end = NEXT_INSN (BB_END (this_basic_block));
+  rtx loc;
+  rtx (*saved_rtl_hook_no_emit) (machine_mode, rtx);
 
   struct rtx_subst_pair p;
   p.to = src;
@@ -214,6 +223,7 @@ void
 dead_debug_global_init (struct dead_debug_global *debug, bitmap used)
 {
   debug->used = used;
+  debug->htab = NULL;
   if (used)
     bitmap_clear (used);
 }
@@ -250,7 +260,7 @@ dead_debug_global_find (struct dead_debug_global *global, rtx reg)
   dead_debug_global_entry temp_entry;
   temp_entry.reg = reg;
 
-  dead_debug_global_entry *entry = global->htab.find (&temp_entry);
+  dead_debug_global_entry *entry = global->htab->find (&temp_entry);
   gcc_checking_assert (entry && entry->reg == temp_entry.reg);
 
   return entry;
@@ -265,10 +275,11 @@ dead_debug_global_insert (struct dead_debug_global *global, rtx reg, rtx dtemp)
   temp_entry.reg = reg;
   temp_entry.dtemp = dtemp;
 
-  if (!global->htab.is_created ())
-    global->htab.create (31);
+  if (!global->htab)
+    global->htab = new hash_table<dead_debug_hash_descr> (31);
 
-  dead_debug_global_entry **slot = global->htab.find_slot (&temp_entry, INSERT);
+  dead_debug_global_entry **slot = global->htab->find_slot (&temp_entry,
+							    INSERT);
   gcc_checking_assert (!*slot);
   *slot = XNEW (dead_debug_global_entry);
   **slot = temp_entry;
@@ -341,7 +352,7 @@ dead_debug_reset_uses (struct dead_debug_local *debug,
   while (head)
     {
       struct dead_debug_use *next = head->next;
-      rtx insn;
+      rtx_insn *insn;
 
       insn = DF_REF_INSN (head->use);
       if (!next || DF_REF_INSN (next->use) != insn)
@@ -429,7 +440,7 @@ dead_debug_promote_uses (struct dead_debug_local *debug)
 						 REGNO (reg),
 						 &debug->to_rescan))
 	      {
-		rtx insn = DF_REF_INSN (ref);
+		rtx_insn *insn = DF_REF_INSN (ref);
 		INSN_VAR_LOCATION_LOC (insn) = gen_rtx_UNKNOWN_VAR_LOC ();
 		bitmap_set_bit (debug->to_rescan, INSN_UID (insn));
 	      }
@@ -445,7 +456,7 @@ dead_debug_promote_uses (struct dead_debug_local *debug)
 					 DEBUG_EXPR_TREE_DECL (entry->dtemp),
 					 gen_rtx_UNKNOWN_VAR_LOC (),
 					 VAR_INIT_STATUS_INITIALIZED);
-	    rtx insn = emit_debug_insn_before (bind, DF_REF_INSN (ref));
+	    rtx_insn *insn = emit_debug_insn_before (bind, DF_REF_INSN (ref));
 	    bitmap_set_bit (debug->to_rescan, INSN_UID (insn));
 	  }
 
@@ -493,8 +504,8 @@ dead_debug_global_finish (struct dead_debug_global *global, bitmap used)
   if (global->used != used)
     BITMAP_FREE (global->used);
 
-  if (global->htab.is_created ())
-    global->htab.dispose ();
+  delete global->htab;
+  global->htab = NULL;
 }
 
 /* Add USE to DEBUG, or substitute it right away if it's a pseudo in
@@ -533,7 +544,7 @@ dead_debug_add (struct dead_debug_local *debug, df_ref use, unsigned int uregno)
 
 int
 dead_debug_insert_temp (struct dead_debug_local *debug, unsigned int uregno,
-			rtx insn, enum debug_temp_where where)
+			rtx_insn *insn, enum debug_temp_where where)
 {
   struct dead_debug_use **tailp = &debug->head;
   struct dead_debug_use *cur;
@@ -695,7 +706,7 @@ dead_debug_insert_temp (struct dead_debug_local *debug, unsigned int uregno,
      probably doesn't make sense to introduce a new debug temp.  */
   if (where == DEBUG_TEMP_AFTER_WITH_REG && !uses->next)
     {
-      rtx next = DF_REF_INSN (uses->use);
+      rtx_insn *next = DF_REF_INSN (uses->use);
 
       if (DEBUG_INSN_P (next) && reg == INSN_VAR_LOCATION_LOC (next))
 	{

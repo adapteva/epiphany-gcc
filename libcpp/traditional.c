@@ -74,7 +74,11 @@ enum ls {ls_none = 0,		/* Normal state.  */
 	 ls_defined_close,	/* Looking for ')' of defined().  */
 	 ls_hash,		/* After # in preprocessor conditional.  */
 	 ls_predicate,		/* After the predicate, maybe paren?  */
-	 ls_answer};		/* In answer to predicate.  */
+	 ls_answer,		/* In answer to predicate.  */
+	 ls_has_include,	/* After __has_include__.  */
+	 ls_has_include_close,	/* Looking for ')' of __has_include__.  */
+	 ls_has_attribute,	/* After __has_attribute__.  */
+	 ls_has_attribute_close}; /* Looking for ')' of __has_attribute__.  */
 
 /* Lexing TODO: Maybe handle space in escaped newlines.  Stop lex.c
    from recognizing comments and directives during its lexing pass.  */
@@ -524,6 +528,19 @@ _cpp_scan_out_logical_line (cpp_reader *pfile, cpp_macro *macro)
 		  lex_state = ls_defined;
 		  continue;
 		}
+	      else if (pfile->state.in_expression
+		       && (node == pfile->spec_nodes.n__has_include__
+			|| node == pfile->spec_nodes.n__has_include_next__))
+		{
+		  lex_state = ls_has_include;
+		  continue;
+		}
+	      else if (pfile->state.in_expression
+		       && node == pfile->spec_nodes.n__has_attribute__)
+		{
+		  lex_state = ls_has_attribute;
+		  continue;
+		}
 	    }
 	  break;
 
@@ -547,6 +564,10 @@ _cpp_scan_out_logical_line (cpp_reader *pfile, cpp_macro *macro)
 		lex_state = ls_answer;
 	      else if (lex_state == ls_defined)
 		lex_state = ls_defined_close;
+	      else if (lex_state == ls_has_include)
+		lex_state = ls_has_include_close;
+	      else if (lex_state == ls_has_attribute)
+		lex_state = ls_has_attribute_close;
 	    }
 	  break;
 
@@ -584,7 +605,9 @@ _cpp_scan_out_logical_line (cpp_reader *pfile, cpp_macro *macro)
 		      goto new_context;
 		    }
 		}
-	      else if (lex_state == ls_answer || lex_state == ls_defined_close)
+	      else if (lex_state == ls_answer || lex_state == ls_defined_close
+			|| lex_state == ls_has_include_close
+			|| lex_state == ls_has_attribute_close)
 		lex_state = ls_none;
 	    }
 	  break;
@@ -665,7 +688,9 @@ _cpp_scan_out_logical_line (cpp_reader *pfile, cpp_macro *macro)
 	lex_state = ls_none;
       else if (lex_state == ls_hash
 	       || lex_state == ls_predicate
-	       || lex_state == ls_defined)
+	       || lex_state == ls_defined
+	       || lex_state == ls_has_include
+	       || lex_state == ls_has_attribute)
 	lex_state = ls_none;
 
       /* ls_answer and ls_defined_close keep going until ')'.  */
@@ -946,8 +971,9 @@ scan_parameters (cpp_reader *pfile, cpp_macro *macro)
 
       if (is_idstart (*cur))
 	{
+	  struct cpp_hashnode *id = lex_identifier (pfile, cur);
 	  ok = false;
-	  if (_cpp_save_parameter (pfile, macro, lex_identifier (pfile, cur)))
+	  if (_cpp_save_parameter (pfile, macro, id, id))
 	    break;
 	  cur = skip_whitespace (pfile, CUR (pfile->context),
 				 true /* skip_comments */);

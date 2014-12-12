@@ -1,4 +1,4 @@
-// { dg-options "-std=gnu++0x" }
+// { dg-options "-std=gnu++11" }
 // { dg-do compile }
 
 // Copyright (C) 2011-2014 Free Software Foundation, Inc.
@@ -44,4 +44,4 @@ void test01()
 
   tuple<Type> t(allocator_arg, a, 1);
 }
-// { dg-error "no matching function" "" { target *-*-* } 118 }
+// { dg-error "no matching function" "" { target *-*-* } 92 }

@@ -6,7 +6,7 @@
 --                                                                          --
 --                                 B o d y                                  --
 --                                                                          --
---          Copyright (C) 1992-2013, Free Software Foundation, Inc.         --
+--          Copyright (C) 1992-2014, Free Software Foundation, Inc.         --
 --                                                                          --
 -- GNAT is free software;  you can  redistribute it  and/or modify it under --
 -- terms of the  GNU General Public License as published  by the Free Soft- --
@@ -168,10 +168,17 @@ package body Restrict is
    -- Check_Compiler_Unit --
    -------------------------
 
-   procedure Check_Compiler_Unit (N : Node_Id) is
+   procedure Check_Compiler_Unit (Feature : String; N : Node_Id) is
    begin
-      if Is_Compiler_Unit (Get_Source_Unit (N)) then
-         Error_Msg_N ("use of construct not allowed in compiler!!??", N);
+      if Compiler_Unit then
+         Error_Msg_N (Feature & " not allowed in compiler unit!!??", N);
+      end if;
+   end Check_Compiler_Unit;
+
+   procedure Check_Compiler_Unit (Feature : String; Loc : Source_Ptr) is
+   begin
+      if Compiler_Unit then
+         Error_Msg (Feature & " not allowed in compiler unit!!??", Loc);
       end if;
    end Check_Compiler_Unit;
 
@@ -273,72 +280,6 @@ package body Restrict is
    begin
       Check_Restriction (No_Implicit_Heap_Allocations, N);
    end Check_No_Implicit_Heap_Alloc;
-
-   -------------------------------------------
-   -- Check_Restriction_No_Use_Of_Attribute --
-   --------------------------------------------
-
-   procedure Check_Restriction_No_Use_Of_Attribute (N : Node_Id) is
-      Id   : constant Name_Id      := Chars (N);
-      A_Id : constant Attribute_Id := Get_Attribute_Id (Id);
-
-   begin
-      --  Ignore call if node N is not in the main source unit, since we only
-      --  give messages for the main unit. This avoids giving messages for
-      --  aspects that are specified in withed units.
-
-      if not In_Extended_Main_Source_Unit (N) then
-         return;
-      end if;
-
-      --  If nothing set, nothing to check
-
-      if not No_Use_Of_Attribute_Set then
-         return;
-      end if;
-
-      Error_Msg_Sloc := No_Use_Of_Attribute (A_Id);
-
-      if Error_Msg_Sloc /= No_Location then
-         Error_Msg_Node_1 := N;
-         Error_Msg_Warn := No_Use_Of_Attribute_Warning (A_Id);
-         Error_Msg_N
-           ("<violation of restriction `No_Use_Of_Attribute '='> &`#", N);
-      end if;
-   end Check_Restriction_No_Use_Of_Attribute;
-
-   ----------------------------------------
-   -- Check_Restriction_No_Use_Of_Pragma --
-   ----------------------------------------
-
-   procedure Check_Restriction_No_Use_Of_Pragma (N : Node_Id) is
-      Id   : constant Node_Id   := Pragma_Identifier (N);
-      P_Id : constant Pragma_Id := Get_Pragma_Id (Chars (Id));
-
-   begin
-      --  Ignore call if node N is not in the main source unit, since we only
-      --  give messages for the main unit. This avoids giving messages for
-      --  aspects that are specified in withed units.
-
-      if not In_Extended_Main_Source_Unit (N) then
-         return;
-      end if;
-
-      --  If nothing set, nothing to check
-
-      if not No_Use_Of_Pragma_Set then
-         return;
-      end if;
-
-      Error_Msg_Sloc := No_Use_Of_Pragma (P_Id);
-
-      if Error_Msg_Sloc /= No_Location then
-         Error_Msg_Node_1 := Id;
-         Error_Msg_Warn := No_Use_Of_Pragma_Warning (P_Id);
-         Error_Msg_N
-           ("<violation of restriction `No_Use_Of_Pragma '='> &`#", Id);
-      end if;
-   end Check_Restriction_No_Use_Of_Pragma;
 
    -----------------------------------
    -- Check_Obsolescent_2005_Entity --
@@ -486,6 +427,7 @@ package body Restrict is
                if VV < 0 then
                   Info.Unknown (R) := True;
                   Info.Count (R) := 1;
+
                else
                   Info.Count (R) := VV;
                end if;
@@ -501,10 +443,11 @@ package body Restrict is
             if VV < 0 then
                Info.Unknown (R) := True;
 
-            --  If checked by maximization, do maximization
+            --  If checked by maximization, nothing to do because the
+            --  check is per-object.
 
             elsif R in Checked_Max_Parameter_Restrictions then
-               Info.Count (R) := Integer'Max (Info.Count (R), VV);
+               null;
 
             --  If checked by adding, do add, checking for overflow
 
@@ -548,7 +491,7 @@ package body Restrict is
       --  No_Dispatch restriction is not set.
 
       if R = No_Dispatch then
-         Check_SPARK_Restriction ("class-wide is not allowed", N);
+         Check_SPARK_05_Restriction ("class-wide is not allowed", N);
       end if;
 
       if UI_Is_In_Int_Range (V) then
@@ -613,6 +556,14 @@ package body Restrict is
          Msg_Issued := True;
          Restriction_Msg (R, N);
       end if;
+
+      --  For Max_Entries and the like, do not carry forward the violation
+      --  count because it does not affect later declarations.
+
+      if R in Checked_Max_Parameter_Restrictions then
+         Restrictions.Count (R) := 0;
+         Restrictions.Violated (R) := False;
+      end if;
    end Check_Restriction;
 
    -------------------------------------
@@ -645,7 +596,7 @@ package body Restrict is
 
             if No_Dependences.Table (J).Warn then
                Error_Msg
-                 ("??violation of restriction `No_Dependence '='> &`#",
+                 ("?*?violation of restriction `No_Dependence '='> &`#",
                   Sloc (Err));
             else
                Error_Msg
@@ -691,10 +642,76 @@ package body Restrict is
          Error_Msg_Node_1 := Id;
          Error_Msg_Warn := No_Specification_Of_Aspect_Warning (A_Id);
          Error_Msg_N
-           ("<violation of restriction `No_Specification_Of_Aspect '='> &`#",
+           ("<*<violation of restriction `No_Specification_Of_Aspect '='> &`#",
             Id);
       end if;
    end Check_Restriction_No_Specification_Of_Aspect;
+
+   -------------------------------------------
+   -- Check_Restriction_No_Use_Of_Attribute --
+   --------------------------------------------
+
+   procedure Check_Restriction_No_Use_Of_Attribute (N : Node_Id) is
+      Id   : constant Name_Id      := Chars (N);
+      A_Id : constant Attribute_Id := Get_Attribute_Id (Id);
+
+   begin
+      --  Ignore call if node N is not in the main source unit, since we only
+      --  give messages for the main unit. This avoids giving messages for
+      --  aspects that are specified in withed units.
+
+      if not In_Extended_Main_Source_Unit (N) then
+         return;
+      end if;
+
+      --  If nothing set, nothing to check
+
+      if not No_Use_Of_Attribute_Set then
+         return;
+      end if;
+
+      Error_Msg_Sloc := No_Use_Of_Attribute (A_Id);
+
+      if Error_Msg_Sloc /= No_Location then
+         Error_Msg_Node_1 := N;
+         Error_Msg_Warn := No_Use_Of_Attribute_Warning (A_Id);
+         Error_Msg_N
+           ("<*<violation of restriction `No_Use_Of_Attribute '='> &`#", N);
+      end if;
+   end Check_Restriction_No_Use_Of_Attribute;
+
+   ----------------------------------------
+   -- Check_Restriction_No_Use_Of_Pragma --
+   ----------------------------------------
+
+   procedure Check_Restriction_No_Use_Of_Pragma (N : Node_Id) is
+      Id   : constant Node_Id   := Pragma_Identifier (N);
+      P_Id : constant Pragma_Id := Get_Pragma_Id (Chars (Id));
+
+   begin
+      --  Ignore call if node N is not in the main source unit, since we only
+      --  give messages for the main unit. This avoids giving messages for
+      --  aspects that are specified in withed units.
+
+      if not In_Extended_Main_Source_Unit (N) then
+         return;
+      end if;
+
+      --  If nothing set, nothing to check
+
+      if not No_Use_Of_Pragma_Set then
+         return;
+      end if;
+
+      Error_Msg_Sloc := No_Use_Of_Pragma (P_Id);
+
+      if Error_Msg_Sloc /= No_Location then
+         Error_Msg_Node_1 := Id;
+         Error_Msg_Warn := No_Use_Of_Pragma_Warning (P_Id);
+         Error_Msg_N
+           ("<*<violation of restriction `No_Use_Of_Pragma '='> &`#", Id);
+      end if;
+   end Check_Restriction_No_Use_Of_Pragma;
 
    --------------------------------------
    -- Check_Wide_Character_Restriction --
@@ -851,8 +868,8 @@ package body Restrict is
    -- Process_Restriction_Synonyms --
    ----------------------------------
 
-   --  Note: body of this function must be coordinated with list of
-   --  renaming declarations in System.Rident.
+   --  Note: body of this function must be coordinated with list of renaming
+   --  declarations in System.Rident.
 
    function Process_Restriction_Synonyms (N : Node_Id) return Name_Id
    is
@@ -1047,7 +1064,7 @@ package body Restrict is
       --  Set warning message if warning
 
       if Restriction_Warnings (R) then
-         Add_Str ("??");
+         Add_Str ("?*?");
 
       --  If real violation (not warning), then mark it as non-serious unless
       --  it is a violation of No_Finalization in which case we leave it as a
@@ -1401,11 +1418,11 @@ package body Restrict is
       end if;
    end Set_Restriction_No_Use_Of_Pragma;
 
-   -----------------------------
-   -- Check_SPARK_Restriction --
-   -----------------------------
+   --------------------------------
+   -- Check_SPARK_05_Restriction --
+   --------------------------------
 
-   procedure Check_SPARK_Restriction
+   procedure Check_SPARK_05_Restriction
      (Msg   : String;
       N     : Node_Id;
       Force : Boolean := False)
@@ -1454,9 +1471,9 @@ package body Restrict is
             Error_Msg_F ("\\| " & Msg, N);
          end if;
       end if;
-   end Check_SPARK_Restriction;
+   end Check_SPARK_05_Restriction;
 
-   procedure Check_SPARK_Restriction (Msg1, Msg2 : String; N : Node_Id) is
+   procedure Check_SPARK_05_Restriction (Msg1, Msg2 : String; N : Node_Id) is
       Msg_Issued          : Boolean;
       Save_Error_Msg_Sloc : Source_Ptr;
 
@@ -1483,7 +1500,7 @@ package body Restrict is
             Error_Msg_F (Msg2, N);
          end if;
       end if;
-   end Check_SPARK_Restriction;
+   end Check_SPARK_05_Restriction;
 
    ----------------------------------
    -- Suppress_Restriction_Message --
@@ -1516,7 +1533,8 @@ package body Restrict is
    begin
       return not Restrictions.Set (No_Tasking)
         and then (not Restrictions.Set (Max_Tasks)
-                    or else Restrictions.Value (Max_Tasks) > 0);
+                   or else Restrictions.Value (Max_Tasks) > 0)
+        and then not No_Run_Time_Mode;
    end Tasking_Allowed;
 
 end Restrict;

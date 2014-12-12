@@ -1,5 +1,5 @@
 // { dg-do compile }
-// { dg-options "-std=gnu++0x" }
+// { dg-options "-std=gnu++11" }
 
 // Copyright (C) 2005-2014 Free Software Foundation, Inc.
 //
@@ -34,7 +34,7 @@ test01()
   bool test __attribute__((unused)) = true;
 
   const std::shared_ptr<A> p1(new A);
-  p1.reset();     // { dg-error "discards qualifiers" }
+  p1.reset();     // { dg-error "" }
 
   return 0;
 }

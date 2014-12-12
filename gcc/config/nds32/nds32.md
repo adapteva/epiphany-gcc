@@ -261,7 +261,7 @@
 
 (define_insn "add<mode>3"
   [(set (match_operand:QIHISI 0 "register_operand"                   "=   d,    l,    d,    l,  d, l,    k,    l,    r, r")
-	(plus:QIHISI (match_operand:QIHISI 1 "register_operand"      "    0,    l,    0,    l, %0, l,    0,    k,    r, r")
+	(plus:QIHISI (match_operand:QIHISI 1 "register_operand"      "%   0,    l,    0,    l,  0, l,    0,    k,    r, r")
 		     (match_operand:QIHISI 2 "nds32_rimm15s_operand" " In05, In03, Iu05, Iu03,  r, l, Is10, Iu06, Is15, r")))]
   ""
 {
@@ -382,9 +382,9 @@
 ;; Multiplication instructions.
 
 (define_insn "mulsi3"
-  [(set (match_operand:SI 0 "register_operand"          "= w, r")
-	(mult:SI (match_operand:SI 1 "register_operand" " %0, r")
-		 (match_operand:SI 2 "register_operand" "  w, r")))]
+  [(set (match_operand:SI 0 "register_operand"          "=w, r")
+	(mult:SI (match_operand:SI 1 "register_operand" "%0, r")
+		 (match_operand:SI 2 "register_operand" " w, r")))]
   ""
   "@
   mul33\t%0, %2
@@ -489,9 +489,9 @@
 )
 
 (define_insn "andsi3"
-  [(set (match_operand:SI 0 "register_operand"         "= w, r,    l,    l,    l,    l,    l,    l,    r,   r,     r,    r,    r")
-	(and:SI (match_operand:SI 1 "register_operand" " %0, r,    l,    l,    l,    l,    0,    0,    r,   r,     r,    r,    r")
-		(match_operand:SI 2 "general_operand"  "  w, r, Izeb, Izeh, Ixls, Ix11, Ibms, Ifex, Izeb, Izeh, Iu15, Ii15, Ic15")))]
+  [(set (match_operand:SI 0 "register_operand"         "=w, r,    l,    l,    l,    l,    l,    l,    r,   r,     r,    r,    r")
+	(and:SI (match_operand:SI 1 "register_operand" "%0, r,    l,    l,    l,    l,    0,    0,    r,   r,     r,    r,    r")
+		(match_operand:SI 2 "general_operand"  " w, r, Izeb, Izeh, Ixls, Ix11, Ibms, Ifex, Izeb, Izeh, Iu15, Ii15, Ic15")))]
   ""
 {
   HOST_WIDE_INT mask = INTVAL (operands[2]);
@@ -585,9 +585,9 @@
 ;; For V3/V3M ISA, we have 'or33' instruction.
 ;; So we can identify 'or Rt3,Rt3,Ra3' case and set its length to be 2.
 (define_insn "iorsi3"
-  [(set (match_operand:SI 0 "register_operand"         "= w, r,    r,    r")
-	(ior:SI (match_operand:SI 1 "register_operand" " %0, r,    r,    r")
-		(match_operand:SI 2 "general_operand"  "  w, r, Iu15, Ie15")))]
+  [(set (match_operand:SI 0 "register_operand"         "=w, r,    r,    r")
+	(ior:SI (match_operand:SI 1 "register_operand" "%0, r,    r,    r")
+		(match_operand:SI 2 "general_operand"  " w, r, Iu15, Ie15")))]
   ""
 {
   int one_position;
@@ -645,9 +645,9 @@
 ;; For V3/V3M ISA, we have 'xor33' instruction.
 ;; So we can identify 'xor Rt3,Rt3,Ra3' case and set its length to be 2.
 (define_insn "xorsi3"
-  [(set (match_operand:SI 0 "register_operand"         "= w, r,    r,    r")
-	(xor:SI (match_operand:SI 1 "register_operand" " %0, r,    r,    r")
-		(match_operand:SI 2 "general_operand"  "  w, r, Iu15, It15")))]
+  [(set (match_operand:SI 0 "register_operand"         "=w, r,    r,    r")
+	(xor:SI (match_operand:SI 1 "register_operand" "%0, r,    r,    r")
+		(match_operand:SI 2 "general_operand"  " w, r, Iu15, It15")))]
   ""
 {
   int one_position;
@@ -1971,8 +1971,12 @@ create_template:
 (define_expand "prologue" [(const_int 0)]
   ""
 {
-  /* Note that only under V3/V3M ISA, we could use v3push prologue.  */
-  if (TARGET_V3PUSH)
+  /* Note that only under V3/V3M ISA, we could use v3push prologue.
+     In addition, we do not want to use v3push for isr function
+     and variadic function.  */
+  if (TARGET_V3PUSH
+      && !nds32_isr_function_p (current_function_decl)
+      && (cfun->machine->va_args_size == 0))
     nds32_expand_prologue_v3push ();
   else
     nds32_expand_prologue ();
@@ -1982,8 +1986,12 @@ create_template:
 (define_expand "epilogue" [(const_int 0)]
   ""
 {
-  /* Note that only under V3/V3M ISA, we could use v3pop epilogue.  */
-  if (TARGET_V3PUSH)
+  /* Note that only under V3/V3M ISA, we could use v3pop epilogue.
+     In addition, we do not want to use v3pop for isr function
+     and variadic function.  */
+  if (TARGET_V3PUSH
+      && !nds32_isr_function_p (current_function_decl)
+      && (cfun->machine->va_args_size == 0))
     nds32_expand_epilogue_v3pop ();
   else
     nds32_expand_epilogue ();
@@ -2025,12 +2033,14 @@ create_template:
      ])]
   ""
 {
-  return nds32_output_stack_push ();
+  return nds32_output_stack_push (operands[0]);
 }
   [(set_attr "type" "misc")
    (set_attr "enabled" "1")
    (set (attr "length")
-	(if_then_else (match_test "TARGET_V3PUSH")
+	(if_then_else (match_test "TARGET_V3PUSH
+				   && !nds32_isr_function_p (cfun->decl)
+				   && (cfun->machine->va_args_size == 0)")
 		      (const_int 2)
 		      (const_int 4)))])
 
@@ -2045,12 +2055,14 @@ create_template:
      ])]
   ""
 {
-  return nds32_output_stack_pop ();
+  return nds32_output_stack_pop (operands[0]);
 }
   [(set_attr "type" "misc")
    (set_attr "enabled" "1")
    (set (attr "length")
-	(if_then_else (match_test "TARGET_V3PUSH")
+	(if_then_else (match_test "TARGET_V3PUSH
+				   && !nds32_isr_function_p (cfun->decl)
+				   && (cfun->machine->va_args_size == 0)")
 		      (const_int 2)
 		      (const_int 4)))])
 

@@ -1,3 +1,456 @@
+2014-12-10  Ilya Verbin  <ilya.verbin@intel.com>
+
+	* testsuite/libgomp.c/target-9.c: New test.
+
+2014-12-09  Varvara Rainchik  <varvara.rainchik@intel.com>
+
+	* config.h.in: Regenerate.
+	* configure: Regenerate.
+	* configure.ac: Add GCC_CHECK_EMUTLS.
+	* libgomp.h: Add check for USE_EMUTLS: this case
+	is equal to HAVE_TLS.
+	* team.c: Likewise.
+
+2014-12-03  Uros Bizjak  <ubizjak@gmail.com>
+
+	* configure.tgt (x86_64-*-linux*): Tune -m32 multilib to generic.
+
+2014-11-28  Andrey Turetskiy  <andrey.turetskiy@intel.com>
+	    Ilya Verbin  <ilya.verbin@intel.com>
+
+	* testsuite/libgomp.c/target-critical-1.c: New test.
+
+2014-11-26  Jakub Jelinek  <jakub@redhat.com>
+
+	* testsuite/libgomp.c/examples-4/e.53.4.c: Add -DITESTITERS=20
+	to dg-options unless expensive testing is on.
+	(TESTITERS): Define to N if not defined.
+	(main): Use TESTITERS instead of N.
+	* testsuite/libgomp.c/examples-4/e.55.1.c: Define CHUNKSZ from
+	dg-additional-options depending on whether expensive testing is on.
+	* testsuite/libgomp.fortran/examples-4/e.55.1.f90 (e_55_1_mod):
+	Decrease N to 100000 and CHUNKSZ to 10000.
+
+2014-11-24  Jakub Jelinek  <jakub@redhat.com>
+
+	PR fortran/63938
+	* testsuite/libgomp.fortran/pr63938-1.f90: New test.
+	* testsuite/libgomp.fortran/pr63938-2.f90: New test.
+
+2014-11-21  Steve Ellcey  <sellcey@imgtec.com>
+
+	* config/linux/mips/futex.h (SYS_futex): Define if not already done.
+
+2014-11-21  H.J. Lu  <hongjiu.lu@intel.com>
+
+	PR bootstrap/63784
+	* configure: Regenerated.
+
+2014-11-19  Uros Bizjak  <ubizjak@gmail.com>
+
+	* testsuite/libgomp.c/examples-4/e.53.5.c: Require
+	vect_simd_clones effective target.
+	* testsuite/libgomp.fortran/examples-4/e.53.5.f90: Ditto.
+
+2014-11-14  Jakub Jelinek  <jakub@redhat.com>
+
+	* libgomp.c/examples-4/e.54.2.c (main): Use N / 8 instead
+	of 32 as block_size.
+	* libgomp.fortran/examples-4/e.54.2.f90 (e_54_1): Use n / 8
+	instead of 32 as block_size.
+
+2014-11-13  Andrey Turetskiy  <andrey.turetskiy@intel.com>
+	    Ilya Verbin  <ilya.verbin@intel.com>
+
+	* Makefile.in: Regenerate.
+	* configure: Regenerate.
+	* configure.ac: Set up offload_additional_options,
+	offload_additional_lib_paths and offload_targets.
+	* testsuite/Makefile.am: Export environment variables: OFFLOAD_TARGETS,
+	OFFLOAD_ADDITIONAL_OPTIONS, OFFLOAD_ADDITIONAL_LIB_PATHS.
+	* testsuite/Makefile.in: Regenerate.
+	* testsuite/lib/libgomp.exp (libgomp_init): Append
+	offload_additional_lib_paths to LD_LIBRARY_PATH.  Append
+	offload_additional_options to ALWAYS_CFLAGS.  Append liboffloadmic
+	build directory to LD_LIBRARY_PATH for intelmic offload targets.
+
+2014-11-13  Andrey Turetskiy  <andrey.turetskiy@intel.com>
+	    Ilya Verbin  <ilya.verbin@intel.com>
+	    Kirill Yukhin  <kirill.yukhin@intel.com>
+	    Ilya Tocar  <ilya.tocar@intel.com>
+
+	* testsuite/lib/libgomp.exp
+	(check_effective_target_offload_device): New.
+	* testsuite/libgomp.c++/c++.exp: Include tests from subdirectories.
+	* testsuite/libgomp.c++/examples-4/e.51.5.C: New test.
+	* testsuite/libgomp.c++/examples-4/e.53.2.C: Ditto.
+	* testsuite/libgomp.c/examples-4/e.50.1.c: Ditto.
+	* testsuite/libgomp.c/examples-4/e.50.2.c: Ditto.
+	* testsuite/libgomp.c/examples-4/e.50.3.c: Ditto.
+	* testsuite/libgomp.c/examples-4/e.50.4.c: Ditto.
+	* testsuite/libgomp.c/examples-4/e.50.5.c: Ditto.
+	* testsuite/libgomp.c/examples-4/e.51.1.c: Ditto.
+	* testsuite/libgomp.c/examples-4/e.51.2.c: Ditto.
+	* testsuite/libgomp.c/examples-4/e.51.3.c: Ditto.
+	* testsuite/libgomp.c/examples-4/e.51.4.c: Ditto.
+	* testsuite/libgomp.c/examples-4/e.51.6.c: Ditto.
+	* testsuite/libgomp.c/examples-4/e.51.7.c: Ditto.
+	* testsuite/libgomp.c/examples-4/e.52.1.c: Ditto.
+	* testsuite/libgomp.c/examples-4/e.52.2.c: Ditto.
+	* testsuite/libgomp.c/examples-4/e.53.1.c: Ditto.
+	* testsuite/libgomp.c/examples-4/e.53.3.c: Ditto.
+	* testsuite/libgomp.c/examples-4/e.53.4.c: Ditto.
+	* testsuite/libgomp.c/examples-4/e.53.5.c: Ditto.
+	* testsuite/libgomp.c/examples-4/e.54.2.c: Ditto.
+	* testsuite/libgomp.c/examples-4/e.54.3.c: Ditto.
+	* testsuite/libgomp.c/examples-4/e.54.4.c: Ditto.
+	* testsuite/libgomp.c/examples-4/e.54.5.c: Ditto.
+	* testsuite/libgomp.c/examples-4/e.54.6.c: Ditto.
+	* testsuite/libgomp.c/examples-4/e.55.1.c: Ditto.
+	* testsuite/libgomp.c/examples-4/e.55.2.c: Ditto.
+	* testsuite/libgomp.c/examples-4/e.56.3.c: Ditto.
+	* testsuite/libgomp.c/examples-4/e.56.4.c: Ditto.
+	* testsuite/libgomp.c/examples-4/e.57.1.c: Ditto.
+	* testsuite/libgomp.c/examples-4/e.57.2.c: Ditto.
+	* testsuite/libgomp.c/examples-4/e.57.3.c: Ditto.
+	* testsuite/libgomp.c/target-7.c: Fix test.
+	* testsuite/libgomp.fortran/examples-4/e.50.1.f90: New test.
+	* testsuite/libgomp.fortran/examples-4/e.50.2.f90: Ditto.
+	* testsuite/libgomp.fortran/examples-4/e.50.3.f90: Ditto.
+	* testsuite/libgomp.fortran/examples-4/e.50.4.f90: Ditto.
+	* testsuite/libgomp.fortran/examples-4/e.50.5.f90: Ditto.
+	* testsuite/libgomp.fortran/examples-4/e.51.1.f90: Ditto.
+	* testsuite/libgomp.fortran/examples-4/e.51.2.f90: Ditto.
+	* testsuite/libgomp.fortran/examples-4/e.51.3.f90: Ditto.
+	* testsuite/libgomp.fortran/examples-4/e.51.4.f90: Ditto.
+	* testsuite/libgomp.fortran/examples-4/e.51.5.f90: Ditto.
+	* testsuite/libgomp.fortran/examples-4/e.51.6.f90: Ditto.
+	* testsuite/libgomp.fortran/examples-4/e.51.7.f90: Ditto.
+	* testsuite/libgomp.fortran/examples-4/e.52.1.f90: Ditto.
+	* testsuite/libgomp.fortran/examples-4/e.52.2.f90: Ditto.
+	* testsuite/libgomp.fortran/examples-4/e.53.1.f90: Ditto.
+	* testsuite/libgomp.fortran/examples-4/e.53.2.f90: Ditto.
+	* testsuite/libgomp.fortran/examples-4/e.53.3.f90: Ditto.
+	* testsuite/libgomp.fortran/examples-4/e.53.4.f90: Ditto.
+	* testsuite/libgomp.fortran/examples-4/e.53.5.f90: Ditto.
+	* testsuite/libgomp.fortran/examples-4/e.54.2.f90: Ditto.
+	* testsuite/libgomp.fortran/examples-4/e.54.3.f90: Ditto.
+	* testsuite/libgomp.fortran/examples-4/e.54.4.f90: Ditto.
+	* testsuite/libgomp.fortran/examples-4/e.54.5.f90: Ditto.
+	* testsuite/libgomp.fortran/examples-4/e.54.6.f90: Ditto.
+	* testsuite/libgomp.fortran/examples-4/e.55.1.f90: Ditto.
+	* testsuite/libgomp.fortran/examples-4/e.55.2.f90: Ditto.
+	* testsuite/libgomp.fortran/examples-4/e.56.3.f90: Ditto.
+	* testsuite/libgomp.fortran/examples-4/e.56.4.f90: Ditto.
+	* testsuite/libgomp.fortran/examples-4/e.57.1.f90: Ditto.
+	* testsuite/libgomp.fortran/examples-4/e.57.2.f90: Ditto.
+	* testsuite/libgomp.fortran/examples-4/e.57.3.f90: Ditto.
+
+2014-11-13  Jakub Jelinek  <jakub@redhat.com>
+	    Ilya Verbin  <ilya.verbin@intel.com>
+	    Thomas Schwinge  <thomas@codesourcery.com>
+	    Andrey Turetskiy  <andrey.turetskiy@intel.com>
+
+	* libgomp.map (GOMP_4.0.1): New symbol version.
+	Add GOMP_offload_register.
+	* libgomp_target.h: New file.
+	* splay-tree.h: New file.
+	* target.c: Include config.h, libgomp_target.h, dlfcn.h, splay-tree.h.
+	(gomp_target_init): New forward declaration.
+	(gomp_is_initialized): New static variable.
+	(splay_tree_node, splay_tree, splay_tree_key): New typedefs.
+	(struct target_mem_desc, struct splay_tree_key_s, offload_image_descr):
+	New structures.
+	(offload_images, num_offload_images, devices, num_devices): New static
+	variables.
+	(splay_compare): New static function.
+	(struct gomp_device_descr): New structure.
+	(gomp_get_num_devices): Call gomp_target_init.
+	(resolve_device, gomp_map_vars_existing, gomp_map_vars, gomp_unmap_tgt)
+	(gomp_unmap_vars, gomp_update, gomp_init_device): New static functions.
+	(GOMP_offload_register): New function.
+	(GOMP_target): Arrange for host callback to be performed in a separate
+	initial thread and contention group, inheriting ICVs from
+	gomp_global_icv etc.  Call gomp_map_vars and gomp_unmap_vars.
+	Add device initialization and lookup for target function in splay tree.
+	(GOMP_target_data): Add device initialization and call gomp_map_vars.
+	(GOMP_target_end_data): Call gomp_unmap_vars.
+	(GOMP_target_update): Add device initialization and call gomp_update.
+	(gomp_load_plugin_for_device, gomp_register_images_for_device)
+	(gomp_target_init): New static functions.
+
+2014-11-13  Bernd Schmidt  <bernds@codesourcery.com>
+	    Thomas Schwinge  <thomas@codesourcery.com>
+	    Ilya Verbin  <ilya.verbin@intel.com>
+	    Andrey Turetskiy  <andrey.turetskiy@intel.com>
+
+	* config.h.in: Regenerate.
+	* configure: Regenerate.
+	* configure.ac: Check for libdl, required for plugin support.
+	(PLUGIN_SUPPORT): Define if plugins are supported.
+	(enable_offload_targets): Support Intel MIC targets.
+	(OFFLOAD_TARGETS): List of target names suitable for offloading.
+
+2014-11-11  Francois-Xavier Coudert  <fxcoudert@gcc.gnu.org>
+
+	PR target/63610
+	* configure: Regenerate.
+
+2014-11-05  Rainer Orth  <ro@CeBiTec.Uni-Bielefeld.DE>
+
+	* config/posix/lock.c (_XOPEN_SOURCE) Define as 600.
+
+2014-10-06  Marek Polacek  <polacek@redhat.com>
+
+	* testsuite/libgomp.c/affinity-1.c: Include <sys/wait.h>.
+	* testsuite/libgomp.c/nqueens-1.c: Include <stdlib.h>.
+	* testsuite/libgomp.c/thread-limit-1.c: Include <omp.h>
+	* testsuite/libgomp.c/thread-limit-2.c: Likewise.
+
+2014-10-06  Marek Polacek  <polacek@redhat.com>
+
+	* testsuite/libgomp.c/affinity-1.c: Fix implicit declarations.
+	* testsuite/libgomp.c/nqueens-1.c: Likewise.
+	* testsuite/libgomp.c/pr26943-3.c: Likewise.
+	* testsuite/libgomp.c/pr26943-4.c: Likewise.
+	* testsuite/libgomp.c/pr36802-2.c: Likewise.
+	* testsuite/libgomp.c/pr36802-3.c: Likewise.
+	* testsuite/libgomp.c/thread-limit-1.c: Likewise.
+	* testsuite/libgomp.c/thread-limit-2.c: Likewise.
+	* testsuite/libgomp.c/appendix-a/a.15.1.c: Include <omp.h>.
+	* testsuite/libgomp.c/omp-loop02.c: Fix defaulting to int.
+	* testsuite/libgomp.c/omp-parallel-for.c: Likewise.
+	* testsuite/libgomp.c/omp-parallel-if.c: Likewise.
+	* testsuite/libgomp.c/omp-single-1.c: Likewise.
+	* testsuite/libgomp.c/omp-single-2.c: Likewise.
+	* testsuite/libgomp.c/omp_matvec.c: Likewise.
+	* testsuite/libgomp.c/omp_workshare3.c: Likewise.
+	* testsuite/libgomp.c/omp_workshare4.c: Likewise.
+	* testsuite/libgomp.c/shared-1.c: Fix defaulting to int.  Fix implicit
+	declarations.
+
+2014-10-03  Jakub Jelinek  <jakub@redhat.com>
+
+	PR libgomp/61200
+	* testsuite/libgomp.c/pr61200.c: New test.
+
+2014-09-18  Jakub Jelinek  <jakub@redhat.com>
+
+	PR c++/63248
+	* testsuite/libgomp.c++/pr63248.C: New test.
+
+2014-08-04  Jakub Jelinek  <jakub@redhat.com>
+
+	* task.c (GOMP_taskgroup_end): If taskgroup->num_children
+	is not zero, but taskgroup->children is NULL and there are
+	any task->children, schedule those instead of waiting.
+	* testsuite/libgomp.c/depend-6.c: New test.
+	* testsuite/libgomp.c/depend-7.c: New test.
+	* testsuite/libgomp.c/depend-8.c: New test.
+	* testsuite/libgomp.c/depend-9.c: New test.
+	* testsuite/libgomp.c/depend-10.c: New test.
+
+2014-08-01  Jakub Jelinek  <jakub@redhat.com>
+
+	* libgomp.h (struct gomp_task_depend_entry): Add redundant_out field.
+	(struct gomp_taskwait): New type.
+	(struct gomp_task): Add taskwait and parent_depends_on, remove
+	in_taskwait and taskwait_sem fields.
+	(gomp_finish_task): Don't destroy taskwait_sem.
+	* task.c (gomp_init_task): Don't init in_taskwait, instead init
+	taskwait and parent_depends_on.
+	(GOMP_task): For if (0) tasks with depend clause that depend on
+	earlier tasks don't defer them, instead call
+	gomp_task_maybe_wait_for_dependencies to wait for the dependencies.
+	Initialize redundant_out field, for redundant out entries just
+	move them at the end of linked list instead of removing them
+	completely, and set redundant_out flag instead of redundant.
+	(gomp_task_run_pre): Update last_parent_depends_on if scheduling
+	that task.
+	(gomp_task_run_post_handle_dependers): If parent is in
+	gomp_task_maybe_wait_for_dependencies and newly runnable task
+	is not parent_depends_on, queue it in parent->children linked
+	list after all runnable tasks with parent_depends_on set.
+	Adjust for addition of taskwait indirection.
+	(gomp_task_run_post_remove_parent): If parent is in
+	gomp_task_maybe_wait_for_dependencies and task to be removed
+	is parent_depends_on, decrement n_depend and if needed awake
+	parent.  Adjust for addition of taskwait indirection.
+	(GOMP_taskwait): Adjust for addition of taskwait indirection.
+	(gomp_task_maybe_wait_for_dependencies): New function.
+	* testsuite/libgomp.c/depend-5.c: New test.
+
+2014-07-13  Tobias Burnus  <burnus@net-b.de>
+
+	* testsuite/libgomp.fortran/pr34020.f90: Make compile
+	with TS 18508/Fortran 2015.
+
+2014-07-06  Marek Polacek  <polacek@redhat.com>
+
+	PR c/6940
+	* testsuite/libgomp.c/appendix-a/a.29.1.c (f): Add dg-warnings.
+
+2014-07-03  Jakub Jelinek  <jakub@redhat.com>
+
+	* testsuite/lib/libgomp.exp (libgomp_target_compile): If $source
+	matches regex $lang_source_re, add $lang_include_flags to options.
+	* testsuite/libgomp.c/c.exp: Unset lang_include_flags.
+	* testsuite/libgomp.c++/c++.exp: Likewise.
+	* testsuite/libgomp.fortran/fortran.exp: Likewise.  Set lang_source_re
+	and lang_include_flags instead of adding -fintrinsic-modules-path= to
+	ALWAYS_CFLAGS.
+	* testsuite/libgomp.graphite/graphite.exp: Unset lang_include_flags.
+
+2014-07-03  Thomas Schwinge  <thomas@codesourcery.com>
+
+	* testsuite/libgomp.fortran/fortran.exp: Explain
+	gfortran-dg-runtest usage.
+
+2014-06-25  Jakub Jelinek  <jakub@redhat.com>
+
+	* testsuite/libgomp.fortran/simd5.f90: New test.
+	* testsuite/libgomp.fortran/simd6.f90: New test.
+	* testsuite/libgomp.fortran/simd7.f90: New test.
+
+2014-06-24  Jakub Jelinek  <jakub@redhat.com>
+
+	* testsuite/libgomp.c/for-2.c: Define SC to static for
+	#pragma omp for simd testing.
+	* testsuite/libgomp.c/for-2.h (SC): Define if not defined.
+	(N(f5), N(f6), N(f7), N(f8), N(f10), N(f12), N(f14)): Use
+	SC macro.
+	* testsuite/libgomp.c/simd-14.c: New test.
+	* testsuite/libgomp.c/simd-15.c: New test.
+	* testsuite/libgomp.c/simd-16.c: New test.
+	* testsuite/libgomp.c/simd-17.c: New test.
+	* testsuite/libgomp.c++/for-10.C: Define SC to static for
+	#pragma omp for simd testing.
+	* testsuite/libgomp.c++/simd10.C: New test.
+	* testsuite/libgomp.c++/simd11.C: New test.
+	* testsuite/libgomp.c++/simd12.C: New test.
+	* testsuite/libgomp.c++/simd13.C: New test.
+
+	* testsuite/libgomp.fortran/aligned1.f03: New test.
+	* testsuite/libgomp.fortran/nestedfn5.f90: New test.
+	* testsuite/libgomp.fortran/target7.f90: Surround loop spawning
+	tasks with !$omp parallel !$omp single.
+	* testsuite/libgomp.fortran/target8.f90: New test.
+	* testsuite/libgomp.fortran/udr4.f90 (foo UDR, bar UDR): Adjust
+	not to use trim in the combiner, instead call elemental function.
+	(fn): New elemental function.
+	* testsuite/libgomp.fortran/udr6.f90 (do_add, dp_add, dp_init):
+	Make elemental.
+	* testsuite/libgomp.fortran/udr7.f90 (omp_priv, omp_orig, omp_out,
+	omp_in): Likewise.
+	* testsuite/libgomp.fortran/udr12.f90: New test.
+	* testsuite/libgomp.fortran/udr13.f90: New test.
+	* testsuite/libgomp.fortran/udr14.f90: New test.
+	* testsuite/libgomp.fortran/udr15.f90: New test.
+
+2014-06-18  Jakub Jelinek  <jakub@redhat.com>
+
+	* omp_lib.f90.in (openmp_version): Set to 201307.
+	* omp_lib.h.in (openmp_version): Likewise.
+	* testsuite/libgomp.c/target-8.c: New test.
+	* testsuite/libgomp.fortran/declare-simd-1.f90: Add notinbranch
+	and inbranch clauses.
+	* testsuite/libgomp.fortran/depend-3.f90: New test.
+	* testsuite/libgomp.fortran/openmp_version-1.f: Adjust for new
+	openmp_version.
+	* testsuite/libgomp.fortran/openmp_version-2.f90: Likewise.
+	* testsuite/libgomp.fortran/target1.f90: New test.
+	* testsuite/libgomp.fortran/target2.f90: New test.
+	* testsuite/libgomp.fortran/target3.f90: New test.
+	* testsuite/libgomp.fortran/target4.f90: New test.
+	* testsuite/libgomp.fortran/target5.f90: New test.
+	* testsuite/libgomp.fortran/target6.f90: New test.
+	* testsuite/libgomp.fortran/target7.f90: New test.
+
+2014-06-10  Jakub Jelinek  <jakub@redhat.com>
+
+	PR fortran/60928
+	* testsuite/libgomp.fortran/allocatable9.f90: New test.
+	* testsuite/libgomp.fortran/allocatable10.f90: New test.
+	* testsuite/libgomp.fortran/allocatable11.f90: New test.
+	* testsuite/libgomp.fortran/allocatable12.f90: New test.
+	* testsuite/libgomp.fortran/alloc-comp-1.f90: New test.
+	* testsuite/libgomp.fortran/alloc-comp-2.f90: New test.
+	* testsuite/libgomp.fortran/alloc-comp-3.f90: New test.
+	* testsuite/libgomp.fortran/associate1.f90: New test.
+	* testsuite/libgomp.fortran/associate2.f90: New test.
+	* testsuite/libgomp.fortran/procptr1.f90: New test.
+
+2014-06-06  Jakub Jelinek  <jakub@redhat.com>
+
+	* testsuite/libgomp.fortran/simd1.f90: New test.
+	* testsuite/libgomp.fortran/udr1.f90: New test.
+	* testsuite/libgomp.fortran/udr2.f90: New test.
+	* testsuite/libgomp.fortran/udr3.f90: New test.
+	* testsuite/libgomp.fortran/udr4.f90: New test.
+	* testsuite/libgomp.fortran/udr5.f90: New test.
+	* testsuite/libgomp.fortran/udr6.f90: New test.
+	* testsuite/libgomp.fortran/udr7.f90: New test.
+	* testsuite/libgomp.fortran/udr8.f90: New test.
+	* testsuite/libgomp.fortran/udr9.f90: New test.
+	* testsuite/libgomp.fortran/udr10.f90: New test.
+	* testsuite/libgomp.fortran/udr11.f90: New test.
+
+2014-05-27  Uros Bizjak  <ubizjak@gmail.com>
+
+	* testsuite/libgomp.fortran/declare-simd-1.f90: Require
+	vect_simd_clones effective target.
+	* testsuite/libgomp.fortran/declare-simd-2.f90: Ditto.
+
+2014-05-21  Jakub Jelinek  <jakub@redhat.com>
+
+	PR middle-end/61252
+	* testsuite/libgomp.c++/simd-9.C: New test.
+
+2014-05-18  Uros Bizjak  <ubizjak@gmail.com>
+
+	* libgomp.texi (Runitme Library Routines): Remove multiple @menu.
+	(Environment Variables) Move OMP_PROC_BIND and OMP_STACKSIZE node
+	texts according to their @menu entry positions.
+
+2014-05-11  Jakub Jelinek  <jakub@redhat.com>
+
+	* testsuite/libgomp.fortran/cancel-do-1.f90: New test.
+	* testsuite/libgomp.fortran/cancel-do-2.f90: New test.
+	* testsuite/libgomp.fortran/cancel-parallel-1.f90: New test.
+	* testsuite/libgomp.fortran/cancel-parallel-3.f90: New test.
+	* testsuite/libgomp.fortran/cancel-sections-1.f90: New test.
+	* testsuite/libgomp.fortran/cancel-taskgroup-2.f90: New test.
+	* testsuite/libgomp.fortran/declare-simd-1.f90: New test.
+	* testsuite/libgomp.fortran/declare-simd-2.f90: New test.
+	* testsuite/libgomp.fortran/declare-simd-3.f90: New test.
+	* testsuite/libgomp.fortran/depend-1.f90: New test.
+	* testsuite/libgomp.fortran/depend-2.f90: New test.
+	* testsuite/libgomp.fortran/omp_atomic5.f90: New test.
+	* testsuite/libgomp.fortran/simd1.f90: New test.
+	* testsuite/libgomp.fortran/simd2.f90: New test.
+	* testsuite/libgomp.fortran/simd3.f90: New test.
+	* testsuite/libgomp.fortran/simd4.f90: New test.
+	* testsuite/libgomp.fortran/taskgroup1.f90: New test.
+
+2014-05-02  Jakub Jelinek  <jakub@redhat.com>
+
+	* testsuite/libgomp.c/simd-10.c: New test.
+	* testsuite/libgomp.c/simd-11.c: New test.
+	* testsuite/libgomp.c/simd-12.c: New test.
+	* testsuite/libgomp.c/simd-13.c: New test.
+
+2014-04-24  Jakub Jelinek  <jakub@redhat.com>
+
+	* testsuite/libgomp.c++/atomic-14.C: Allow seq_cst and
+	atomic type clauses in any order and optional comma in between.
+	* testsuite/libgomp.c++/atomic-15.C: Likewise.
+	* testsuite/libgomp.c/atomic-17.c: Likewise.
+
+	* testsuite/libgomp.c/simd-7.c: New test.
+	* testsuite/libgomp.c/simd-8.c: New test.
+	* testsuite/libgomp.c/simd-9.c: New test.
+	* testsuite/libgomp.c/loop-16.c: New test.
+
 2014-04-02  Richard Henderson  <rth@redhat.com>
 
 	* config/linux/futex.h (futex_wait): Get error value from errno.

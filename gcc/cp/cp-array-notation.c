@@ -26,7 +26,7 @@
    An array notation expression has 4 major components:
    1. The array name
    2. Start Index
-   3. Number of elements we need to acess (we call it length)
+   3. Number of elements we need to access (we call it length)
    4. Stride
 
    So, if we have something like A[0:5:2], we are accessing A[0], A[2], A[4],
@@ -181,7 +181,7 @@ replace_invariant_exprs (tree *node)
 	  if (VOID_TYPE_P (TREE_TYPE (t)))
 	    {
 	      finish_expr_stmt (t);
-	      new_var = void_zero_node;
+	      new_var = void_node;
 	    }
 	  else 
 	    new_var = get_temp_regvar (TREE_TYPE (t), t); 
@@ -250,7 +250,10 @@ expand_sec_reduce_builtin (tree an_builtin_fn, tree *new_var)
   if (!find_rank (location, an_builtin_fn, an_builtin_fn, true, &rank))
       return error_mark_node;
   if (rank == 0)
-    return an_builtin_fn;
+    {
+      error_at (location, "Invalid builtin arguments");
+      return error_mark_node;
+    }
   else if (rank > 1 
 	   && (an_type == BUILT_IN_CILKPLUS_SEC_REDUCE_MAX_IND
 	       || an_type == BUILT_IN_CILKPLUS_SEC_REDUCE_MIN_IND))
@@ -340,6 +343,8 @@ expand_sec_reduce_builtin (tree an_builtin_fn, tree *new_var)
     array_ind_value = get_temp_regvar (TREE_TYPE (func_parm), func_parm);
 
   array_op0 = (*array_operand)[0];
+  if (TREE_CODE (array_op0) == INDIRECT_REF)
+    array_op0 = TREE_OPERAND (array_op0, 0);
   switch (an_type)
     {
     case BUILT_IN_CILKPLUS_SEC_REDUCE_ADD:
@@ -602,7 +607,7 @@ expand_an_in_modify_expr (location_t location, tree lhs,
     
   if (lhs_rank == 0 && rhs_rank != 0)
     {
-      error_at (location, "%qD cannot be scalar when %qD is not", lhs, rhs);
+      error_at (location, "%qE cannot be scalar when %qE is not", lhs, rhs);
       return error_mark_node;
     }
   if (lhs_rank != 0 && rhs_rank != 0 && lhs_rank != rhs_rank)
@@ -1126,6 +1131,7 @@ expand_array_notation_exprs (tree t)
     {
     case ERROR_MARK:
     case IDENTIFIER_NODE:
+    case VOID_CST:
     case INTEGER_CST:
     case REAL_CST:
     case FIXED_CST:
@@ -1142,13 +1148,13 @@ expand_array_notation_exprs (tree t)
     case PARM_DECL:
     case NON_LVALUE_EXPR:
     case NOP_EXPR:
-    case INIT_EXPR:
     case ADDR_EXPR:
     case ARRAY_REF:
     case BIT_FIELD_REF:
     case VECTOR_CST:
     case COMPLEX_CST:
       return t;
+    case INIT_EXPR:
     case MODIFY_EXPR:
       if (contains_array_notation_expr (t))
 	t = expand_an_in_modify_expr (loc, TREE_OPERAND (t, 0), NOP_EXPR, 
@@ -1170,13 +1176,24 @@ expand_array_notation_exprs (tree t)
 	return t;
       }
     case DECL_EXPR:
-      {
-	tree x = DECL_EXPR_DECL (t);
-	if (t && TREE_CODE (x) != FUNCTION_DECL)
+      if (contains_array_notation_expr (t))
+	{
+	  tree x = DECL_EXPR_DECL (t);
 	  if (DECL_INITIAL (x))
-	    t = expand_unary_array_notation_exprs (t);
+	    {
+	      location_t loc = DECL_SOURCE_LOCATION (x);
+	      tree lhs = x;
+	      tree rhs = DECL_INITIAL (x);
+	      DECL_INITIAL (x) = NULL;
+	      tree new_modify_expr = build_modify_expr (loc, lhs,
+							TREE_TYPE (lhs),
+							NOP_EXPR,
+							loc, rhs,
+							TREE_TYPE(rhs));
+	      t = expand_array_notation_exprs (new_modify_expr);
+	    }
+	}
       return t;
-      }
     case STATEMENT_LIST:
       {
 	tree_stmt_iterator i;
@@ -1387,7 +1404,10 @@ build_array_notation_ref (location_t loc, tree array, tree start, tree length,
   if (TREE_CODE (type) == ARRAY_TYPE || TREE_CODE (type) == POINTER_TYPE)
     TREE_TYPE (array_ntn_expr) = TREE_TYPE (type);
   else
-    gcc_unreachable ();
+    {
+      error_at (loc, "base of array section must be pointer or array type");
+      return error_mark_node;
+    }
 
   SET_EXPR_LOCATION (array_ntn_expr, loc);
   return array_ntn_expr;
@@ -1417,7 +1437,7 @@ cilkplus_an_triplet_types_ok_p (location_t loc, tree start_index, tree length,
       error_at (loc, "stride of array notation triplet is not an integer");
       return false;
     }
-  if (!TREE_CODE (type) == FUNCTION_TYPE)
+  if (TREE_CODE (type) == FUNCTION_TYPE)
     {
       error_at (loc, "array notation cannot be used with function type");
       return false;

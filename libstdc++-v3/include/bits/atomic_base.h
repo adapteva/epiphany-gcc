@@ -33,7 +33,6 @@
 #pragma GCC system_header
 
 #include <bits/c++config.h>
-#include <stdbool.h>
 #include <stdint.h>
 #include <bits/atomic_lockfree_defines.h>
 
@@ -675,10 +674,10 @@ _GLIBCXX_BEGIN_NAMESPACE_VERSION
 
       // Factored out to facilitate explicit specialization.
       constexpr ptrdiff_t
-      _M_type_size(ptrdiff_t __d) { return __d * sizeof(_PTp); }
+      _M_type_size(ptrdiff_t __d) const { return __d * sizeof(_PTp); }
 
       constexpr ptrdiff_t
-      _M_type_size(ptrdiff_t __d) volatile { return __d * sizeof(_PTp); }
+      _M_type_size(ptrdiff_t __d) const volatile { return __d * sizeof(_PTp); }
 
     public:
       __atomic_base() noexcept = default;

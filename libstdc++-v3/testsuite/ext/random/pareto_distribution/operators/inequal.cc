@@ -1,4 +1,4 @@
-// { dg-options "-std=c++11" }
+// { dg-options "-std=gnu++11" }
 // { dg-require-cstdint "" }
 //
 // 2012-09-21  Edward M. Smith-Rowland  <3dw4rd@verizon.net>
@@ -20,7 +20,7 @@
 // with this library; see the file COPYING3.  If not see
 // <http://www.gnu.org/licenses/>.
 
-// 26.5.8.4.5 Class template pareto_distribution [rand.dist.ext.pareto]
+// Class template pareto_distribution
 
 #include <ext/random>
 #include <testsuite_hooks.h>

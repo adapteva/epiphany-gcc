@@ -1,7 +1,7 @@
-// { dg-do run { target *-*-freebsd* *-*-netbsd* *-*-linux* *-*-gnu* *-*-solaris* *-*-cygwin *-*-darwin* powerpc-ibm-aix* } }
-// { dg-options " -std=gnu++0x -pthread" { target *-*-freebsd* *-*-netbsd* *-*-linux* *-*-gnu* powerpc-ibm-aix* } }
-// { dg-options " -std=gnu++0x -pthreads" { target *-*-solaris* } }
-// { dg-options " -std=gnu++0x " { target *-*-cygwin *-*-darwin* } }
+// { dg-do run { target *-*-freebsd* *-*-dragonfly* *-*-netbsd* *-*-linux* *-*-gnu* *-*-solaris* *-*-cygwin *-*-darwin* powerpc-ibm-aix* } }
+// { dg-options " -std=gnu++11 -pthread" { target *-*-freebsd* *-*-dragonfly* *-*-netbsd* *-*-linux* *-*-gnu* powerpc-ibm-aix* } }
+// { dg-options " -std=gnu++11 -pthreads" { target *-*-solaris* } }
+// { dg-options " -std=gnu++11 " { target *-*-cygwin *-*-darwin* } }
 // { dg-require-cstdint "" }
 // { dg-require-gthreads "" }
 
@@ -133,8 +133,15 @@ void test03()
       while (unreliable_lock::throw_on < 3)
       {
         unreliable_lock::count = 0;
-        int failed = std::try_lock(l1, l2, l3);
-        VERIFY( failed == unreliable_lock::throw_on );
+        try
+          {
+            std::try_lock(l1, l2, l3);
+            VERIFY( false );
+          }
+        catch (int e)
+          {
+            VERIFY( e == unreliable_lock::throw_on );
+          }
         ++unreliable_lock::throw_on;
       }
     }

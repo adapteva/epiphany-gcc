@@ -31,7 +31,11 @@ along with GCC; see the file COPYING3.  If not see
    These tree codes have been sorted so that the macros in tree.h that
    check for various tree codes are optimized into range checks.  This
    gives a measurable performance improvement.  When adding a new
-   code, consider its placement in relation to the other codes.  */
+   code, consider its placement in relation to the other codes.
+
+   When adding a new tree code which might appear as GIMPLE_ASSIGN RHS
+   code, proper handler in chkp_compute_bounds_for_assignment may
+   be required.  */
 
 /* Any erroneous construct is parsed into a node of this type.
    This type of node is accepted without complaint in all contexts
@@ -232,6 +236,11 @@ DEFTREECODE (QUAL_UNION_TYPE, "qual_union_type", tcc_type, 0)
 /* The void type in C */
 DEFTREECODE (VOID_TYPE, "void_type", tcc_type, 0)
 
+/* Type to hold bounds for a pointer.
+   Has TYPE_PRECISION component to specify number of bits used
+   by this type.  */
+DEFTREECODE (POINTER_BOUNDS_TYPE, "pointer_bounds_type", tcc_type, 0)
+
 /* Type of functions.  Special fields:
    TREE_TYPE		    type of value returned.
    TYPE_ARG_TYPES      list of types of arguments expected.
@@ -257,13 +266,26 @@ DEFTREECODE (LANG_TYPE, "lang_type", tcc_type, 0)
 
 /* First, the constants.  */
 
-/* Contents are in TREE_INT_CST_LOW and TREE_INT_CST_HIGH fields,
-   32 bits each, giving us a 64 bit constant capability.  INTEGER_CST
-   nodes can be shared, and therefore should be considered read only.
-   They should be copied, before setting a flag such as TREE_OVERFLOW.
-   If an INTEGER_CST has TREE_OVERFLOW already set, it is known to be unique.
-   INTEGER_CST nodes are created for the integral types, for pointer
-   types and for vector and float types in some circumstances.  */
+DEFTREECODE (VOID_CST, "void_cst", tcc_constant, 0)
+
+/* Contents are in an array of HOST_WIDE_INTs.
+
+   We often access these constants both in their native precision and
+   in wider precisions (with the constant being implicitly extended
+   according to TYPE_SIGN).  In each case, the useful part of the array
+   may be as wide as the precision requires but may be shorter when all
+   of the upper bits are sign bits.  The length of the array when accessed
+   in the constant's native precision is given by TREE_INT_CST_NUNITS.
+   The length of the array when accessed in wider precisions is given
+   by TREE_INT_CST_EXT_NUNITS.  Each element can be obtained using
+   TREE_INT_CST_ELT.
+
+   INTEGER_CST nodes can be shared, and therefore should be considered
+   read only.  They should be copied before setting a flag such as
+   TREE_OVERFLOW.  If an INTEGER_CST has TREE_OVERFLOW already set,
+   it is known to be unique.  INTEGER_CST nodes are created for the
+   integral types, for pointer types and for vector and float types in
+   some circumstances.  */
 DEFTREECODE (INTEGER_CST, "integer_cst", tcc_constant, 0)
 
 /* Contents are in TREE_REAL_CST field.  */
@@ -561,7 +583,7 @@ DEFTREECODE (BIND_EXPR, "bind_expr", tcc_expression, 3)
 /* Function call.  CALL_EXPRs are represented by variably-sized expression
    nodes.  There are at least three fixed operands.  Operand 0 is an
    INTEGER_CST node containing the total operand count, the number of
-   arguments plus 3.  Operand 1 is the function, while operand 2 is
+   arguments plus 3.  Operand 1 is the function or NULL, while operand 2 is
    is static chain argument, or NULL.  The remaining operands are the
    arguments to the call.  */
 DEFTREECODE (CALL_EXPR, "call_expr", tcc_vl_exp, 3)
@@ -1051,6 +1073,10 @@ DEFTREECODE (OMP_SIMD, "omp_simd", tcc_statement, 6)
    Operands like for OMP_FOR.  */
 DEFTREECODE (CILK_SIMD, "cilk_simd", tcc_statement, 6)
 
+/* Cilk Plus - _Cilk_for (..)
+   Operands like for OMP_FOR.  */
+DEFTREECODE (CILK_FOR, "cilk_for", tcc_statement, 6)
+
 /* OpenMP - #pragma omp distribute [clause1 ... clauseN]
    Operands like for OMP_FOR.  */
 DEFTREECODE (OMP_DISTRIBUTE, "omp_distribute", tcc_statement, 6)
@@ -1144,10 +1170,9 @@ DEFTREECODE (TRANSACTION_EXPR, "transaction_expr", tcc_expression, 1)
    result (e.g. summing the elements of the vector, finding the minimum over
    the vector elements, etc).
    Operand 0 is a vector.
-   The expression returns a vector of the same type, with the first
-   element in the vector holding the result of the reduction of all elements
-   of the operand.  The content of the other elements in the returned vector
-   is undefined.  */
+   The expression returns a scalar, with type the same as the elements of the
+   vector, holding the result of the reduction of all elements of the operand.
+   */
 DEFTREECODE (REDUC_MAX_EXPR, "reduc_max_expr", tcc_unary, 1)
 DEFTREECODE (REDUC_MIN_EXPR, "reduc_min_expr", tcc_unary, 1)
 DEFTREECODE (REDUC_PLUS_EXPR, "reduc_plus_expr", tcc_unary, 1)
@@ -1171,6 +1196,22 @@ DEFTREECODE (DOT_PROD_EXPR, "dot_prod_expr", tcc_expression, 3)
    the first argument from type t1 to type t2, and then summing it
    with the second argument.  */
 DEFTREECODE (WIDEN_SUM_EXPR, "widen_sum_expr", tcc_binary, 2)
+
+/* Widening sad (sum of absolute differences).
+   The first two arguments are of type t1 which should be integer.
+   The third argument and the result are of type t2, such that t2 is at least
+   twice the size of t1.  Like DOT_PROD_EXPR, SAD_EXPR (arg1,arg2,arg3) is
+   equivalent to (note we don't have WIDEN_MINUS_EXPR now, but we assume its
+   behavior is similar to WIDEN_SUM_EXPR):
+       tmp = WIDEN_MINUS_EXPR (arg1, arg2)
+       tmp2 = ABS_EXPR (tmp)
+       arg3 = PLUS_EXPR (tmp2, arg3)
+  or:
+       tmp = WIDEN_MINUS_EXPR (arg1, arg2)
+       tmp2 = ABS_EXPR (tmp)
+       arg3 = WIDEN_SUM_EXPR (tmp2, arg3)
+ */
+DEFTREECODE (SAD_EXPR, "sad_expr", tcc_expression, 3)
 
 /* Widening multiplication.
    The two arguments are of type t1.
@@ -1210,12 +1251,6 @@ DEFTREECODE (WIDEN_LSHIFT_EXPR, "widen_lshift_expr", tcc_binary, 2)
    before adding operand three.  */
 DEFTREECODE (FMA_EXPR, "fma_expr", tcc_expression, 3)
 
-/* Whole vector left/right shift in bits.
-   Operand 0 is a vector to be shifted.
-   Operand 1 is an integer shift amount in bits.  */
-DEFTREECODE (VEC_LSHIFT_EXPR, "vec_lshift_expr", tcc_binary, 2)
-DEFTREECODE (VEC_RSHIFT_EXPR, "vec_rshift_expr", tcc_binary, 2)
-
 /* Widening vector multiplication.
    The two operands are vectors with N elements of size S. Multiplying the
    elements of the two vectors will result in N products of size 2*S.
@@ -1280,7 +1315,7 @@ DEFTREECODE (TARGET_OPTION_NODE, "target_option_node", tcc_exceptional, 0)
 
 /* ANNOTATE_EXPR.
    Operand 0 is the expression to be annotated.
-   Operand 1 is the annotation id. */
+   Operand 1 is the annotation kind.  */
 DEFTREECODE (ANNOTATE_EXPR, "annotate_expr", tcc_expression, 2)
 
 /* Cilk spawn statement

@@ -25,21 +25,33 @@ along with GCC; see the file COPYING3.  If not see
 #include "coretypes.h"
 #include "diagnostic.h"
 #include "tree.h"
+#include "predict.h"
+#include "vec.h"
+#include "hashtab.h"
+#include "hash-set.h"
+#include "machmode.h"
+#include "tm.h"
+#include "hard-reg-set.h"
+#include "input.h"
+#include "function.h"
 #include "basic-block.h"
 #include "tree-ssa-alias.h"
 #include "internal-fn.h"
 #include "gimple-expr.h"
 #include "is-a.h"
 #include "gimple.h"
+#include "hash-map.h"
+#include "plugin-api.h"
+#include "ipa-ref.h"
+#include "cgraph.h"
 #include "data-streamer.h"
 
 /* Read a string from the string table in DATA_IN using input block
    IB.  Write the length to RLEN.  */
 
-const char *
+static const char *
 string_for_index (struct data_in *data_in, unsigned int loc, unsigned int *rlen)
 {
-  struct lto_input_block str_tab;
   unsigned int len;
   const char *result;
 
@@ -50,8 +62,7 @@ string_for_index (struct data_in *data_in, unsigned int loc, unsigned int *rlen)
     }
 
   /* Get the string stored at location LOC in DATA_IN->STRINGS.  */
-  LTO_INIT_INPUT_BLOCK (str_tab, data_in->strings, loc - 1,
-			data_in->strings_len);
+  lto_input_block str_tab (data_in->strings, loc - 1, data_in->strings_len);
   len = streamer_read_uhwi (&str_tab);
   *rlen = len;
 
@@ -174,7 +185,7 @@ streamer_read_hwi (struct lto_input_block *ib)
       if ((byte & 0x80) == 0)
 	{
 	  if ((shift < HOST_BITS_PER_WIDE_INT) && (byte & 0x40))
-	    result |= - ((HOST_WIDE_INT)1 << shift);
+	    result |= - (HOST_WIDE_INT_1U << shift);
 
 	  return result;
 	}

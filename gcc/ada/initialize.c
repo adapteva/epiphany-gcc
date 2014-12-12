@@ -6,7 +6,7 @@
  *                                                                          *
  *                          C Implementation File                           *
  *                                                                          *
- *          Copyright (C) 1992-2012, Free Software Foundation, Inc.         *
+ *          Copyright (C) 1992-2014, Free Software Foundation, Inc.         *
  *                                                                          *
  * GNAT is free software;  you can  redistribute it  and/or modify it under *
  * terms of the  GNU General Public License as published  by the Free Soft- *
@@ -52,6 +52,7 @@
 #endif
 
 #include "raise.h"
+#include <fcntl.h>
 
 #ifdef __cplusplus
 extern "C" {
@@ -60,6 +61,9 @@ extern "C" {
 /******************************************/
 /* __gnat_initialize (NT-mingw32 Version) */
 /******************************************/
+
+int __gnat_wide_text_translation_required = 0;
+/* wide text translation, 0=none, 1=activated */
 
 #if defined (__MINGW32__)
 #include "mingw32.h"
@@ -70,6 +74,8 @@ extern void __gnat_install_SEH_handler (void *);
 
 extern int gnat_argc;
 extern char **gnat_argv;
+extern CRITICAL_SECTION ProcListCS;
+extern HANDLE ProcListEvt;
 
 #ifdef GNAT_UNICODE_SUPPORT
 
@@ -134,6 +140,11 @@ __gnat_initialize (void *eh ATTRIBUTE_UNUSED)
       given that we have set Max_Digits etc with this in mind */
    __gnat_init_float ();
 
+   /* Initialize the critical section and event handle for the win32_wait()
+      implementation, see adaint.c */
+   InitializeCriticalSection (&ProcListCS);
+   ProcListEvt = CreateEvent (NULL, FALSE, FALSE, NULL);
+
 #ifdef GNAT_UNICODE_SUPPORT
    /* Set current code page for filenames handling. */
    {
@@ -148,6 +159,39 @@ __gnat_initialize (void *eh ATTRIBUTE_UNUSED)
 	   CurrentCodePage = CP_ACP;
 	 else if (strcmp (codepage, "CP_UTF8") == 0)
 	   CurrentCodePage = CP_UTF8;
+       }
+   }
+
+   /* Set current encoding for the IO.  */
+   {
+     char *ccsencoding = getenv ("GNAT_CCS_ENCODING");
+
+     /* Default CCS Encoding.  */
+     CurrentCCSEncoding = _O_TEXT;
+     __gnat_wide_text_translation_required = 0;
+
+     if (ccsencoding != NULL)
+       {
+	 if (strcmp (ccsencoding, "U16TEXT") == 0)
+           {
+             CurrentCCSEncoding = _O_U16TEXT;
+             __gnat_wide_text_translation_required = 1;
+           }
+	 else if (strcmp (ccsencoding, "TEXT") == 0)
+           {
+             CurrentCCSEncoding = _O_TEXT;
+             __gnat_wide_text_translation_required = 0;
+           }
+	 else if (strcmp (ccsencoding, "WTEXT") == 0)
+           {
+             CurrentCCSEncoding = _O_WTEXT;
+             __gnat_wide_text_translation_required = 1;
+           }
+	 else if (strcmp (ccsencoding, "U8TEXT") == 0)
+           {
+             CurrentCCSEncoding = _O_U8TEXT;
+             __gnat_wide_text_translation_required = 1;
+           }
        }
    }
 

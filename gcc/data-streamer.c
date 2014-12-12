@@ -23,12 +23,25 @@ along with GCC; see the file COPYING3.  If not see
 #include "system.h"
 #include "coretypes.h"
 #include "tree.h"
+#include "predict.h"
+#include "vec.h"
+#include "hashtab.h"
+#include "hash-set.h"
+#include "machmode.h"
+#include "tm.h"
+#include "hard-reg-set.h"
+#include "input.h"
+#include "function.h"
 #include "basic-block.h"
 #include "tree-ssa-alias.h"
 #include "internal-fn.h"
 #include "gimple-expr.h"
 #include "is-a.h"
 #include "gimple.h"
+#include "hash-map.h"
+#include "plugin-api.h"
+#include "ipa-ref.h"
+#include "cgraph.h"
 #include "data-streamer.h"
 
 /* Pack WORK into BP in a variant of uleb format.  */
@@ -110,7 +123,7 @@ bp_unpack_var_len_int (struct bitpack_d *bp)
       if ((half_byte & 0x8) == 0)
 	{
 	  if ((shift < HOST_BITS_PER_WIDE_INT) && (half_byte & 0x4))
-	    result |= - ((HOST_WIDE_INT)1 << shift);
+	    result |= - (HOST_WIDE_INT_1U << shift);
 
 	  return result;
 	}

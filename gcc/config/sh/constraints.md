@@ -55,7 +55,7 @@
 ;; Z: zero in any mode
 ;;
 ;; unused CONST_INT constraint letters: LO
-;; unused EXTRA_CONSTRAINT letters: D T U Y
+;; unused "extra" constraint letters: D T U Y
 
 ;; Register constraints
 (define_register_constraint "a" "ALL_REGS"
@@ -210,12 +210,12 @@
 (define_constraint "G"
   "Double constant 0."
   (and (match_code "const_double")
-       (match_test "fp_zero_operand (op) && fldi_ok ()")))
+       (match_test "fp_zero_operand (op)")))
 
 (define_constraint "H"
   "Double constant 1."
   (and (match_code "const_double")
-       (match_test "fp_one_operand (op) && fldi_ok ()")))
+       (match_test "fp_one_operand (op)")))
 
 ;; Extra constraints
 (define_constraint "Q"

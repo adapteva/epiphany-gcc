@@ -557,9 +557,10 @@ match_real_constant (gfc_expr **result, int signflag)
       if (!gfc_notify_std (GFC_STD_GNU, "exponent-letter 'q' in "
 			   "real-literal-constant at %C"))
 	return MATCH_ERROR;
-      else if (gfc_option.warn_real_q_constant)
-	gfc_warning("Extension: exponent-letter 'q' in real-literal-constant "
-		    "at %C");
+      else if (warn_real_q_constant)
+	gfc_warning (OPT_Wreal_q_constant,
+		     "Extension: exponent-letter %<q%> in real-literal-constant "
+		     "at %C");
     }
 
   /* Scan exponent.  */
@@ -726,8 +727,8 @@ done:
       goto cleanup;
 
     case ARITH_UNDERFLOW:
-      if (gfc_option.warn_underflow)
-	gfc_warning ("Real constant underflows its kind at %C");
+      if (warn_underflow)
+	gfc_warning (OPT_Wunderflow, "Real constant underflows its kind at %C");
       mpfr_set_ui (e->value.real, 0, GFC_RND_MODE);
       break;
 
@@ -951,7 +952,7 @@ static match
 match_string_constant (gfc_expr **result)
 {
   char name[GFC_MAX_SYMBOL_LEN + 1], peek;
-  int i, kind, length, warn_ampersand, ret;
+  int i, kind, length, save_warn_ampersand, ret;
   locus old_locus, start_locus;
   gfc_symbol *sym;
   gfc_expr *e;
@@ -1071,8 +1072,8 @@ got_delim:
 
   /* We disable the warning for the following loop as the warning has already
      been printed in the loop above.  */
-  warn_ampersand = gfc_option.warn_ampersand;
-  gfc_option.warn_ampersand = 0;
+  save_warn_ampersand = warn_ampersand;
+  warn_ampersand = false;
 
   p = e->value.character.string;
   for (i = 0; i < length; i++)
@@ -1091,7 +1092,7 @@ got_delim:
     }
 
   *p = '\0';	/* TODO: C-style string is for development/debug purposes.  */
-  gfc_option.warn_ampersand = warn_ampersand;
+  warn_ampersand = save_warn_ampersand;
 
   next_string_char (delimiter, &ret);
   if (ret != -1)
@@ -1273,7 +1274,8 @@ static match
 match_complex_constant (gfc_expr **result)
 {
   gfc_expr *e, *real, *imag;
-  gfc_error_buf old_error;
+  gfc_error_buf old_error_1;
+  output_buffer old_error;
   gfc_typespec target;
   locus old_loc;
   int kind;
@@ -1286,18 +1288,18 @@ match_complex_constant (gfc_expr **result)
   if (m != MATCH_YES)
     return m;
 
-  gfc_push_error (&old_error);
+  gfc_push_error (&old_error, &old_error_1);
 
   m = match_complex_part (&real);
   if (m == MATCH_NO)
     {
-      gfc_free_error (&old_error);
+      gfc_free_error (&old_error, &old_error_1);
       goto cleanup;
     }
 
   if (gfc_match_char (',') == MATCH_NO)
     {
-      gfc_pop_error (&old_error);
+      gfc_pop_error (&old_error, &old_error_1);
       m = MATCH_NO;
       goto cleanup;
     }
@@ -1309,10 +1311,10 @@ match_complex_constant (gfc_expr **result)
 
   if (m == MATCH_ERROR)
     {
-      gfc_free_error (&old_error);
+      gfc_free_error (&old_error, &old_error_1);
       goto cleanup;
     }
-  gfc_pop_error (&old_error);
+  gfc_pop_error (&old_error, &old_error_1);
 
   m = match_complex_part (&imag);
   if (m == MATCH_NO)
@@ -2492,7 +2494,7 @@ gfc_convert_to_structure_constructor (gfc_expr *e, gfc_symbol *sym, gfc_expr **c
 	  gcc_assert (comp_iter);
 	  if (!strcmp (comp_iter->name, comp_tail->name))
 	    {
-	      gfc_error ("Component '%s' is initialized twice in the structure"
+	      gfc_error ("Component %qs is initialized twice in the structure"
 			 " constructor at %L!", comp_tail->name,
 			 comp_tail->val ? &comp_tail->where
 					: &gfc_current_locus);
@@ -2839,7 +2841,7 @@ gfc_match_rvalue (gfc_expr **result)
        procedure, yet it is not sure to be the name of a function.  */
     case FL_PROCEDURE:
 
-    /* Procedure Pointer Assignments. */
+    /* Procedure Pointer Assignments.  */
     procptr0:
       if (gfc_matching_procptr_assignment)
 	{

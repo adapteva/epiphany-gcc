@@ -20,7 +20,7 @@ import (
 	"text/tabwriter"
 )
 
-// BUG(rsc): Profiles are incomplete and inaccuate on NetBSD, OpenBSD, and OS X.
+// BUG(rsc): Profiles are incomplete and inaccurate on NetBSD and OS X.
 // See http://golang.org/issue/6047 for details.
 
 // A Profile is a collection of stack traces showing the call sequences
@@ -331,6 +331,11 @@ func printStackRecord(w io.Writer, stk []uintptr, allFrames bool) {
 			if i > 0 && pc > f.Entry() && !wasPanic {
 				if runtime.GOARCH == "386" || runtime.GOARCH == "amd64" {
 					tracepc--
+				} else if runtime.GOARCH == "s390" || runtime.GOARCH == "s390x" {
+					// only works if function was called
+					// with the brasl instruction (or a
+					// different 6-byte instruction).
+					tracepc -= 6
 				} else {
 					tracepc -= 4 // arm, etc
 				}

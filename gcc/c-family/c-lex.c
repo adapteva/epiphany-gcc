@@ -35,6 +35,9 @@ along with GCC; see the file COPYING3.  If not see
 #include "splay-tree.h"
 #include "debug.h"
 #include "target.h"
+#include "wide-int.h"
+
+#include "attribs.h"
 
 /* We may keep statistics about how long which files took to compile.  */
 static int header_time, body_time;
@@ -49,9 +52,9 @@ static tree interpret_float (const cpp_token *, unsigned int, const char *,
 			     enum overflow_type *);
 static tree interpret_fixed (const cpp_token *, unsigned int);
 static enum integer_type_kind narrowest_unsigned_type
-	(unsigned HOST_WIDE_INT, unsigned HOST_WIDE_INT, unsigned int);
+	(const widest_int &, unsigned int);
 static enum integer_type_kind narrowest_signed_type
-	(unsigned HOST_WIDE_INT, unsigned HOST_WIDE_INT, unsigned int);
+	(const widest_int &, unsigned int);
 static enum cpp_ttype lex_string (const cpp_token *, tree *, bool, bool);
 static tree lex_charconst (const cpp_token *);
 static void update_header_times (const char *);
@@ -61,6 +64,7 @@ static void cb_ident (cpp_reader *, unsigned int, const cpp_string *);
 static void cb_def_pragma (cpp_reader *, unsigned int);
 static void cb_define (cpp_reader *, unsigned int, cpp_hashnode *);
 static void cb_undef (cpp_reader *, unsigned int, cpp_hashnode *);
+static int cb_has_attribute (cpp_reader *);
 
 void
 init_c_lex (void)
@@ -85,6 +89,7 @@ init_c_lex (void)
   cb->def_pragma = cb_def_pragma;
   cb->valid_pch = c_common_valid_pch;
   cb->read_pch = c_common_read_pch;
+  cb->has_attribute = cb_has_attribute;
 
   /* Set the debug callbacks if we can use them.  */
   if ((debug_info_level == DINFO_LEVEL_VERBOSE
@@ -282,6 +287,75 @@ cb_undef (cpp_reader * ARG_UNUSED (pfile), source_location loc,
   (*debug_hooks->undef) (SOURCE_LINE (map, loc),
 			 (const char *) NODE_NAME (node));
 }
+
+/* Callback for has_attribute.  */
+static int
+cb_has_attribute (cpp_reader *pfile)
+{
+  int result = 0;
+  bool paren = false;
+  tree attr_ns = NULL_TREE, attr_id = NULL_TREE, attr_name = NULL_TREE;
+  const cpp_token *token;
+
+  token = cpp_get_token (pfile);
+  if (token->type == CPP_OPEN_PAREN)
+    {
+      paren = true;
+      token = cpp_get_token (pfile);
+    }
+
+  if (token->type == CPP_NAME)
+    {
+      //node = token->val.node.node;
+      const cpp_token *nxt_token = cpp_peek_token (pfile, 0);
+      if (c_dialect_cxx() && nxt_token->type == CPP_SCOPE)
+	{
+	  nxt_token = cpp_get_token (pfile); // Eat scope.
+	  nxt_token = cpp_get_token (pfile);
+	  if (nxt_token->type == CPP_NAME)
+	    {
+	      attr_ns = get_identifier (
+			(const char *) cpp_token_as_text (pfile, token));
+	      attr_id = get_identifier (
+			(const char *) cpp_token_as_text (pfile, nxt_token));
+	      attr_name = build_tree_list (attr_ns, attr_id);
+	    }
+	  else
+	    cpp_error (pfile, CPP_DL_ERROR,
+		       "attribute identifier required after scope");
+	}
+      else
+	{
+	  attr_ns = get_identifier ("gnu");
+	  attr_id = get_identifier (
+		    (const char *) cpp_token_as_text (pfile, token));
+	  attr_name = build_tree_list (attr_ns, attr_id);
+	}
+      if (attr_name)
+	{
+	  const struct attribute_spec *attr = lookup_attribute_spec (attr_name);
+	  if (attr)
+	    {
+	      if (is_attribute_p ("noreturn", TREE_VALUE (attr_name)))
+		result = 200809;
+	      else if (is_attribute_p ("deprecated", TREE_VALUE (attr_name)))
+		result = 201309;
+	      else
+		result = 1;
+	    }
+	}
+    }
+  else
+    cpp_error (pfile, CPP_DL_ERROR,
+	       "operator \"__has_attribute__\" requires an identifier");
+
+  if (paren && cpp_get_token (pfile)->type != CPP_CLOSE_PAREN)
+    cpp_error (pfile, CPP_DL_ERROR,
+	       "missing ')' after \"__has_attribute__\"");
+
+  return result;
+}
+
 
 /* Read a token and return its type.  Fill *VALUE with its value, if
    applicable.  Fill *CPP_FLAGS with the token's flags, if it is
@@ -527,9 +601,7 @@ c_lex_with_flags (tree *value, location_t *loc, unsigned char *cpp_flags,
    there isn't one.  */
 
 static enum integer_type_kind
-narrowest_unsigned_type (unsigned HOST_WIDE_INT low,
-			 unsigned HOST_WIDE_INT high,
-			 unsigned int flags)
+narrowest_unsigned_type (const widest_int &val, unsigned int flags)
 {
   int itk;
 
@@ -548,9 +620,7 @@ narrowest_unsigned_type (unsigned HOST_WIDE_INT low,
 	continue;
       upper = TYPE_MAX_VALUE (integer_types[itk]);
 
-      if ((unsigned HOST_WIDE_INT) TREE_INT_CST_HIGH (upper) > high
-	  || ((unsigned HOST_WIDE_INT) TREE_INT_CST_HIGH (upper) == high
-	      && TREE_INT_CST_LOW (upper) >= low))
+      if (wi::geu_p (wi::to_widest (upper), val))
 	return (enum integer_type_kind) itk;
     }
 
@@ -559,8 +629,7 @@ narrowest_unsigned_type (unsigned HOST_WIDE_INT low,
 
 /* Ditto, but narrowest signed type.  */
 static enum integer_type_kind
-narrowest_signed_type (unsigned HOST_WIDE_INT low,
-		       unsigned HOST_WIDE_INT high, unsigned int flags)
+narrowest_signed_type (const widest_int &val, unsigned int flags)
 {
   int itk;
 
@@ -571,7 +640,6 @@ narrowest_signed_type (unsigned HOST_WIDE_INT low,
   else
     itk = itk_long_long;
 
-
   for (; itk < itk_none; itk += 2 /* skip signed types */)
     {
       tree upper;
@@ -580,9 +648,7 @@ narrowest_signed_type (unsigned HOST_WIDE_INT low,
 	continue;
       upper = TYPE_MAX_VALUE (integer_types[itk]);
 
-      if ((unsigned HOST_WIDE_INT) TREE_INT_CST_HIGH (upper) > high
-	  || ((unsigned HOST_WIDE_INT) TREE_INT_CST_HIGH (upper) == high
-	      && TREE_INT_CST_LOW (upper) >= low))
+      if (wi::geu_p (wi::to_widest (upper), val))
 	return (enum integer_type_kind) itk;
     }
 
@@ -597,6 +663,7 @@ interpret_integer (const cpp_token *token, unsigned int flags,
   tree value, type;
   enum integer_type_kind itk;
   cpp_num integer;
+  HOST_WIDE_INT ival[3];
 
   *overflow = OT_NONE;
 
@@ -604,18 +671,23 @@ interpret_integer (const cpp_token *token, unsigned int flags,
   if (integer.overflow)
     *overflow = OT_OVERFLOW;
 
+  ival[0] = integer.low;
+  ival[1] = integer.high;
+  ival[2] = 0;
+  widest_int wval = widest_int::from_array (ival, 3);
+
   /* The type of a constant with a U suffix is straightforward.  */
   if (flags & CPP_N_UNSIGNED)
-    itk = narrowest_unsigned_type (integer.low, integer.high, flags);
+    itk = narrowest_unsigned_type (wval, flags);
   else
     {
       /* The type of a potentially-signed integer constant varies
 	 depending on the base it's in, the standard in use, and the
 	 length suffixes.  */
       enum integer_type_kind itk_u
-	= narrowest_unsigned_type (integer.low, integer.high, flags);
+	= narrowest_unsigned_type (wval, flags);
       enum integer_type_kind itk_s
-	= narrowest_signed_type (integer.low, integer.high, flags);
+	= narrowest_signed_type (wval, flags);
 
       /* In both C89 and C99, octal and hex constants may be signed or
 	 unsigned, whichever fits tighter.  We do not warn about this
@@ -667,7 +739,7 @@ interpret_integer (const cpp_token *token, unsigned int flags,
 	   : "integer constant is too large for %<long%> type");
     }
 
-  value = build_int_cst_wide (type, integer.low, integer.high);
+  value = wide_int_to_tree (type, wval);
 
   /* Convert imaginary to a complex type.  */
   if (flags & CPP_N_IMAGINARY)
@@ -725,7 +797,7 @@ interpret_float (const cpp_token *token, unsigned int flags,
     if (flags & CPP_N_WIDTH_MD)
       {
 	char suffix;
-	enum machine_mode mode;
+	machine_mode mode;
 
 	if ((flags & CPP_N_WIDTH_MD) == CPP_N_MD_W)
 	  suffix = 'w';
@@ -1165,9 +1237,9 @@ lex_charconst (const cpp_token *token)
   /* Cast to cppchar_signed_t to get correct sign-extension of RESULT
      before possibly widening to HOST_WIDE_INT for build_int_cst.  */
   if (unsignedp || (cppchar_signed_t) result >= 0)
-    value = build_int_cst_wide (type, result, 0);
+    value = build_int_cst (type, result);
   else
-    value = build_int_cst_wide (type, (cppchar_signed_t) result, -1);
+    value = build_int_cst (type, (cppchar_signed_t) result);
 
   return value;
 }

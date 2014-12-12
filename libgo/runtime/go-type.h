@@ -59,7 +59,7 @@ struct String;
 #define GO_CODE_MASK 0x7f
 
 /* For each Go type the compiler constructs one of these structures.
-   This is used for type reflectin, interfaces, maps, and reference
+   This is used for type reflection, interfaces, maps, and reference
    counting.  */
 
 struct __go_type_descriptor
@@ -93,6 +93,9 @@ struct __go_type_descriptor
      size of this type, and returns whether the values are equal.  */
   _Bool (*__equalfn) (const void *, const void *, uintptr_t);
 
+  /* The garbage collection data. */
+  const uintptr *__gc;
+
   /* A string describing this type.  This is only used for
      debugging.  */
   const struct String *__reflection;
@@ -103,6 +106,11 @@ struct __go_type_descriptor
   /* The descriptor for the type which is a pointer to this type.
      This may be NULL.  */
   const struct __go_type_descriptor *__pointer_to_this;
+
+  /* A pointer to a zero value for this type.  All types will point to
+     the same zero value, go$zerovalue, which is a common variable so
+     that it will be large enough.  */
+  void *__zero;
 };
 
 /* The information we store for each method of a type.  */
@@ -295,15 +303,6 @@ struct __go_struct_type
 
   /* An array of struct __go_struct_field.  */
   struct __go_open_array __fields;
-};
-
-/* If an empty interface has these bits set in its type pointer, it
-   was copied from a reflect.Value and is not a valid empty
-   interface.  */
-
-enum 
-{
-  reflectFlags = 3,
 };
 
 /* Whether a type descriptor is a pointer.  */

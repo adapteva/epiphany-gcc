@@ -32,9 +32,20 @@ The Free Software Foundation is independent of Sun Microsystems, Inc.  */
 #include "diagnostic-core.h"
 #include "toplev.h"
 #include "parse.h"
+#include "hashtab.h"
+#include "hash-set.h"
+#include "vec.h"
+#include "machmode.h"
+#include "tm.h"
+#include "hard-reg-set.h"
+#include "input.h"
 #include "function.h"
 #include "ggc.h"
 #include "tree-iterator.h"
+#include "hash-map.h"
+#include "is-a.h"
+#include "plugin-api.h"
+#include "ipa-ref.h"
 #include "cgraph.h"
 
 /* A list of all the resources files.  */
@@ -79,7 +90,7 @@ compile_resource_data (const char *name, const char *buffer, int length)
   layout_decl (decl, 0);
   pushdecl (decl);
   rest_of_decl_compilation (decl, global_bindings_p (), 0);
-  varpool_finalize_decl (decl);
+  varpool_node::finalize_decl (decl);
 
   vec_safe_push (resources, decl);
 }

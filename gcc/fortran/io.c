@@ -1497,7 +1497,8 @@ resolve_tag (const io_tag *tag, gfc_expr *e)
 	return false;
     }
 
-  if ((tag == &tag_iostat || tag == &tag_size || tag == &tag_iolength)
+  if ((tag == &tag_iostat || tag == &tag_size || tag == &tag_iolength
+       || tag == &tag_number || tag == &tag_nextrec || tag == &tag_s_recl)
       && e->ts.kind != gfc_default_integer_kind)
     {
       if (!gfc_notify_std (GFC_STD_F2003, "Fortran 95 requires default "
@@ -1505,9 +1506,11 @@ resolve_tag (const io_tag *tag, gfc_expr *e)
 	return false;
     }
 
-  if (tag == &tag_exist && e->ts.kind != gfc_default_logical_kind)
+  if (e->ts.kind != gfc_default_logical_kind &&
+      (tag == &tag_exist || tag == &tag_named || tag == &tag_opened
+       || tag == &tag_pending))
     {
-      if (!gfc_notify_std (GFC_STD_F2008, "Nondefault LOGICAL "
+      if (!gfc_notify_std (GFC_STD_F2008, "Non-default LOGICAL kind "
 			   "in %s tag at %L", tag->name, &e->where))
 	return false;
     }
@@ -1718,7 +1721,7 @@ compare_to_allowed_values (const char *specifier, const char *allowed[],
 	if (n == WARNING || (warn && n == ERROR))
 	  {
 	    gfc_warning ("Fortran 2003: %s specifier in %s statement at %C "
-			 "has value '%s'", specifier, statement,
+			 "has value %qs", specifier, statement,
 			 allowed_f2003[i]);
 	    return 1;
 	  }
@@ -1745,7 +1748,7 @@ compare_to_allowed_values (const char *specifier, const char *allowed[],
 	if (n == WARNING || (warn && n == ERROR))
 	  {
 	    gfc_warning ("Extension: %s specifier in %s statement at %C "
-			 "has value '%s'", specifier, statement,
+			 "has value %qs", specifier, statement,
 			 allowed_gnu[i]);
 	    return 1;
 	  }

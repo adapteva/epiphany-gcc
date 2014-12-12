@@ -1,4 +1,4 @@
-// { dg-options "-std=gnu++1y" }
+// { dg-options "-std=gnu++14" }
 // { dg-do run }
 
 // Copyright (C) 2013-2014 Free Software Foundation, Inc.
@@ -35,10 +35,6 @@ namespace ns
   bool
   operator==(value_type const& lhs, value_type const& rhs)
   { return std::tie(lhs.i, lhs.s) == std::tie(rhs.i, rhs.s); }
-
-  bool
-  operator!=(value_type const& lhs, value_type const& rhs)
-  { return !(lhs == rhs); }
 
   bool
   operator<(value_type const& lhs, value_type const& rhs)

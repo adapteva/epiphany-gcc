@@ -119,7 +119,7 @@ func (o *operation) InitBuf(buf []byte) {
 	o.buf.Len = uint32(len(buf))
 	o.buf.Buf = nil
 	if len(buf) != 0 {
-		o.buf.Buf = (*byte)(unsafe.Pointer(&buf[0]))
+		o.buf.Buf = &buf[0]
 	}
 }
 
@@ -313,10 +313,17 @@ func (fd *netFD) setAddr(laddr, raddr Addr) {
 	runtime.SetFinalizer(fd, (*netFD).Close)
 }
 
-func (fd *netFD) connect(la, ra syscall.Sockaddr) error {
+func (fd *netFD) connect(la, ra syscall.Sockaddr, deadline time.Time) error {
 	// Do not need to call fd.writeLock here,
 	// because fd is not yet accessible to user,
 	// so no concurrent operations are possible.
+	if err := fd.init(); err != nil {
+		return err
+	}
+	if !deadline.IsZero() {
+		fd.setWriteDeadline(deadline)
+		defer fd.setWriteDeadline(noDeadline)
+	}
 	if !canUseConnectEx(fd.net) {
 		return syscall.Connect(fd.sysfd, ra)
 	}
@@ -431,11 +438,11 @@ func (fd *netFD) shutdown(how int) error {
 	return nil
 }
 
-func (fd *netFD) CloseRead() error {
+func (fd *netFD) closeRead() error {
 	return fd.shutdown(syscall.SHUT_RD)
 }
 
-func (fd *netFD) CloseWrite() error {
+func (fd *netFD) closeWrite() error {
 	return fd.shutdown(syscall.SHUT_WR)
 }
 
@@ -458,7 +465,7 @@ func (fd *netFD) Read(buf []byte) (int, error) {
 	return n, err
 }
 
-func (fd *netFD) ReadFrom(buf []byte) (n int, sa syscall.Sockaddr, err error) {
+func (fd *netFD) readFrom(buf []byte) (n int, sa syscall.Sockaddr, err error) {
 	if len(buf) == 0 {
 		return 0, nil, nil
 	}
@@ -497,7 +504,7 @@ func (fd *netFD) Write(buf []byte) (int, error) {
 	})
 }
 
-func (fd *netFD) WriteTo(buf []byte, sa syscall.Sockaddr) (int, error) {
+func (fd *netFD) writeTo(buf []byte, sa syscall.Sockaddr) (int, error) {
 	if len(buf) == 0 {
 		return 0, nil
 	}
@@ -628,10 +635,10 @@ func (fd *netFD) dup() (*os.File, error) {
 
 var errNoSupport = errors.New("address family not supported")
 
-func (fd *netFD) ReadMsg(p []byte, oob []byte) (n, oobn, flags int, sa syscall.Sockaddr, err error) {
+func (fd *netFD) readMsg(p []byte, oob []byte) (n, oobn, flags int, sa syscall.Sockaddr, err error) {
 	return 0, 0, 0, nil, errNoSupport
 }
 
-func (fd *netFD) WriteMsg(p []byte, oob []byte, sa syscall.Sockaddr) (n int, oobn int, err error) {
+func (fd *netFD) writeMsg(p []byte, oob []byte, sa syscall.Sockaddr) (n int, oobn int, err error) {
 	return 0, 0, errNoSupport
 }

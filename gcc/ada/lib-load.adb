@@ -6,7 +6,7 @@
 --                                                                          --
 --                                 B o d y                                  --
 --                                                                          --
---          Copyright (C) 1992-2013, Free Software Foundation, Inc.         --
+--          Copyright (C) 1992-2014, Free Software Foundation, Inc.         --
 --                                                                          --
 -- GNAT is free software;  you can  redistribute it  and/or modify it under --
 -- terms of the  GNU General Public License as published  by the Free Soft- --
@@ -214,14 +214,14 @@ package body Lib.Load is
         Expected_Unit     => Spec_Name,
         Fatal_Error       => True,
         Generate_Code     => False,
-        Has_Allocator     => False,
         Has_RACW          => False,
-        Is_Compiler_Unit  => False,
+        Filler            => False,
         Ident_String      => Empty,
         Loading           => False,
         Main_Priority     => Default_Main_Priority,
         Main_CPU          => Default_Main_CPU,
         Munit_Index       => 0,
+        No_Elab_Code_All  => False,
         Serial_Number     => 0,
         Source_Index      => No_Source_File,
         Unit_File_Name    => Get_File_Name (Spec_Name, Subunit => False),
@@ -321,14 +321,14 @@ package body Lib.Load is
            Expected_Unit     => No_Unit_Name,
            Fatal_Error       => False,
            Generate_Code     => False,
-           Has_Allocator     => False,
            Has_RACW          => False,
-           Is_Compiler_Unit  => False,
+           Filler            => False,
            Ident_String      => Empty,
            Loading           => True,
            Main_Priority     => Default_Main_Priority,
            Main_CPU          => Default_Main_CPU,
            Munit_Index       => 0,
+           No_Elab_Code_All  => False,
            Serial_Number     => 0,
            Source_Index      => Main_Source_File,
            Unit_File_Name    => Fname,
@@ -685,14 +685,14 @@ package body Lib.Load is
               Expected_Unit     => Uname_Actual,
               Fatal_Error       => False,
               Generate_Code     => False,
-              Has_Allocator     => False,
               Has_RACW          => False,
-              Is_Compiler_Unit  => False,
+              Filler            => False,
               Ident_String      => Empty,
               Loading           => True,
               Main_Priority     => Default_Main_Priority,
               Main_CPU          => Default_Main_CPU,
               Munit_Index       => 0,
+              No_Elab_Code_All  => False,
               Serial_Number     => 0,
               Source_Index      => Src_Ind,
               Unit_File_Name    => Fname,

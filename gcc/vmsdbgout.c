@@ -34,6 +34,12 @@ along with GCC; see the file COPYING3.  If not see
 #include "vmsdbg.h"
 #include "debug.h"
 #include "langhooks.h"
+#include "hashtab.h"
+#include "hash-set.h"
+#include "vec.h"
+#include "machmode.h"
+#include "hard-reg-set.h"
+#include "input.h"
 #include "function.h"
 #include "target.h"
 
@@ -193,9 +199,9 @@ const struct gcc_debug_hooks vmsdbg_debug_hooks
    debug_nothing_tree_tree_tree_bool, /* imported_module_or_decl */
    debug_nothing_tree,		  /* deferred_inline_function */
    vmsdbgout_abstract_function,
-   debug_nothing_rtx,		  /* label */
+   debug_nothing_rtx_code_label,  /* label */
    debug_nothing_int,		  /* handle_pch */
-   debug_nothing_rtx,		  /* var_location */
+   debug_nothing_rtx_insn,	  /* var_location */
    debug_nothing_void,            /* switch_text_section */
    debug_nothing_tree_tree,	  /* set_name */
    0,                             /* start_end_main_source_file */
@@ -1454,9 +1460,9 @@ vmsdbgout_init (const char *filename)
 
   lookup_filename (primary_filename);
 
-  if (!strcmp (language_string, "GNU C"))
+  if (lang_GNU_C ())
     module_language = DST_K_C;
-  else if (!strcmp (language_string, "GNU C++"))
+  else if (lang_GNU_CXX ())
     module_language = DST_K_CXX;
   else if (!strcmp (language_string, "GNU Ada"))
     module_language = DST_K_ADA;

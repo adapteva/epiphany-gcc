@@ -171,6 +171,10 @@ ix86_target_macros_internal (HOST_WIDE_INT isa_flag,
       def_or_undef (parse_in, "__silvermont");
       def_or_undef (parse_in, "__silvermont__");
       break;
+    case PROCESSOR_KNL:
+      def_or_undef (parse_in, "__knl");
+      def_or_undef (parse_in, "__knl__");
+      break;
     /* use PROCESSOR_max to not set/unset the arch macro.  */
     case PROCESSOR_max:
       break;
@@ -277,6 +281,9 @@ ix86_target_macros_internal (HOST_WIDE_INT isa_flag,
       def_or_undef (parse_in, "__tune_slm__");
       def_or_undef (parse_in, "__tune_silvermont__");
       break;
+    case PROCESSOR_KNL:
+      def_or_undef (parse_in, "__tune_knl__");
+      break;
     case PROCESSOR_INTEL:
     case PROCESSOR_GENERIC:
       break;
@@ -345,6 +352,16 @@ ix86_target_macros_internal (HOST_WIDE_INT isa_flag,
     def_or_undef (parse_in, "__AVX512CD__");
   if (isa_flag & OPTION_MASK_ISA_AVX512PF)
     def_or_undef (parse_in, "__AVX512PF__");
+  if (isa_flag & OPTION_MASK_ISA_AVX512DQ)
+    def_or_undef (parse_in, "__AVX512DQ__");
+  if (isa_flag & OPTION_MASK_ISA_AVX512BW)
+    def_or_undef (parse_in, "__AVX512BW__");
+  if (isa_flag & OPTION_MASK_ISA_AVX512VL)
+    def_or_undef (parse_in, "__AVX512VL__");
+  if (isa_flag & OPTION_MASK_ISA_AVX512VBMI)
+    def_or_undef (parse_in, "__AVX512VBMI__");
+  if (isa_flag & OPTION_MASK_ISA_AVX512IFMA)
+    def_or_undef (parse_in, "__AVX512IFMA__");
   if (isa_flag & OPTION_MASK_ISA_FMA)
     def_or_undef (parse_in, "__FMA__");
   if (isa_flag & OPTION_MASK_ISA_RTM)
@@ -393,6 +410,18 @@ ix86_target_macros_internal (HOST_WIDE_INT isa_flag,
     def_or_undef (parse_in, "__SSE_MATH__");
   if ((fpmath & FPMATH_SSE) && (isa_flag & OPTION_MASK_ISA_SSE2))
     def_or_undef (parse_in, "__SSE2_MATH__");
+  if (isa_flag & OPTION_MASK_ISA_CLFLUSHOPT)
+    def_or_undef (parse_in, "__CLFLUSHOPT__");
+  if (isa_flag & OPTION_MASK_ISA_XSAVEC)
+    def_or_undef (parse_in, "__XSAVEC__");
+  if (isa_flag & OPTION_MASK_ISA_XSAVES)
+    def_or_undef (parse_in, "__XSAVES__");
+  if (isa_flag & OPTION_MASK_ISA_MPX)
+    def_or_undef (parse_in, "__MPX__");
+  if (isa_flag & OPTION_MASK_ISA_PCOMMIT)
+    def_or_undef (parse_in, "__PCOMMIT__");
+  if (isa_flag & OPTION_MASK_ISA_CLWB)
+    def_or_undef (parse_in, "__CLWB__");
 }
 
 
@@ -517,6 +546,13 @@ ix86_target_macros (void)
 
   if (TARGET_LONG_DOUBLE_128)
     cpp_define (parse_in, "__LONG_DOUBLE_128__");
+
+  if (TARGET_128BIT_LONG_DOUBLE)
+    cpp_define (parse_in, "__SIZEOF_FLOAT80__=16");
+  else
+    cpp_define (parse_in, "__SIZEOF_FLOAT80__=12");
+
+  cpp_define (parse_in, "__SIZEOF_FLOAT128__=16");
 
   cpp_define_formatted (parse_in, "__ATOMIC_HLE_ACQUIRE=%d", IX86_HLE_ACQUIRE);
   cpp_define_formatted (parse_in, "__ATOMIC_HLE_RELEASE=%d", IX86_HLE_RELEASE);

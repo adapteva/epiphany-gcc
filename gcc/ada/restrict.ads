@@ -6,7 +6,7 @@
 --                                                                          --
 --                                 S p e c                                  --
 --                                                                          --
---          Copyright (C) 1992-2013, Free Software Foundation, Inc.         --
+--          Copyright (C) 1992-2014, Free Software Foundation, Inc.         --
 --                                                                          --
 -- GNAT is free software;  you can  redistribute it  and/or modify it under --
 -- terms of the  GNU General Public License as published  by the Free Soft- --
@@ -72,7 +72,7 @@ package Restrict is
    --  restriction to the binder.
 
    --  The following declarations establish a mapping between restriction
-   --  identifiers, and the names of corresponding restriction library units.
+   --  identifiers, and the names of corresponding restricted library units.
 
    type Unit_Entry is record
       Res_Id : Restriction_Id;
@@ -120,6 +120,7 @@ package Restrict is
       No_Exception_Propagation           => True,
       No_Exception_Registration          => True,
       No_Finalization                    => True,
+      No_Fixed_IO                        => True,
       No_Implementation_Attributes       => True,
       No_Implementation_Pragmas          => True,
       No_Implicit_Conditionals           => True,
@@ -128,6 +129,8 @@ package Restrict is
       No_Implicit_Loops                  => True,
       No_Initialize_Scalars              => True,
       No_Local_Protected_Objects         => True,
+      No_Long_Long_Integers              => True,
+      No_Multiple_Elaboration            => True,
       No_Protected_Type_Allocators       => True,
       No_Relative_Delay                  => True,
       No_Requeue_Statements              => True,
@@ -191,10 +194,15 @@ package Restrict is
    --  For abort to be allowed, either No_Abort_Statements must be False,
    --  or Max_Asynchronous_Select_Nesting must be non-zero.
 
-   procedure Check_Compiler_Unit (N : Node_Id);
-   --  If unit N is in a unit that has a pragma Compiler_Unit, then a message
-   --  is posted on node N noting use of a construct that is not permitted in
-   --  the compiler.
+   procedure Check_Compiler_Unit (Feature : String; N : Node_Id);
+   --  If unit N is in a unit that has a pragma Compiler_Unit_Warning, then
+   --  a message is posted on node N noting use of the given feature is not
+   --  permitted in the compiler (bootstrap considerations).
+
+   procedure Check_Compiler_Unit (Feature : String; Loc : Source_Ptr);
+   --  If unit N is in a unit that has a pragma Compiler_Unit_Warning, then a
+   --  message is posted at location Loc noting use of the given feature is not
+   --  permitted in the compiler (bootstrap considerations).
 
    procedure Check_Restricted_Unit (U : Unit_Name_Type; N : Node_Id);
    --  Checks if loading of unit U is prohibited by the setting of some
@@ -250,7 +258,7 @@ package Restrict is
    --  elaboration routine. If elaboration code is not allowed, an error
    --  message is posted on the node given as argument.
 
-   procedure Check_SPARK_Restriction
+   procedure Check_SPARK_05_Restriction
      (Msg   : String;
       N     : Node_Id;
       Force : Boolean := False);
@@ -259,9 +267,9 @@ package Restrict is
    --  the SPARK_05 restriction is set, then an error is issued on N. Msg
    --  is appended to the restriction failure message.
 
-   procedure Check_SPARK_Restriction (Msg1, Msg2 : String; N : Node_Id);
-   --  Same as Check_SPARK_Restriction except there is a continuation message
-   --  Msg2 following the initial message Msg1.
+   procedure Check_SPARK_05_Restriction (Msg1, Msg2 : String; N : Node_Id);
+   --  Same as Check_SPARK_05_Restriction except there is a continuation
+   --  message Msg2 following the initial message Msg1.
 
    procedure Check_No_Implicit_Aliasing (Obj : Node_Id);
    --  Obj is a node for which Is_Aliased_View is True, which is being used in
@@ -328,7 +336,6 @@ package Restrict is
    --  Id is a node whose Chars field contains the name of a restriction.
    --  If it is one of synonyms that we allow for historical purposes (for
    --  list see System.Rident), then the proper official name is returned.
-   --  Otherwise the Chars field of the argument is returned unchanged.
 
    function Restriction_Active (R : All_Restrictions) return Boolean;
    pragma Inline (Restriction_Active);

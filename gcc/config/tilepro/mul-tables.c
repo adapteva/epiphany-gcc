@@ -18,10 +18,14 @@
    along with GCC; see the file COPYING3.  If not see
    <http://www.gnu.org/licenses/>.  */
 
+/* Note this file is auto-generated from gen-mul-tables.cc.
+   Make any required changes there.  */
+
 #include "config.h"
 #include "system.h"
 #include "coretypes.h"
 #include "expr.h"
+#include "insn-codes.h"
 #include "optabs.h"
 #include "tilepro-multiply.h"
 

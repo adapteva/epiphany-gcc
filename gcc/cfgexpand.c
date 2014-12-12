@@ -30,12 +30,25 @@ along with GCC; see the file COPYING3.  If not see
 #include "stmt.h"
 #include "print-tree.h"
 #include "tm_p.h"
-#include "basic-block.h"
+#include "predict.h"
+#include "vec.h"
+#include "hashtab.h"
+#include "hash-set.h"
+#include "machmode.h"
+#include "input.h"
 #include "function.h"
+#include "dominance.h"
+#include "cfg.h"
+#include "cfgrtl.h"
+#include "cfganal.h"
+#include "cfgbuild.h"
+#include "cfgcleanup.h"
+#include "basic-block.h"
+#include "insn-codes.h"
+#include "optabs.h"
 #include "expr.h"
 #include "langhooks.h"
 #include "bitmap.h"
-#include "pointer-set.h"
 #include "tree-ssa-alias.h"
 #include "internal-fn.h"
 #include "tree-eh.h"
@@ -45,6 +58,9 @@ along with GCC; see the file COPYING3.  If not see
 #include "gimple-iterator.h"
 #include "gimple-walk.h"
 #include "gimple-ssa.h"
+#include "hash-map.h"
+#include "plugin-api.h"
+#include "ipa-ref.h"
 #include "cgraph.h"
 #include "tree-cfg.h"
 #include "tree-phinodes.h"
@@ -73,6 +89,9 @@ along with GCC; see the file COPYING3.  If not see
 #include "tree-ssa-address.h"
 #include "recog.h"
 #include "output.h"
+#include "builtins.h"
+#include "tree-chkp.h"
+#include "rtl-chkp.h"
 
 /* Some systems use __main in a way incompatible with its use in gcc, in these
    cases use the macros NAME__MAIN to give a quoted symbol and SYMBOL__MAIN to
@@ -214,7 +233,7 @@ struct stack_var
 static struct stack_var *stack_vars;
 static size_t stack_vars_alloc;
 static size_t stack_vars_num;
-static struct pointer_map_t *decl_to_stack_part;
+static hash_map<tree, size_t> *decl_to_stack_part;
 
 /* Conflict bitmaps go on this obstack.  This allows us to destroy
    all of them in one big sweep.  */
@@ -298,10 +317,10 @@ add_stack_var (tree decl)
 	= XRESIZEVEC (struct stack_var, stack_vars, stack_vars_alloc);
     }
   if (!decl_to_stack_part)
-    decl_to_stack_part = pointer_map_create ();
+    decl_to_stack_part = new hash_map<tree, size_t>;
 
   v = &stack_vars[stack_vars_num];
-  * (size_t *)pointer_map_insert (decl_to_stack_part, decl) = stack_vars_num;
+  decl_to_stack_part->put (decl, stack_vars_num);
 
   v->decl = decl;
   v->size = tree_to_uhwi (DECL_SIZE_UNIT (SSAVAR (decl)));
@@ -373,7 +392,7 @@ visit_op (gimple, tree op, tree, void *data)
       && DECL_P (op)
       && DECL_RTL_IF_SET (op) == pc_rtx)
     {
-      size_t *v = (size_t *) pointer_map_contains (decl_to_stack_part, op);
+      size_t *v = decl_to_stack_part->get (op);
       if (v)
 	bitmap_set_bit (active, *v);
     }
@@ -393,8 +412,7 @@ visit_conflict (gimple, tree op, tree, void *data)
       && DECL_P (op)
       && DECL_RTL_IF_SET (op) == pc_rtx)
     {
-      size_t *v =
-	(size_t *) pointer_map_contains (decl_to_stack_part, op);
+      size_t *v = decl_to_stack_part->get (op);
       if (v && bitmap_set_bit (active, *v))
 	{
 	  size_t num = *v;
@@ -445,8 +463,7 @@ add_scope_conflicts_1 (basic_block bb, bitmap work, bool for_conflict)
 	  if (TREE_CODE (lhs) != VAR_DECL)
 	    continue;
 	  if (DECL_RTL_IF_SET (lhs) == pc_rtx
-	      && (v = (size_t *)
-		  pointer_map_contains (decl_to_stack_part, lhs)))
+	      && (v = decl_to_stack_part->get (lhs)))
 	    bitmap_clear_bit (work, *v);
 	}
       else if (!is_gimple_debug (stmt))
@@ -585,6 +602,26 @@ stack_var_cmp (const void *a, const void *b)
   return 0;
 }
 
+struct part_traits : default_hashmap_traits
+{
+  template<typename T>
+    static bool
+    is_deleted (T &e)
+    { return e.m_value == reinterpret_cast<void *> (1); }
+
+  template<typename T> static bool is_empty (T &e) { return e.m_value == NULL; }
+  template<typename T>
+    static void
+    mark_deleted (T &e)
+    { e.m_value = reinterpret_cast<T> (1); }
+
+  template<typename T>
+    static void
+    mark_empty (T &e)
+      { e.m_value = NULL; }
+};
+
+typedef hash_map<size_t, bitmap, part_traits> part_hashmap;
 
 /* If the points-to solution *PI points to variables that are in a partition
    together with other variables add all partition members to the pointed-to
@@ -592,8 +629,8 @@ stack_var_cmp (const void *a, const void *b)
 
 static void
 add_partitioned_vars_to_ptset (struct pt_solution *pt,
-			       struct pointer_map_t *decls_to_partitions,
-			       struct pointer_set_t *visited, bitmap temp)
+			       part_hashmap *decls_to_partitions,
+			       hash_set<bitmap> *visited, bitmap temp)
 {
   bitmap_iterator bi;
   unsigned i;
@@ -603,7 +640,7 @@ add_partitioned_vars_to_ptset (struct pt_solution *pt,
       || pt->vars == NULL
       /* The pointed-to vars bitmap is shared, it is enough to
 	 visit it once.  */
-      || pointer_set_insert (visited, pt->vars))
+      || visited->add (pt->vars))
     return;
 
   bitmap_clear (temp);
@@ -614,8 +651,7 @@ add_partitioned_vars_to_ptset (struct pt_solution *pt,
   EXECUTE_IF_SET_IN_BITMAP (pt->vars, 0, i, bi)
     if ((!temp
 	 || !bitmap_bit_p (temp, i))
-	&& (part = (bitmap *) pointer_map_contains (decls_to_partitions,
-						    (void *)(size_t) i)))
+	&& (part = decls_to_partitions->get (i)))
       bitmap_ior_into (temp, *part);
   if (!bitmap_empty_p (temp))
     bitmap_ior_into (pt->vars, temp);
@@ -629,7 +665,7 @@ add_partitioned_vars_to_ptset (struct pt_solution *pt,
 static void
 update_alias_info_with_stack_vars (void)
 {
-  struct pointer_map_t *decls_to_partitions = NULL;
+  part_hashmap *decls_to_partitions = NULL;
   size_t i, j;
   tree var = NULL_TREE;
 
@@ -646,16 +682,16 @@ update_alias_info_with_stack_vars (void)
 
       if (!decls_to_partitions)
 	{
-	  decls_to_partitions = pointer_map_create ();
-	  cfun->gimple_df->decls_to_pointers = pointer_map_create ();
+	  decls_to_partitions = new part_hashmap;
+	  cfun->gimple_df->decls_to_pointers = new hash_map<tree, tree>;
 	}
 
       /* Create an SSA_NAME that points to the partition for use
          as base during alias-oracle queries on RTL for bases that
 	 have been partitioned.  */
       if (var == NULL_TREE)
-	var = create_tmp_var (ptr_type_node, NULL);
-      name = make_ssa_name (var, NULL);
+	var = create_tmp_var (ptr_type_node);
+      name = make_ssa_name (var);
 
       /* Create bitmaps representing partitions.  They will be used for
          points-to sets later, so use GGC alloc.  */
@@ -665,10 +701,8 @@ update_alias_info_with_stack_vars (void)
 	  tree decl = stack_vars[j].decl;
 	  unsigned int uid = DECL_PT_UID (decl);
 	  bitmap_set_bit (part, uid);
-	  *((bitmap *) pointer_map_insert (decls_to_partitions,
-					   (void *)(size_t) uid)) = part;
-	  *((tree *) pointer_map_insert (cfun->gimple_df->decls_to_pointers,
-					 decl)) = name;
+	  decls_to_partitions->put (uid, part);
+	  cfun->gimple_df->decls_to_pointers->put (decl, name);
 	  if (TREE_ADDRESSABLE (decl))
 	    TREE_ADDRESSABLE (name) = 1;
 	}
@@ -683,7 +717,7 @@ update_alias_info_with_stack_vars (void)
   if (decls_to_partitions)
     {
       unsigned i;
-      struct pointer_set_t *visited = pointer_set_create ();
+      hash_set<bitmap> visited;
       bitmap temp = BITMAP_ALLOC (&stack_var_bitmap_obstack);
 
       for (i = 1; i < num_ssa_names; i++)
@@ -695,14 +729,13 @@ update_alias_info_with_stack_vars (void)
 	      && POINTER_TYPE_P (TREE_TYPE (name))
 	      && ((pi = SSA_NAME_PTR_INFO (name)) != NULL))
 	    add_partitioned_vars_to_ptset (&pi->pt, decls_to_partitions,
-					   visited, temp);
+					   &visited, temp);
 	}
 
       add_partitioned_vars_to_ptset (&cfun->gimple_df->escaped,
-				     decls_to_partitions, visited, temp);
+				     decls_to_partitions, &visited, temp);
 
-      pointer_set_destroy (visited);
-      pointer_map_destroy (decls_to_partitions);
+      delete decls_to_partitions;
       BITMAP_FREE (temp);
     }
 }
@@ -1013,10 +1046,19 @@ expand_stack_vars (bool (*pred) (size_t), struct stack_vars_data *data)
 	      if (data->asan_base == NULL)
 		data->asan_base = gen_reg_rtx (Pmode);
 	      base = data->asan_base;
+
+	      if (!STRICT_ALIGNMENT)
+		base_align = crtl->max_used_stack_slot_alignment;
+	      else
+		base_align = MAX (crtl->max_used_stack_slot_alignment,
+				  GET_MODE_ALIGNMENT (SImode)
+				  << ASAN_SHADOW_SHIFT);
 	    }
 	  else
-	    offset = alloc_stack_frame_space (stack_vars[i].size, alignb);
-	  base_align = crtl->max_used_stack_slot_alignment;
+	    {
+	      offset = alloc_stack_frame_space (stack_vars[i].size, alignb);
+	      base_align = crtl->max_used_stack_slot_alignment;
+	    }
 	}
       else
 	{
@@ -1107,7 +1149,7 @@ expand_one_register_var (tree var)
 {
   tree decl = SSAVAR (var);
   tree type = TREE_TYPE (decl);
-  enum machine_mode reg_mode = promote_decl_mode (decl, NULL);
+  machine_mode reg_mode = promote_decl_mode (decl, NULL);
   rtx x = gen_reg_rtx (reg_mode);
 
   set_rtl (var, x);
@@ -1127,7 +1169,7 @@ expand_one_register_var (tree var)
 static void
 expand_one_error_var (tree var)
 {
-  enum machine_mode mode = DECL_MODE (var);
+  machine_mode mode = DECL_MODE (var);
   rtx x;
 
   if (mode == BLKmode)
@@ -1283,7 +1325,12 @@ expand_one_var (tree var, bool toplevel, bool really_expand)
   else if (TREE_CODE (var) == VAR_DECL && DECL_HARD_REGISTER (var))
     {
       if (really_expand)
-        expand_one_hard_reg_var (var);
+	{
+	  expand_one_hard_reg_var (var);
+	  if (!DECL_HARD_REGISTER (var))
+	    /* Invalid register specification.  */
+	    expand_one_error_var (var);
+	}
     }
   else if (use_register_for_decl (var))
     {
@@ -1520,7 +1567,7 @@ init_vars_expansion (void)
   bitmap_obstack_initialize (&stack_var_bitmap_obstack);
 
   /* A map from decl to stack partition.  */
-  decl_to_stack_part = pointer_map_create ();
+  decl_to_stack_part = new hash_map<tree, size_t>;
 
   /* Initialize local stack smashing state.  */
   has_protected_decls = false;
@@ -1539,7 +1586,7 @@ fini_vars_expansion (void)
   stack_vars = NULL;
   stack_vars_sorted = NULL;
   stack_vars_alloc = stack_vars_num = 0;
-  pointer_map_destroy (decl_to_stack_part);
+  delete decl_to_stack_part;
   decl_to_stack_part = NULL;
 }
 
@@ -1602,15 +1649,60 @@ record_or_union_type_has_array_p (const_tree tree_type)
   return 0;
 }
 
+/* Check if the current function has local referenced variables that
+   have their addresses taken, contain an array, or are arrays.  */
+
+static bool
+stack_protect_decl_p ()
+{
+  unsigned i;
+  tree var;
+
+  FOR_EACH_LOCAL_DECL (cfun, i, var)
+    if (!is_global_var (var))
+      {
+	tree var_type = TREE_TYPE (var);
+	if (TREE_CODE (var) == VAR_DECL
+	    && (TREE_CODE (var_type) == ARRAY_TYPE
+		|| TREE_ADDRESSABLE (var)
+		|| (RECORD_OR_UNION_TYPE_P (var_type)
+		    && record_or_union_type_has_array_p (var_type))))
+	  return true;
+      }
+  return false;
+}
+
+/* Check if the current function has calls that use a return slot.  */
+
+static bool
+stack_protect_return_slot_p ()
+{
+  basic_block bb;
+  
+  FOR_ALL_BB_FN (bb, cfun)
+    for (gimple_stmt_iterator gsi = gsi_start_bb (bb);
+	 !gsi_end_p (gsi); gsi_next (&gsi))
+      {
+	gimple stmt = gsi_stmt (gsi);
+	/* This assumes that calls to internal-only functions never
+	   use a return slot.  */
+	if (is_gimple_call (stmt)
+	    && !gimple_call_internal_p (stmt)
+	    && aggregate_value_p (TREE_TYPE (gimple_call_fntype (stmt)),
+				  gimple_call_fndecl (stmt)))
+	  return true;
+      }
+  return false;
+}
+
 /* Expand all variables used in the function.  */
 
-static rtx
+static rtx_insn *
 expand_used_vars (void)
 {
   tree var, outer_block = DECL_INITIAL (current_function_decl);
   vec<tree> maybe_local_decls = vNULL;
-  rtx var_end_seq = NULL_RTX;
-  struct pointer_map_t *ssa_name_decls;
+  rtx_insn *var_end_seq = NULL;
   unsigned i;
   unsigned len;
   bool gen_stack_protect_signal = false;
@@ -1630,7 +1722,10 @@ expand_used_vars (void)
 
   init_vars_expansion ();
 
-  ssa_name_decls = pointer_map_create ();
+  if (targetm.use_pseudo_pic_reg ())
+    pic_offset_table_rtx = gen_reg_rtx (Pmode);
+
+  hash_map<tree, tree> ssa_name_decls;
   for (i = 0; i < SA.map->num_partitions; i++)
     {
       tree var = partition_to_var (SA.map, i);
@@ -1641,10 +1736,10 @@ expand_used_vars (void)
          we could have coalesced (those with the same type).  */
       if (SSA_NAME_VAR (var) == NULL_TREE)
 	{
-	  void **slot = pointer_map_insert (ssa_name_decls, TREE_TYPE (var));
+	  tree *slot = &ssa_name_decls.get_or_insert (TREE_TYPE (var));
 	  if (!*slot)
-	    *slot = (void *) create_tmp_reg (TREE_TYPE (var), NULL);
-	  replace_ssa_name_symbol (var, (tree) *slot);
+	    *slot = create_tmp_reg (TREE_TYPE (var));
+	  replace_ssa_name_symbol (var, *slot);
 	}
 
       /* Always allocate space for partitions based on VAR_DECLs.  But for
@@ -1671,25 +1766,10 @@ expand_used_vars (void)
 	    }
 	}
     }
-  pointer_map_destroy (ssa_name_decls);
 
   if (flag_stack_protect == SPCT_FLAG_STRONG)
-    FOR_EACH_LOCAL_DECL (cfun, i, var)
-      if (!is_global_var (var))
-	{
-	  tree var_type = TREE_TYPE (var);
-	  /* Examine local referenced variables that have their addresses taken,
-	     contain an array, or are arrays.  */
-	  if (TREE_CODE (var) == VAR_DECL
-	      && (TREE_CODE (var_type) == ARRAY_TYPE
-		  || TREE_ADDRESSABLE (var)
-		  || (RECORD_OR_UNION_TYPE_P (var_type)
-		      && record_or_union_type_has_array_p (var_type))))
-	    {
-	      gen_stack_protect_signal = true;
-	      break;
-	    }
-	}
+      gen_stack_protect_signal
+	= stack_protect_decl_p () || stack_protect_return_slot_p ();
 
   /* At this point all variables on the local_decls with TREE_USED
      set are not associated with any block scope.  Lay them out.  */
@@ -1845,6 +1925,11 @@ expand_used_vars (void)
 	    = alloc_stack_frame_space (redzonesz, ASAN_RED_ZONE_SIZE);
 	  data.asan_vec.safe_push (prev_offset);
 	  data.asan_vec.safe_push (offset);
+	  /* Leave space for alignment if STRICT_ALIGNMENT.  */
+	  if (STRICT_ALIGNMENT)
+	    alloc_stack_frame_space ((GET_MODE_ALIGNMENT (SImode)
+				      << ASAN_SHADOW_SHIFT)
+				     / BITS_PER_UNIT, 1);
 
 	  var_end_seq
 	    = asan_emit_stack_protection (virtual_stack_vars_rtx,
@@ -1895,7 +1980,7 @@ expand_used_vars (void)
    generated for STMT should have been appended.  */
 
 static void
-maybe_dump_rtl_for_gimple_stmt (gimple stmt, rtx since)
+maybe_dump_rtl_for_gimple_stmt (gimple stmt, rtx_insn *since)
 {
   if (dump_file && (dump_flags & TDF_DETAILS))
     {
@@ -1910,7 +1995,7 @@ maybe_dump_rtl_for_gimple_stmt (gimple stmt, rtx since)
 
 /* Maps the blocks that do not contain tree labels to rtx labels.  */
 
-static struct pointer_map_t *lab_rtx_for_bb;
+static hash_map<basic_block, rtx_code_label *> *lab_rtx_for_bb;
 
 /* Returns the label_rtx expression for a label starting basic block BB.  */
 
@@ -1919,22 +2004,22 @@ label_rtx_for_bb (basic_block bb ATTRIBUTE_UNUSED)
 {
   gimple_stmt_iterator gsi;
   tree lab;
-  gimple lab_stmt;
-  void **elt;
 
   if (bb->flags & BB_RTL)
     return block_label (bb);
 
-  elt = pointer_map_contains (lab_rtx_for_bb, bb);
+  rtx_code_label **elt = lab_rtx_for_bb->get (bb);
   if (elt)
-    return (rtx) *elt;
+    return *elt;
 
   /* Find the tree label if it is present.  */
 
   for (gsi = gsi_start_bb (bb); !gsi_end_p (gsi); gsi_next (&gsi))
     {
-      lab_stmt = gsi_stmt (gsi);
-      if (gimple_code (lab_stmt) != GIMPLE_LABEL)
+      glabel *lab_stmt;
+
+      lab_stmt = dyn_cast <glabel *> (gsi_stmt (gsi));
+      if (!lab_stmt)
 	break;
 
       lab = gimple_label_label (lab_stmt);
@@ -1944,9 +2029,9 @@ label_rtx_for_bb (basic_block bb ATTRIBUTE_UNUSED)
       return label_rtx (lab);
     }
 
-  elt = pointer_map_insert (lab_rtx_for_bb, bb);
-  *elt = gen_label_rtx ();
-  return (rtx) *elt;
+  rtx_code_label *l = gen_label_rtx ();
+  lab_rtx_for_bb->put (bb, l);
+  return l;
 }
 
 
@@ -1956,7 +2041,7 @@ label_rtx_for_bb (basic_block bb ATTRIBUTE_UNUSED)
    last instruction before the just emitted jump sequence.  */
 
 static void
-maybe_cleanup_end_of_block (edge e, rtx last)
+maybe_cleanup_end_of_block (edge e, rtx_insn *last)
 {
   /* Special case: when jumpif decides that the condition is
      trivial it emits an unconditional jump (and the necessary
@@ -1971,7 +2056,7 @@ maybe_cleanup_end_of_block (edge e, rtx last)
      normally isn't there in a cleaned CFG), fix it here.  */
   if (BARRIER_P (get_last_insn ()))
     {
-      rtx insn;
+      rtx_insn *insn;
       remove_edge (e);
       /* Now, we have a single successor block, if we have insns to
 	 insert on the remaining edge we potentially will insert
@@ -2007,13 +2092,13 @@ maybe_cleanup_end_of_block (edge e, rtx last)
    block and created a new one.  */
 
 static basic_block
-expand_gimple_cond (basic_block bb, gimple stmt)
+expand_gimple_cond (basic_block bb, gcond *stmt)
 {
   basic_block new_bb, dest;
   edge new_edge;
   edge true_edge;
   edge false_edge;
-  rtx last2, last;
+  rtx_insn *last2, *last;
   enum tree_code code;
   tree op0, op1;
 
@@ -2048,9 +2133,10 @@ expand_gimple_cond (basic_block bb, gimple stmt)
 	      op0 = gimple_assign_rhs1 (second);
 	      op1 = gimple_assign_rhs2 (second);
 	    }
-	  /* If jumps are cheap turn some more codes into
-	     jumpy sequences.  */
-	  else if (BRANCH_COST (optimize_insn_for_speed_p (), false) < 4)
+	  /* If jumps are cheap and the target does not support conditional
+	     compare, turn some more codes into jumpy sequences.  */
+	  else if (BRANCH_COST (optimize_insn_for_speed_p (), false) < 4
+		   && targetm.gen_ccmp_first == NULL)
 	    {
 	      if ((code2 == BIT_AND_EXPR
 		   && TYPE_PRECISION (TREE_TYPE (op0)) == 1
@@ -2123,8 +2209,7 @@ expand_gimple_cond (basic_block bb, gimple stmt)
   false_edge->flags |= EDGE_FALLTHRU;
   new_bb->count = false_edge->count;
   new_bb->frequency = EDGE_FREQUENCY (false_edge);
-  if (current_loops && bb->loop_father)
-    add_bb_to_loop (new_bb, bb->loop_father);
+  add_bb_to_loop (new_bb, bb->loop_father);
   new_edge = make_edge (new_bb, dest, 0);
   new_edge->probability = REG_BR_PROB_BASE;
   new_edge->count = new_bb->count;
@@ -2149,18 +2234,18 @@ static void
 mark_transaction_restart_calls (gimple stmt)
 {
   struct tm_restart_node dummy;
-  void **slot;
+  tm_restart_node **slot;
 
   if (!cfun->gimple_df->tm_restart)
     return;
 
   dummy.stmt = stmt;
-  slot = htab_find_slot (cfun->gimple_df->tm_restart, &dummy, NO_INSERT);
+  slot = cfun->gimple_df->tm_restart->find_slot (&dummy, NO_INSERT);
   if (slot)
     {
-      struct tm_restart_node *n = (struct tm_restart_node *) *slot;
+      struct tm_restart_node *n = *slot;
       tree list = n->label_or_list;
-      rtx insn;
+      rtx_insn *insn;
 
       for (insn = next_real_insn (get_last_insn ());
 	   !CALL_P (insn);
@@ -2179,7 +2264,7 @@ mark_transaction_restart_calls (gimple stmt)
    statement STMT.  */
 
 static void
-expand_call_stmt (gimple stmt)
+expand_call_stmt (gcall *stmt)
 {
   tree exp, decl, lhs;
   bool builtin_p;
@@ -2238,6 +2323,7 @@ expand_call_stmt (gimple stmt)
     CALL_FROM_THUNK_P (exp) = gimple_call_from_thunk_p (stmt);
   CALL_EXPR_VA_ARG_PACK (exp) = gimple_call_va_arg_pack_p (stmt);
   SET_EXPR_LOCATION (exp, gimple_location (stmt));
+  CALL_WITH_BOUNDS_P (exp) = gimple_call_with_bounds_p (stmt);
 
   /* Ensure RTL is created for debug args.  */
   if (decl && DECL_HAS_DEBUG_ARGS_P (decl))
@@ -2404,10 +2490,10 @@ expand_asm_operands (tree string, tree outputs, tree inputs,
   rtx *output_rtx = XALLOCAVEC (rtx, noutputs);
   int *inout_opnum = XALLOCAVEC (int, noutputs);
   rtx *real_output_rtx = XALLOCAVEC (rtx, noutputs);
-  enum machine_mode *inout_mode = XALLOCAVEC (enum machine_mode, noutputs);
+  machine_mode *inout_mode = XALLOCAVEC (machine_mode, noutputs);
   const char **constraints = XALLOCAVEC (const char *, noutputs + ninputs);
   int old_generating_concat_p = generating_concat_p;
-  rtx fallthru_label = NULL_RTX;
+  rtx_code_label *fallthru_label = NULL;
 
   /* An ASM with no outputs needs to be treated as volatile, for now.  */
   if (noutputs == 0)
@@ -2508,7 +2594,7 @@ expand_asm_operands (tree string, tree outputs, tree inputs,
     }
 
   ninputs += ninout;
-  if (ninputs + noutputs > MAX_RECOG_OPERANDS)
+  if (ninputs + noutputs + nlabels > MAX_RECOG_OPERANDS)
     {
       error ("more than %d operands in %<asm%>", MAX_RECOG_OPERANDS);
       return;
@@ -2865,7 +2951,7 @@ expand_asm_operands (tree string, tree outputs, tree inputs,
 
 
 static void
-expand_asm_stmt (gimple stmt)
+expand_asm_stmt (gasm *stmt)
 {
   int noutputs;
   tree outputs, tail, t;
@@ -3025,8 +3111,8 @@ expand_value_return (rtx val)
       tree funtype = TREE_TYPE (current_function_decl);
       tree type = TREE_TYPE (decl);
       int unsignedp = TYPE_UNSIGNED (type);
-      enum machine_mode old_mode = DECL_MODE (decl);
-      enum machine_mode mode;
+      machine_mode old_mode = DECL_MODE (decl);
+      machine_mode mode;
       if (DECL_BY_REFERENCE (decl))
         mode = promote_function_mode (type, old_mode, &unsignedp, funtype, 2);
       else
@@ -3048,11 +3134,12 @@ expand_value_return (rtx val)
    from the current function.  */
 
 static void
-expand_return (tree retval)
+expand_return (tree retval, tree bounds)
 {
   rtx result_rtl;
   rtx val = 0;
   tree retval_rhs;
+  rtx bounds_rtl;
 
   /* If function wants no value, give it none.  */
   if (TREE_CODE (TREE_TYPE (TREE_TYPE (current_function_decl))) == VOID_TYPE)
@@ -3077,6 +3164,56 @@ expand_return (tree retval)
     retval_rhs = retval;
 
   result_rtl = DECL_RTL (DECL_RESULT (current_function_decl));
+
+  /* Put returned bounds to the right place.  */
+  bounds_rtl = DECL_BOUNDS_RTL (DECL_RESULT (current_function_decl));
+  if (bounds_rtl)
+    {
+      rtx addr, bnd;
+
+      if (bounds)
+	{
+	  bnd = expand_normal (bounds);
+	  targetm.calls.store_returned_bounds (bounds_rtl, bnd);
+	}
+      else if (REG_P (bounds_rtl))
+	{
+	  addr = expand_normal (build_fold_addr_expr (retval_rhs));
+	  addr = gen_rtx_MEM (Pmode, addr);
+	  bnd = targetm.calls.load_bounds_for_arg (addr, NULL, NULL);
+	  targetm.calls.store_returned_bounds (bounds_rtl, bnd);
+	}
+      else
+	{
+	  int n;
+
+	  gcc_assert (GET_CODE (bounds_rtl) == PARALLEL);
+
+	  addr = expand_normal (build_fold_addr_expr (retval_rhs));
+	  addr = gen_rtx_MEM (Pmode, addr);
+
+	  for (n = 0; n < XVECLEN (bounds_rtl, 0); n++)
+	    {
+	      rtx offs = XEXP (XVECEXP (bounds_rtl, 0, n), 1);
+	      rtx slot = XEXP (XVECEXP (bounds_rtl, 0, n), 0);
+	      rtx from = adjust_address (addr, Pmode, INTVAL (offs));
+	      rtx bnd = targetm.calls.load_bounds_for_arg (from, NULL, NULL);
+	      targetm.calls.store_returned_bounds (slot, bnd);
+	    }
+	}
+    }
+  else if (chkp_function_instrumented_p (current_function_decl)
+	   && !BOUNDED_P (retval_rhs)
+	   && chkp_type_has_pointer (TREE_TYPE (retval_rhs))
+	   && TREE_CODE (retval_rhs) != RESULT_DECL)
+    {
+      rtx addr = expand_normal (build_fold_addr_expr (retval_rhs));
+      addr = gen_rtx_MEM (Pmode, addr);
+
+      gcc_assert (MEM_P (result_rtl));
+
+      chkp_copy_bounds_for_stack_parm (result_rtl, addr, TREE_TYPE (retval_rhs));
+    }
 
   /* If we are returning the RESULT_DECL, then the value has already
      been stored into it, so we don't have to do anything special.  */
@@ -3141,23 +3278,23 @@ expand_gimple_stmt_1 (gimple stmt)
 	expand_computed_goto (op0);
       break;
     case GIMPLE_LABEL:
-      expand_label (gimple_label_label (stmt));
+      expand_label (gimple_label_label (as_a <glabel *> (stmt)));
       break;
     case GIMPLE_NOP:
     case GIMPLE_PREDICT:
       break;
     case GIMPLE_SWITCH:
-      expand_case (stmt);
+      expand_case (as_a <gswitch *> (stmt));
       break;
     case GIMPLE_ASM:
-      expand_asm_stmt (stmt);
+      expand_asm_stmt (as_a <gasm *> (stmt));
       break;
     case GIMPLE_CALL:
-      expand_call_stmt (stmt);
+      expand_call_stmt (as_a <gcall *> (stmt));
       break;
 
     case GIMPLE_RETURN:
-      op0 = gimple_return_retval (stmt);
+      op0 = gimple_return_retval (as_a <greturn *> (stmt));
 
       if (op0 && op0 != error_mark_node)
 	{
@@ -3183,12 +3320,13 @@ expand_gimple_stmt_1 (gimple stmt)
       if (!op0)
 	expand_null_return ();
       else
-	expand_return (op0);
+	expand_return (op0, gimple_return_retbnd (stmt));
       break;
 
     case GIMPLE_ASSIGN:
       {
-	tree lhs = gimple_assign_lhs (stmt);
+	gassign *assign_stmt = as_a <gassign *> (stmt);
+	tree lhs = gimple_assign_lhs (assign_stmt);
 
 	/* Tree expand used to fiddle with |= and &= of two bitfield
 	   COMPONENT_REFs here.  This can't happen with gimple, the LHS
@@ -3198,7 +3336,7 @@ expand_gimple_stmt_1 (gimple stmt)
 	    || get_gimple_rhs_class (gimple_expr_code (stmt))
 	       == GIMPLE_SINGLE_RHS)
 	  {
-	    tree rhs = gimple_assign_rhs1 (stmt);
+	    tree rhs = gimple_assign_rhs1 (assign_stmt);
 	    gcc_assert (get_gimple_rhs_class (gimple_expr_code (stmt))
 			== GIMPLE_SINGLE_RHS);
 	    if (gimple_has_location (stmt) && CAN_HAVE_LOCATION_P (rhs))
@@ -3209,12 +3347,13 @@ expand_gimple_stmt_1 (gimple stmt)
 	      ;
 	    else
 	      expand_assignment (lhs, rhs,
-				 gimple_assign_nontemporal_move_p (stmt));
+				 gimple_assign_nontemporal_move_p (
+				   assign_stmt));
 	  }
 	else
 	  {
 	    rtx target, temp;
-	    bool nontemporal = gimple_assign_nontemporal_move_p (stmt);
+	    bool nontemporal = gimple_assign_nontemporal_move_p (assign_stmt);
 	    struct separate_ops ops;
 	    bool promoted = false;
 
@@ -3222,18 +3361,18 @@ expand_gimple_stmt_1 (gimple stmt)
 	    if (GET_CODE (target) == SUBREG && SUBREG_PROMOTED_VAR_P (target))
 	      promoted = true;
 
-	    ops.code = gimple_assign_rhs_code (stmt);
+	    ops.code = gimple_assign_rhs_code (assign_stmt);
 	    ops.type = TREE_TYPE (lhs);
 	    switch (get_gimple_rhs_class (gimple_expr_code (stmt)))
 	      {
 		case GIMPLE_TERNARY_RHS:
-		  ops.op2 = gimple_assign_rhs3 (stmt);
+		  ops.op2 = gimple_assign_rhs3 (assign_stmt);
 		  /* Fallthru */
 		case GIMPLE_BINARY_RHS:
-		  ops.op1 = gimple_assign_rhs2 (stmt);
+		  ops.op1 = gimple_assign_rhs2 (assign_stmt);
 		  /* Fallthru */
 		case GIMPLE_UNARY_RHS:
-		  ops.op0 = gimple_assign_rhs1 (stmt);
+		  ops.op0 = gimple_assign_rhs1 (assign_stmt);
 		  break;
 		default:
 		  gcc_unreachable ();
@@ -3251,7 +3390,7 @@ expand_gimple_stmt_1 (gimple stmt)
 	      ;
 	    else if (promoted)
 	      {
-		int unsignedp = SUBREG_PROMOTED_UNSIGNED_P (target);
+		int unsignedp = SUBREG_PROMOTED_SIGN (target);
 		/* If TEMP is a VOIDmode constant, use convert_modes to make
 		   sure that we properly convert it.  */
 		if (CONSTANT_P (temp) && GET_MODE (temp) == VOIDmode)
@@ -3289,11 +3428,11 @@ expand_gimple_stmt_1 (gimple stmt)
    sets REG_EH_REGION notes if necessary and sets the current source
    location for diagnostics.  */
 
-static rtx
+static rtx_insn *
 expand_gimple_stmt (gimple stmt)
 {
   location_t saved_location = input_location;
-  rtx last = get_last_insn ();
+  rtx_insn *last = get_last_insn ();
   int lp_nr;
 
   gcc_assert (cfun);
@@ -3316,7 +3455,7 @@ expand_gimple_stmt (gimple stmt)
   lp_nr = lookup_stmt_eh_lp (stmt);
   if (lp_nr)
     {
-      rtx insn;
+      rtx_insn *insn;
       for (insn = next_real_insn (last); insn;
 	   insn = next_real_insn (insn))
 	{
@@ -3344,9 +3483,9 @@ expand_gimple_stmt (gimple stmt)
    tailcall) and the normal result happens via a sqrt instruction.  */
 
 static basic_block
-expand_gimple_tailcall (basic_block bb, gimple stmt, bool *can_fallthru)
+expand_gimple_tailcall (basic_block bb, gcall *stmt, bool *can_fallthru)
 {
-  rtx last2, last;
+  rtx_insn *last2, *last;
   edge e;
   edge_iterator ei;
   int probability;
@@ -3442,7 +3581,7 @@ expand_gimple_tailcall (basic_block bb, gimple stmt, bool *can_fallthru)
 /* Return the difference between the floor and the truncated result of
    a signed division by OP1 with remainder MOD.  */
 static rtx
-floor_sdiv_adjust (enum machine_mode mode, rtx mod, rtx op1)
+floor_sdiv_adjust (machine_mode mode, rtx mod, rtx op1)
 {
   /* (mod != 0 ? (op1 / mod < 0 ? -1 : 0) : 0) */
   return gen_rtx_IF_THEN_ELSE
@@ -3458,7 +3597,7 @@ floor_sdiv_adjust (enum machine_mode mode, rtx mod, rtx op1)
 /* Return the difference between the ceil and the truncated result of
    a signed division by OP1 with remainder MOD.  */
 static rtx
-ceil_sdiv_adjust (enum machine_mode mode, rtx mod, rtx op1)
+ceil_sdiv_adjust (machine_mode mode, rtx mod, rtx op1)
 {
   /* (mod != 0 ? (op1 / mod > 0 ? 1 : 0) : 0) */
   return gen_rtx_IF_THEN_ELSE
@@ -3474,7 +3613,7 @@ ceil_sdiv_adjust (enum machine_mode mode, rtx mod, rtx op1)
 /* Return the difference between the ceil and the truncated result of
    an unsigned division by OP1 with remainder MOD.  */
 static rtx
-ceil_udiv_adjust (enum machine_mode mode, rtx mod, rtx op1 ATTRIBUTE_UNUSED)
+ceil_udiv_adjust (machine_mode mode, rtx mod, rtx op1 ATTRIBUTE_UNUSED)
 {
   /* (mod != 0 ? 1 : 0) */
   return gen_rtx_IF_THEN_ELSE
@@ -3486,7 +3625,7 @@ ceil_udiv_adjust (enum machine_mode mode, rtx mod, rtx op1 ATTRIBUTE_UNUSED)
    of a signed division by OP1 with remainder MOD.  Halfway cases are
    rounded away from zero, rather than to the nearest even number.  */
 static rtx
-round_sdiv_adjust (enum machine_mode mode, rtx mod, rtx op1)
+round_sdiv_adjust (machine_mode mode, rtx mod, rtx op1)
 {
   /* (abs (mod) >= abs (op1) - abs (mod)
       ? (op1 / mod > 0 ? 1 : -1)
@@ -3509,7 +3648,7 @@ round_sdiv_adjust (enum machine_mode mode, rtx mod, rtx op1)
    are rounded away from zero, rather than to the nearest even
    number.  */
 static rtx
-round_udiv_adjust (enum machine_mode mode, rtx mod, rtx op1)
+round_udiv_adjust (machine_mode mode, rtx mod, rtx op1)
 {
   /* (mod >= op1 - mod ? 1 : 0) */
   return gen_rtx_IF_THEN_ELSE
@@ -3522,10 +3661,10 @@ round_udiv_adjust (enum machine_mode mode, rtx mod, rtx op1)
    any rtl.  */
 
 static rtx
-convert_debug_memory_address (enum machine_mode mode, rtx x,
+convert_debug_memory_address (machine_mode mode, rtx x,
 			      addr_space_t as)
 {
-  enum machine_mode xmode = GET_MODE (x);
+  machine_mode xmode = GET_MODE (x);
 
 #ifndef POINTERS_EXTEND_UNSIGNED
   gcc_assert (mode == Pmode
@@ -3562,7 +3701,7 @@ convert_debug_memory_address (enum machine_mode mode, rtx x,
 	    return SUBREG_REG (x);
 	  break;
 	case LABEL_REF:
-	  temp = gen_rtx_LABEL_REF (mode, XEXP (x, 0));
+	  temp = gen_rtx_LABEL_REF (mode, LABEL_REF_LABEL (x));
 	  LABEL_REF_NONLOCAL_P (temp) = LABEL_REF_NONLOCAL_P (x);
 	  return temp;
 	case SYMBOL_REF:
@@ -3655,8 +3794,8 @@ static rtx
 expand_debug_expr (tree exp)
 {
   rtx op0 = NULL_RTX, op1 = NULL_RTX, op2 = NULL_RTX;
-  enum machine_mode mode = TYPE_MODE (TREE_TYPE (exp));
-  enum machine_mode inner_mode = VOIDmode;
+  machine_mode mode = TYPE_MODE (TREE_TYPE (exp));
+  machine_mode inner_mode = VOIDmode;
   int unsignedp = TYPE_UNSIGNED (TREE_TYPE (exp));
   addr_space_t as;
 
@@ -3667,6 +3806,7 @@ expand_debug_expr (tree exp)
 	{
 	case COND_EXPR:
 	case DOT_PROD_EXPR:
+	case SAD_EXPR:
 	case WIDEN_MULT_PLUS_EXPR:
 	case WIDEN_MULT_MINUS_EXPR:
 	case FMA_EXPR:
@@ -3805,8 +3945,7 @@ expand_debug_expr (tree exp)
 
     adjust_mode:
     case PAREN_EXPR:
-    case NOP_EXPR:
-    case CONVERT_EXPR:
+    CASE_CONVERT:
       {
 	inner_mode = GET_MODE (op0);
 
@@ -3894,10 +4033,7 @@ expand_debug_expr (tree exp)
 	  op0 = plus_constant (inner_mode, op0, INTVAL (op1));
 	}
 
-      if (POINTER_TYPE_P (TREE_TYPE (exp)))
-	as = TYPE_ADDR_SPACE (TREE_TYPE (TREE_TYPE (exp)));
-      else
-	as = ADDR_SPACE_GENERIC;
+      as = TYPE_ADDR_SPACE (TREE_TYPE (TREE_TYPE (TREE_OPERAND (exp, 0))));
 
       op0 = convert_debug_memory_address (targetm.addr_space.address_mode (as),
 					  op0, as);
@@ -3923,11 +4059,7 @@ expand_debug_expr (tree exp)
       if (!op0)
 	return NULL;
 
-      if (POINTER_TYPE_P (TREE_TYPE (exp)))
-	as = TYPE_ADDR_SPACE (TREE_TYPE (TREE_TYPE (exp)));
-      else
-	as = ADDR_SPACE_GENERIC;
-
+      as = TYPE_ADDR_SPACE (TREE_TYPE (TREE_TYPE (TREE_OPERAND (exp, 0))));
       op0 = convert_debug_memory_address (targetm.addr_space.address_mode (as),
 					  op0, as);
       if (op0 == NULL_RTX)
@@ -3949,7 +4081,7 @@ expand_debug_expr (tree exp)
     case IMAGPART_EXPR:
     case VIEW_CONVERT_EXPR:
       {
-	enum machine_mode mode1;
+	machine_mode mode1;
 	HOST_WIDE_INT bitsize, bitpos;
 	tree offset;
 	int volatilep = 0;
@@ -3967,7 +4099,7 @@ expand_debug_expr (tree exp)
 
 	if (offset)
 	  {
-	    enum machine_mode addrmode, offmode;
+	    machine_mode addrmode, offmode;
 
 	    if (!MEM_P (op0))
 	      return NULL;
@@ -4037,7 +4169,7 @@ expand_debug_expr (tree exp)
 	if ((bitpos % BITS_PER_UNIT) == 0
 	    && bitsize == GET_MODE_BITSIZE (mode1))
 	  {
-	    enum machine_mode opmode = GET_MODE (op0);
+	    machine_mode opmode = GET_MODE (op0);
 
 	    if (opmode == VOIDmode)
 	      opmode = TYPE_MODE (TREE_TYPE (tem));
@@ -4332,7 +4464,7 @@ expand_debug_expr (tree exp)
 						   GET_MODE_INNER (mode)));
       else
 	{
-	  enum machine_mode imode = GET_MODE_INNER (mode);
+	  machine_mode imode = GET_MODE_INNER (mode);
 	  rtx re, im;
 
 	  if (MEM_P (op0))
@@ -4342,8 +4474,8 @@ expand_debug_expr (tree exp)
 	    }
 	  else
 	    {
-	      enum machine_mode ifmode = int_mode_for_mode (mode);
-	      enum machine_mode ihmode = int_mode_for_mode (imode);
+	      machine_mode ifmode = int_mode_for_mode (mode);
+	      machine_mode ihmode = int_mode_for_mode (imode);
 	      rtx halfsize;
 	      if (ifmode == BLKmode || ihmode == BLKmode)
 		return NULL;
@@ -4420,7 +4552,7 @@ expand_debug_expr (tree exp)
 	  return NULL;
 	}
 
-      as = TYPE_ADDR_SPACE (TREE_TYPE (exp));
+      as = TYPE_ADDR_SPACE (TREE_TYPE (TREE_TYPE (exp)));
       op0 = convert_debug_memory_address (mode, XEXP (op0, 0), as);
 
       return op0;
@@ -4531,11 +4663,9 @@ expand_debug_expr (tree exp)
     case REDUC_MIN_EXPR:
     case REDUC_PLUS_EXPR:
     case VEC_COND_EXPR:
-    case VEC_LSHIFT_EXPR:
     case VEC_PACK_FIX_TRUNC_EXPR:
     case VEC_PACK_SAT_EXPR:
     case VEC_PACK_TRUNC_EXPR:
-    case VEC_RSHIFT_EXPR:
     case VEC_UNPACK_FLOAT_HI_EXPR:
     case VEC_UNPACK_FLOAT_LO_EXPR:
     case VEC_UNPACK_HI_EXPR:
@@ -4640,7 +4770,7 @@ static rtx
 expand_debug_source_expr (tree exp)
 {
   rtx op0 = NULL_RTX;
-  enum machine_mode mode = VOIDmode, inner_mode;
+  machine_mode mode = VOIDmode, inner_mode;
 
   switch (TREE_CODE (exp))
     {
@@ -4721,7 +4851,7 @@ expand_debug_source_expr (tree exp)
    deeper than that, create DEBUG_EXPRs and emit DEBUG_INSNs before INSN.  */
 
 static void
-avoid_complex_debug_insns (rtx insn, rtx *exp_p, int depth)
+avoid_complex_debug_insns (rtx_insn *insn, rtx *exp_p, int depth)
 {
   rtx exp = *exp_p;
 
@@ -4773,8 +4903,8 @@ avoid_complex_debug_insns (rtx insn, rtx *exp_p, int depth)
 static void
 expand_debug_locations (void)
 {
-  rtx insn;
-  rtx last = get_last_insn ();
+  rtx_insn *insn;
+  rtx_insn *last = get_last_insn ();
   int save_strict_alias = flag_strict_aliasing;
 
   /* New alias sets while setting up memory attributes cause
@@ -4786,8 +4916,9 @@ expand_debug_locations (void)
     if (DEBUG_INSN_P (insn))
       {
 	tree value = (tree)INSN_VAR_LOCATION_LOC (insn);
-	rtx val, prev_insn, insn2;
-	enum machine_mode mode;
+	rtx val;
+	rtx_insn *prev_insn, *insn2;
+	machine_mode mode;
 
 	if (value == NULL_TREE)
 	  val = NULL_RTX;
@@ -4831,10 +4962,10 @@ expand_gimple_basic_block (basic_block bb, bool disable_tail_calls)
   gimple_stmt_iterator gsi;
   gimple_seq stmts;
   gimple stmt = NULL;
-  rtx note, last;
+  rtx_note *note;
+  rtx_insn *last;
   edge e;
   edge_iterator ei;
-  void **elt;
 
   if (dump_file)
     fprintf (dump_file, "\n;; Generating RTL for gimple basic block %d\n",
@@ -4857,7 +4988,7 @@ expand_gimple_basic_block (basic_block bb, bool disable_tail_calls)
   if (!gsi_end_p (gsi)
       && gimple_code (gsi_stmt (gsi)) == GIMPLE_RETURN)
     {
-      gimple ret_stmt = gsi_stmt (gsi);
+      greturn *ret_stmt = as_a <greturn *> (gsi_stmt (gsi));
 
       gcc_assert (single_succ_p (bb));
       gcc_assert (single_succ (bb) == EXIT_BLOCK_PTR_FOR_FN (cfun));
@@ -4878,7 +5009,7 @@ expand_gimple_basic_block (basic_block bb, bool disable_tail_calls)
 	stmt = NULL;
     }
 
-  elt = pointer_map_contains (lab_rtx_for_bb, bb);
+  rtx_code_label **elt = lab_rtx_for_bb->get (bb);
 
   if (stmt || elt)
     {
@@ -4891,7 +5022,7 @@ expand_gimple_basic_block (basic_block bb, bool disable_tail_calls)
 	}
 
       if (elt)
-	emit_label ((rtx) *elt);
+	emit_label (*elt);
 
       /* Java emits line number notes in the top of labels.
 	 ??? Make this go away once line number notes are obsoleted.  */
@@ -4903,7 +5034,7 @@ expand_gimple_basic_block (basic_block bb, bool disable_tail_calls)
       maybe_dump_rtl_for_gimple_stmt (stmt, last);
     }
   else
-    note = BB_HEAD (bb) = emit_note (NOTE_INSN_BASIC_BLOCK);
+    BB_HEAD (bb) = note = emit_note (NOTE_INSN_BASIC_BLOCK);
 
   NOTE_BASIC_BLOCK (note) = bb;
 
@@ -4976,7 +5107,7 @@ expand_gimple_basic_block (basic_block bb, bool disable_tail_calls)
 		    tree value = gimple_assign_rhs_to_tree (def);
 		    tree vexpr = make_node (DEBUG_EXPR_DECL);
 		    rtx val;
-		    enum machine_mode mode;
+		    machine_mode mode;
 
 		    set_curr_insn_location (gimple_location (def));
 
@@ -5014,7 +5145,7 @@ expand_gimple_basic_block (basic_block bb, bool disable_tail_calls)
 	 fixup the CFG accordingly.  */
       if (gimple_code (stmt) == GIMPLE_COND)
 	{
-	  new_bb = expand_gimple_cond (bb, stmt);
+	  new_bb = expand_gimple_cond (bb, as_a <gcond *> (stmt));
 	  if (new_bb)
 	    return new_bb;
 	}
@@ -5028,7 +5159,7 @@ expand_gimple_basic_block (basic_block bb, bool disable_tail_calls)
 	      tree var = gimple_debug_bind_get_var (stmt);
 	      tree value;
 	      rtx val;
-	      enum machine_mode mode;
+	      machine_mode mode;
 
 	      if (TREE_CODE (var) != DEBUG_EXPR_DECL
 		  && TREE_CODE (var) != LABEL_DECL
@@ -5088,7 +5219,7 @@ expand_gimple_basic_block (basic_block bb, bool disable_tail_calls)
 	  tree var = gimple_debug_source_bind_get_var (stmt);
 	  tree value = gimple_debug_source_bind_get_value (stmt);
 	  rtx val;
-	  enum machine_mode mode;
+	  machine_mode mode;
 
 	  last = get_last_insn ();
 
@@ -5114,15 +5245,16 @@ expand_gimple_basic_block (basic_block bb, bool disable_tail_calls)
 	}
       else
 	{
-	  if (is_gimple_call (stmt)
-	      && gimple_call_tail_p (stmt)
+	  gcall *call_stmt = dyn_cast <gcall *> (stmt);
+	  if (call_stmt
+	      && gimple_call_tail_p (call_stmt)
 	      && disable_tail_calls)
-	    gimple_call_set_tail (stmt, false);
+	    gimple_call_set_tail (call_stmt, false);
 
-	  if (is_gimple_call (stmt) && gimple_call_tail_p (stmt))
+	  if (call_stmt && gimple_call_tail_p (call_stmt))
 	    {
 	      bool can_fallthru;
-	      new_bb = expand_gimple_tailcall (bb, stmt, &can_fallthru);
+	      new_bb = expand_gimple_tailcall (bb, call_stmt, &can_fallthru);
 	      if (new_bb)
 		{
 		  if (can_fallthru)
@@ -5229,8 +5361,7 @@ construct_init_block (void)
 				   ENTRY_BLOCK_PTR_FOR_FN (cfun));
   init_block->frequency = ENTRY_BLOCK_PTR_FOR_FN (cfun)->frequency;
   init_block->count = ENTRY_BLOCK_PTR_FOR_FN (cfun)->count;
-  if (current_loops && ENTRY_BLOCK_PTR_FOR_FN (cfun)->loop_father)
-    add_bb_to_loop (init_block, ENTRY_BLOCK_PTR_FOR_FN (cfun)->loop_father);
+  add_bb_to_loop (init_block, ENTRY_BLOCK_PTR_FOR_FN (cfun)->loop_father);
   if (e)
     {
       first_block = e->dest;
@@ -5265,14 +5396,14 @@ set_block_levels (tree block, int level)
 static void
 construct_exit_block (void)
 {
-  rtx head = get_last_insn ();
-  rtx end;
+  rtx_insn *head = get_last_insn ();
+  rtx_insn *end;
   basic_block exit_block;
   edge e, e2;
   unsigned ix;
   edge_iterator ei;
   basic_block prev_bb = EXIT_BLOCK_PTR_FOR_FN (cfun)->prev_bb;
-  rtx orig_end = BB_END (prev_bb);
+  rtx_insn *orig_end = BB_END (prev_bb);
 
   rtl_profile_for_bb (EXIT_BLOCK_PTR_FOR_FN (cfun));
 
@@ -5308,8 +5439,7 @@ construct_exit_block (void)
   exit_block = create_basic_block (NEXT_INSN (head), end, prev_bb);
   exit_block->frequency = EXIT_BLOCK_PTR_FOR_FN (cfun)->frequency;
   exit_block->count = EXIT_BLOCK_PTR_FOR_FN (cfun)->count;
-  if (current_loops && EXIT_BLOCK_PTR_FOR_FN (cfun)->loop_father)
-    add_bb_to_loop (exit_block, EXIT_BLOCK_PTR_FOR_FN (cfun)->loop_father);
+  add_bb_to_loop (exit_block, EXIT_BLOCK_PTR_FOR_FN (cfun)->loop_father);
 
   ix = 0;
   while (ix < EDGE_COUNT (EXIT_BLOCK_PTR_FOR_FN (cfun)->preds))
@@ -5530,14 +5660,43 @@ stack_protect_prologue (void)
    confuse the CFG hooks, so be careful to not manipulate CFG during
    the expansion.  */
 
-static unsigned int
-gimple_expand_cfg (void)
+namespace {
+
+const pass_data pass_data_expand =
+{
+  RTL_PASS, /* type */
+  "expand", /* name */
+  OPTGROUP_NONE, /* optinfo_flags */
+  TV_EXPAND, /* tv_id */
+  ( PROP_ssa | PROP_gimple_leh | PROP_cfg
+    | PROP_gimple_lcx
+    | PROP_gimple_lvec ), /* properties_required */
+  PROP_rtl, /* properties_provided */
+  ( PROP_ssa | PROP_trees ), /* properties_destroyed */
+  0, /* todo_flags_start */
+  0, /* todo_flags_finish */
+};
+
+class pass_expand : public rtl_opt_pass
+{
+public:
+  pass_expand (gcc::context *ctxt)
+    : rtl_opt_pass (pass_data_expand, ctxt)
+  {}
+
+  /* opt_pass methods: */
+  virtual unsigned int execute (function *);
+
+}; // class pass_expand
+
+unsigned int
+pass_expand::execute (function *fun)
 {
   basic_block bb, init_block;
   sbitmap blocks;
   edge_iterator ei;
   edge e;
-  rtx var_seq, var_ret_seq;
+  rtx_insn *var_seq, *var_ret_seq;
   unsigned i;
 
   timevar_push (TV_OUT_OF_SSA);
@@ -5554,17 +5713,20 @@ gimple_expand_cfg (void)
   /* Dominators are not kept up-to-date as we may create new basic-blocks.  */
   free_dominance_info (CDI_DOMINATORS);
 
-  rtl_profile_for_bb (ENTRY_BLOCK_PTR_FOR_FN (cfun));
+  rtl_profile_for_bb (ENTRY_BLOCK_PTR_FOR_FN (fun));
+
+  if (chkp_function_instrumented_p (current_function_decl))
+    chkp_reset_rtl_bounds ();
 
   insn_locations_init ();
   if (!DECL_IS_BUILTIN (current_function_decl))
     {
       /* Eventually, all FEs should explicitly set function_start_locus.  */
-      if (LOCATION_LOCUS (cfun->function_start_locus) == UNKNOWN_LOCATION)
-       set_curr_insn_location
-         (DECL_SOURCE_LOCATION (current_function_decl));
+      if (LOCATION_LOCUS (fun->function_start_locus) == UNKNOWN_LOCATION)
+	set_curr_insn_location
+	  (DECL_SOURCE_LOCATION (current_function_decl));
       else
-       set_curr_insn_location (cfun->function_start_locus);
+	set_curr_insn_location (fun->function_start_locus);
     }
   else
     set_curr_insn_location (UNKNOWN_LOCATION);
@@ -5587,7 +5749,7 @@ gimple_expand_cfg (void)
   crtl->max_used_stack_slot_alignment = STACK_BOUNDARY;
   crtl->stack_alignment_estimated = 0;
   crtl->preferred_stack_boundary = STACK_BOUNDARY;
-  cfun->cfg->max_jumptable_ents = 0;
+  fun->cfg->max_jumptable_ents = 0;
 
   /* Resovle the function section.  Some targets, like ARM EABI rely on knowledge
      of the function section at exapnsion time to predict distance of calls.  */
@@ -5606,14 +5768,14 @@ gimple_expand_cfg (void)
   /* Honor stack protection warnings.  */
   if (warn_stack_protect)
     {
-      if (cfun->calls_alloca)
+      if (fun->calls_alloca)
 	warning (OPT_Wstack_protector,
 		 "stack protector not protecting local variables: "
-                 "variable length buffer");
+		 "variable length buffer");
       if (has_short_buffer && !crtl->stack_protect_guard)
 	warning (OPT_Wstack_protector,
 		 "stack protector not protecting function: "
-                 "all local arrays are less than %d bytes long",
+		 "all local arrays are less than %d bytes long",
 		 (int) PARAM_VALUE (PARAM_SSP_BUFFER_SIZE));
     }
 
@@ -5644,12 +5806,12 @@ gimple_expand_cfg (void)
       gcc_assert (SA.partition_to_pseudo[i]);
 
       /* If this decl was marked as living in multiple places, reset
-         this now to NULL.  */
+	 this now to NULL.  */
       if (DECL_RTL_IF_SET (var) == pc_rtx)
 	SET_DECL_RTL (var, NULL);
 
       /* Some RTL parts really want to look at DECL_RTL(x) when x
-         was a decl marked in REG_ATTR or MEM_ATTR.  We could use
+	 was a decl marked in REG_ATTR or MEM_ATTR.  We could use
 	 SET_DECL_RTL here making this available, but that would mean
 	 to select one of the potentially many RTLs for one DECL.  Instead
 	 of doing that we simply reset the MEM_EXPR of the RTL in question,
@@ -5718,11 +5880,11 @@ gimple_expand_cfg (void)
 
   /* Clear EDGE_EXECUTABLE on the entry edge(s).  It is cleaned from the
      remaining edges later.  */
-  FOR_EACH_EDGE (e, ei, ENTRY_BLOCK_PTR_FOR_FN (cfun)->succs)
+  FOR_EACH_EDGE (e, ei, ENTRY_BLOCK_PTR_FOR_FN (fun)->succs)
     e->flags &= ~EDGE_EXECUTABLE;
 
-  lab_rtx_for_bb = pointer_map_create ();
-  FOR_BB_BETWEEN (bb, init_block->next_bb, EXIT_BLOCK_PTR_FOR_FN (cfun),
+  lab_rtx_for_bb = new hash_map<basic_block, rtx_code_label *>;
+  FOR_BB_BETWEEN (bb, init_block->next_bb, EXIT_BLOCK_PTR_FOR_FN (fun),
 		  next_bb)
     bb = expand_gimple_basic_block (bb, var_ret_seq != NULL_RTX);
 
@@ -5740,13 +5902,12 @@ gimple_expand_cfg (void)
 
   timevar_push (TV_POST_EXPAND);
   /* We are no longer in SSA form.  */
-  cfun->gimple_df->in_ssa_p = false;
-  if (current_loops)
-    loops_state_clear (LOOP_CLOSED_SSA);
+  fun->gimple_df->in_ssa_p = false;
+  loops_state_clear (LOOP_CLOSED_SSA);
 
   /* Expansion is used by optimization passes too, set maybe_hot_insn_p
      conservatively to true until they are all profile aware.  */
-  pointer_map_destroy (lab_rtx_for_bb);
+  delete lab_rtx_for_bb;
   free_histograms ();
 
   construct_exit_block ();
@@ -5754,22 +5915,22 @@ gimple_expand_cfg (void)
 
   if (var_ret_seq)
     {
-      rtx after = return_label;
-      rtx next = NEXT_INSN (after);
+      rtx_insn *after = return_label;
+      rtx_insn *next = NEXT_INSN (after);
       if (next && NOTE_INSN_BASIC_BLOCK_P (next))
 	after = next;
       emit_insn_after (var_ret_seq, after);
     }
 
   /* Zap the tree EH table.  */
-  set_eh_throw_stmt_table (cfun, NULL);
+  set_eh_throw_stmt_table (fun, NULL);
 
   /* We need JUMP_LABEL be set in order to redirect jumps, and hence
      split edges which edge insertions might do.  */
   rebuild_jump_labels (get_insns ());
 
-  FOR_BB_BETWEEN (bb, ENTRY_BLOCK_PTR_FOR_FN (cfun),
-		  EXIT_BLOCK_PTR_FOR_FN (cfun), next_bb)
+  FOR_BB_BETWEEN (bb, ENTRY_BLOCK_PTR_FOR_FN (fun),
+		  EXIT_BLOCK_PTR_FOR_FN (fun), next_bb)
     {
       edge e;
       edge_iterator ei;
@@ -5780,11 +5941,11 @@ gimple_expand_cfg (void)
 	      rebuild_jump_labels_chain (e->insns.r);
 	      /* Put insns after parm birth, but before
 		 NOTE_INSNS_FUNCTION_BEG.  */
-	      if (e->src == ENTRY_BLOCK_PTR_FOR_FN (cfun)
-		  && single_succ_p (ENTRY_BLOCK_PTR_FOR_FN (cfun)))
+	      if (e->src == ENTRY_BLOCK_PTR_FOR_FN (fun)
+		  && single_succ_p (ENTRY_BLOCK_PTR_FOR_FN (fun)))
 		{
-		  rtx insns = e->insns.r;
-		  e->insns.r = NULL_RTX;
+		  rtx_insn *insns = e->insns.r;
+		  e->insns.r = NULL;
 		  if (NOTE_P (parm_birth_insn)
 		      && NOTE_KIND (parm_birth_insn) == NOTE_INSN_FUNCTION_BEG)
 		    emit_insn_before_noloc (insns, parm_birth_insn, e->dest);
@@ -5802,8 +5963,8 @@ gimple_expand_cfg (void)
   /* We're done expanding trees to RTL.  */
   currently_expanding_to_rtl = 0;
 
-  FOR_BB_BETWEEN (bb, ENTRY_BLOCK_PTR_FOR_FN (cfun)->next_bb,
-		  EXIT_BLOCK_PTR_FOR_FN (cfun), next_bb)
+  FOR_BB_BETWEEN (bb, ENTRY_BLOCK_PTR_FOR_FN (fun)->next_bb,
+		  EXIT_BLOCK_PTR_FOR_FN (fun), next_bb)
     {
       edge e;
       edge_iterator ei;
@@ -5824,7 +5985,7 @@ gimple_expand_cfg (void)
 	}
     }
 
-  blocks = sbitmap_alloc (last_basic_block_for_fn (cfun));
+  blocks = sbitmap_alloc (last_basic_block_for_fn (fun));
   bitmap_ones (blocks);
   find_many_sub_basic_blocks (blocks);
   sbitmap_free (blocks);
@@ -5840,7 +6001,7 @@ gimple_expand_cfg (void)
   /* After initial rtl generation, call back to finish generating
      exception support code.  We need to do this before cleaning up
      the CFG as the code does not expect dead landing pads.  */
-  if (cfun->eh->region_tree != NULL)
+  if (fun->eh->region_tree != NULL)
     finish_eh_generation ();
 
   /* Remove unreachable blocks, otherwise we cannot compute dominators
@@ -5878,14 +6039,14 @@ gimple_expand_cfg (void)
 
   /* If we're emitting a nested function, make sure its parent gets
      emitted as well.  Doing otherwise confuses debug info.  */
-  {
-    tree parent;
-    for (parent = DECL_CONTEXT (current_function_decl);
-	 parent != NULL_TREE;
-	 parent = get_containing_scope (parent))
-      if (TREE_CODE (parent) == FUNCTION_DECL)
-	TREE_SYMBOL_REFERENCED (DECL_ASSEMBLER_NAME (parent)) = 1;
-  }
+    {
+      tree parent;
+      for (parent = DECL_CONTEXT (current_function_decl);
+	   parent != NULL_TREE;
+	   parent = get_containing_scope (parent))
+	if (TREE_CODE (parent) == FUNCTION_DECL)
+	  TREE_SYMBOL_REFERENCED (DECL_ASSEMBLER_NAME (parent)) = 1;
+    }
 
   /* We are now committed to emitting code for this function.  Do any
      preparation, such as emitting abstract debug info for the inline
@@ -5900,53 +6061,18 @@ gimple_expand_cfg (void)
   naked_return_label = NULL;
 
   /* After expanding, the tm_restart map is no longer needed.  */
-  if (cfun->gimple_df->tm_restart)
-    {
-      htab_delete (cfun->gimple_df->tm_restart);
-      cfun->gimple_df->tm_restart = NULL;
-    }
+  if (fun->gimple_df->tm_restart)
+    fun->gimple_df->tm_restart = NULL;
 
   /* Tag the blocks with a depth number so that change_scope can find
      the common parent easily.  */
-  set_block_levels (DECL_INITIAL (cfun->decl), 0);
+  set_block_levels (DECL_INITIAL (fun->decl), 0);
   default_rtl_profile ();
 
   timevar_pop (TV_POST_EXPAND);
 
   return 0;
 }
-
-namespace {
-
-const pass_data pass_data_expand =
-{
-  RTL_PASS, /* type */
-  "expand", /* name */
-  OPTGROUP_NONE, /* optinfo_flags */
-  false, /* has_gate */
-  true, /* has_execute */
-  TV_EXPAND, /* tv_id */
-  ( PROP_ssa | PROP_gimple_leh | PROP_cfg
-    | PROP_gimple_lcx
-    | PROP_gimple_lvec ), /* properties_required */
-  PROP_rtl, /* properties_provided */
-  ( PROP_ssa | PROP_trees ), /* properties_destroyed */
-  ( TODO_verify_ssa | TODO_verify_flow
-    | TODO_verify_stmts ), /* todo_flags_start */
-  0, /* todo_flags_finish */
-};
-
-class pass_expand : public rtl_opt_pass
-{
-public:
-  pass_expand (gcc::context *ctxt)
-    : rtl_opt_pass (pass_data_expand, ctxt)
-  {}
-
-  /* opt_pass methods: */
-  unsigned int execute () { return gimple_expand_cfg (); }
-
-}; // class pass_expand
 
 } // anon namespace
 

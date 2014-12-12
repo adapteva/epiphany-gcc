@@ -1698,7 +1698,7 @@
 
 (define_insn "mulsi_600"
   [(set (match_operand:SI 2 "mlo_operand" "")
-	(mult:SI (match_operand:SI 0 "register_operand"  "Rcq#q,c,c,%c")
+	(mult:SI (match_operand:SI 0 "register_operand"  "%Rcq#q,c,c,c")
 		 (match_operand:SI 1 "nonmemory_operand" "Rcq#q,cL,I,Cal")))
    (clobber (match_operand:SI 3 "mhi_operand" ""))]
   "TARGET_MUL64_SET"
@@ -1750,7 +1750,7 @@
 (define_insn "mulsidi_600"
   [(set (reg:DI MUL64_OUT_REG)
 	(mult:DI (sign_extend:DI
-		   (match_operand:SI 0 "register_operand"  "Rcq#q,c,c,%c"))
+		   (match_operand:SI 0 "register_operand"  "%Rcq#q,c,c,c"))
 		 (sign_extend:DI
 ; assembler issue for "I", see mulsi_600
 ;		   (match_operand:SI 1 "register_operand" "Rcq#q,cL,I,Cal"))))]
@@ -1766,7 +1766,7 @@
 (define_insn "umulsidi_600"
   [(set (reg:DI MUL64_OUT_REG)
 	(mult:DI (zero_extend:DI
-		   (match_operand:SI 0 "register_operand"  "c,c,%c"))
+		   (match_operand:SI 0 "register_operand"  "%c,c,c"))
 		 (sign_extend:DI
 ; assembler issue for "I", see mulsi_600
 ;		   (match_operand:SI 1 "register_operand" "cL,I,Cal"))))]
@@ -3480,7 +3480,7 @@
 
 (define_insn "jump_i"
   [(set (pc) (label_ref (match_operand 0 "" "")))]
-  "!TARGET_LONG_CALLS_SET || !find_reg_note (insn, REG_CROSSING_JUMP, NULL_RTX)"
+  "!TARGET_LONG_CALLS_SET || !CROSSING_JUMP_P (insn)"
   "b%!%* %^%l0%&"
   [(set_attr "type" "uncond_branch")
    (set (attr "iscompact")
@@ -3496,7 +3496,7 @@
 	  (eq_attr "delay_slot_filled" "yes")
 	  (const_int 4)
 
-	  (match_test "find_reg_note (insn, REG_CROSSING_JUMP, NULL_RTX)")
+	  (match_test "CROSSING_JUMP_P (insn)")
 	  (const_int 4)
 
 	  (ior (lt (minus (match_dup 0) (pc)) (const_int -512))
@@ -4134,7 +4134,7 @@
 
 ;; FIXME: an intrinsic for multiply is daft.  Can we remove this?
 (define_insn "mul64"
-  [(unspec [(match_operand:SI 0 "general_operand" "q,r,r,%r")
+  [(unspec [(match_operand:SI 0 "general_operand" "%q,r,r,r")
 		     (match_operand:SI 1 "general_operand" "q,rL,I,Cal")]
 		   UNSPEC_MUL64)]
   "TARGET_MUL64_SET"
@@ -4589,7 +4589,7 @@
    "(reload_completed
      || (TARGET_EARLY_CBRANCHSI
 	 && brcc_nolimm_operator (operands[0], VOIDmode)))
-    && !find_reg_note (insn, REG_CROSSING_JUMP, NULL_RTX)"
+    && !CROSSING_JUMP_P (insn)"
    "*
      switch (get_attr_length (insn))
      {
@@ -4653,7 +4653,7 @@
 	  (label_ref (match_operand 0 "" ""))
 	  (pc)))
    (clobber (reg:CC_ZN CC_REG))]
-  "!find_reg_note (insn, REG_CROSSING_JUMP, NULL_RTX)"
+  "!CROSSING_JUMP_P (insn)"
 {
   switch (get_attr_length (insn))
     {
@@ -4693,7 +4693,7 @@
 	  (label_ref (match_operand 0 "" ""))
 	  (pc)))
    (clobber (reg:CC_ZN CC_REG))]
-  "!find_reg_note (insn, REG_CROSSING_JUMP, NULL_RTX)"
+  "!CROSSING_JUMP_P (insn)"
   "#"
   ""
   [(parallel
@@ -4771,7 +4771,7 @@
    (use (match_operand 4 "const_int_operand" "C_0,X,X"))]
   ""
 {
-  rtx scan;
+  rtx_insn *scan;
   int len, size = 0;
   int n_insns = 0;
   rtx loop_start = operands[4];
@@ -4812,8 +4812,8 @@
     {
       if (!INSN_P (scan))
 	continue;
-      if (GET_CODE (PATTERN (scan)) == SEQUENCE)
-	scan = XVECEXP (PATTERN (scan), 0, 0);
+      if (rtx_sequence *seq = dyn_cast <rtx_sequence *> (PATTERN (scan)))
+	scan = seq->insn (0);
       if (JUMP_P (scan))
 	{
 	  if (recog_memoized (scan) != CODE_FOR_doloop_end_i)
@@ -4821,7 +4821,7 @@
 	      n_insns += 2;
 	      if (simplejump_p (scan))
 		{
-		  scan = XEXP (SET_SRC (PATTERN (scan)), 0);
+		  scan = as_a <rtx_insn *> (XEXP (SET_SRC (PATTERN (scan)), 0));
 		  continue;
 		}
 	      if (JUMP_LABEL (scan)
