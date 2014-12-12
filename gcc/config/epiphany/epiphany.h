@@ -55,7 +55,8 @@ along with GCC; see the file COPYING3.  If not see
   "%{m1reg-r43:crtm1reg-r43.o%s} %{m1reg-r63:crtm1reg-r63.o%s} " \
   "crtbegin.o%s"
 
-#define ENDFILE_SPEC "crtend.o%s crtn.o%s %{fsoftware-cache:cachemanager.o%s}"
+#define ENDFILE_SPEC "crtend.o%s crtn.o%s " \
+  "%{fsoftware-cache|fpic:cachemanager.o%s}"
 
 #define CC1_SPEC "%{fsoftware-cache:-fpic}"
 

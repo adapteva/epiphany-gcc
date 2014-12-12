@@ -1,3 +1,8 @@
+2014-12-12  Simon Cook  <simon.cook@embecosm.com>
+
+	* config/epiphany/epiphany.h (ENDFILE_SPEC): Add cachemanager.o
+	when -fpic is used.
+
 2014-12-12  Joern Rennecke  <joern.rennecke@embecosm.com>
 
 	* config/epiphany/epiphany.md (casesi_load): Use next_nonnote_insn to
