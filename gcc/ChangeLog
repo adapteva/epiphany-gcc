@@ -1,3 +1,8 @@
+2015-02-24  Hesham ALMatary  <heshamelmatary@gmail.com>
+
+	* config.gcc: Add Epiphany RTEMS target.
+	* config/epiphany/rtems.h: New file.
+
 2014-04-11  Tobias Burnus  <burnus@net-b.de>
 
 	PR other/59055
