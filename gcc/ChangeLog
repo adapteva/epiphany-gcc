@@ -1,3 +1,9 @@
+2015-04-20  Hesham ALMatary  <heshamelmatary@gmail.com>
+
+	* config.gcc: Fix missing t-rtems include.
+	* config/epiphany/t-rtems: Add new dummy epiphany/t-rtems
+	file.
+
 2015-02-24  Hesham ALMatary  <heshamelmatary@gmail.com>
 
 	* config.gcc: Add Epiphany RTEMS target.
