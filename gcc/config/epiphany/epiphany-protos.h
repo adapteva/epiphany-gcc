@@ -60,4 +60,4 @@ extern bool epiphany_regno_rename_ok (unsigned src, unsigned dst);
    PR other/55523: gencondmd file includes / dependencies are messed up,
    it uses peephole2 predicates without having all the necessary headers.  */
 extern int get_attr_sched_use_fpu (rtx_insn *);
-
+extern bool epiphany_need_fp (void);

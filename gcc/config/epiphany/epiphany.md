@@ -50,6 +50,7 @@
    ; harder to determine when it must be saved.
    (UNSPEC_RETURN_ADDR		 0)
    (UNSPEC_FP_MODE		 1)
+   (UNSPEC_CASESI		 2)
 
    (UNSPECV_GID			 0)
    (UNSPECV_GIE			 1)])
@@ -134,6 +135,15 @@
       operands[1] = reg;
       if (operands[0] == reg)
 	DONE;
+    }
+  if (<MODE>mode == SImode && flag_pic && pcrel_operand (operands[1], Pmode))
+    {
+      if (reload_in_progress || reload_completed)
+	/* epiphany_secondary_reload should already have taken care of this.  */
+	gcc_unreachable ();
+      else
+	emit_insn (gen_movsi_pcrel (operands[0], operands[1]));
+      DONE;
     }
 })
 
@@ -263,7 +273,7 @@
   ""
 {
   rtx addr
-    = (frame_pointer_needed ? hard_frame_pointer_rtx : stack_pointer_rtx);
+    = (epiphany_need_fp () ? hard_frame_pointer_rtx : stack_pointer_rtx);
 
   if (!MACHINE_FUNCTION (cfun)->lr_slot_known)
     {
@@ -296,6 +306,77 @@
   "#"
   "reload_in_progress || reload_completed"
   [(set (match_dup 0) (match_dup 1))])
+
+(define_insn "movsi_pcrel"
+  [(set (match_operand:SI 0 "gpr_operand" "=r")
+	(match_operand:SI 1 "pcrel_operand" "Clb"))
+   (clobber (match_scratch:SI 2 "=r"))
+   (clobber (reg:CC CC_REGNUM))]
+  "flag_pic"
+{
+  asm_fprintf (asm_out_file, "0:");
+  return (get_attr_length (insn) > 8
+	  ? "movfs %2,pc\;mov %0,%%low((%1)-0b)\;movt %0,%%high((%1)-0b)\;add %0,%0,%2 ; %1"
+	  : "movfs %0,pc\;add %0,%0,(%1)-0b");
+}
+  [(set_attr "type" "move")
+   (set (attr "length")
+	(if_then_else
+	  (leu (plus (minus (match_dup 0) (pc)) (const_int 1024))
+	       (const_int 2047))
+	  (const_int 8) (const_int 16)))])
+
+(define_insn "movsi_pcrel_r"
+  [(set (match_operand:SI 0 "gpr_operand" "=r")
+	(match_operand:SI 1 "pcrel_operand" "Clb"))
+   (clobber (match_operand:SI 2 "gpr_operand" "=r"))
+   (clobber (reg:CC UNKNOWN_REGNUM))]
+  "flag_pic && (reload_in_progress || reload_completed)"
+{
+  int scratch = (0x17
+		 ^ (true_regnum (operands[0]) & 1)
+		 ^ (true_regnum (operands[1]) & 2)
+		 ^ (true_regnum (operands[2]) & 4));
+  asm_fprintf (asm_out_file, "\tstr r%d,[sp,#0]\n", scratch);
+  asm_fprintf (asm_out_file, "\tmovfs r%d,status\n", scratch);
+  asm_fprintf (asm_out_file, "0:");
+  output_asm_insn ("movfs %2,pc", operands);
+  output_asm_insn ("mov %0,%%low((%1)-0b)\;movt %0,%%high((%1)-0b)", operands);
+  output_asm_insn ("add %0,%0,%2 ; %1", operands);
+  asm_fprintf (asm_out_file, "\tmovts status,r%d\n", scratch);
+  asm_fprintf (asm_out_file, "\tldr r%d,[sp,#0]\n", scratch);
+  return "";
+}
+  [(set_attr "type" "move")
+   (set_attr "length" "32")])
+
+(define_peephole2
+  [(match_parallel 5 ""
+     [(set (match_operand 3 "cc_operand") (match_operand 4 ""))])
+   (parallel [(set (match_operand:SI 0 "gpr_operand")
+		   (match_operand:SI 1 "pcrel_operand"))
+	      (clobber (match_operand:SI 2 "gpr_operand"))
+	      (clobber (reg:CC UNKNOWN_REGNUM))])]
+  "REGNO (operands[3]) == CC_REGNUM
+   && !reg_overlap_mentioned_p (operands[0], operands[5])
+   && !reg_set_p (operands[1], operands[5])
+   && !reg_overlap_mentioned_p (operands[2], operands[5])"
+  [(parallel [(set (match_dup 0) (match_dup 1))
+	      (clobber (match_dup 2))
+	      (clobber (reg:CC CC_REGNUM))])
+   (match_dup 5)]
+  "")
+
+(define_peephole2
+  [(parallel [(set (match_operand:SI 0 "gpr_operand")
+		   (match_operand:SI 1 "pcrel_operand"))
+	      (clobber (match_operand:SI 2 "gpr_operand"))
+	      (clobber (reg:CC UNKNOWN_REGNUM))])]
+  "peep2_regno_dead_p (1, CC_REGNUM)"
+  [(parallel [(set (match_dup 0) (match_dup 1))
+	      (clobber (match_dup 2))
+	      (clobber (reg:CC CC_REGNUM))])]
+  "")
 
 (define_expand "mov<mode>"
   [(set (match_operand:DWMODE 0 "general_operand" "")
@@ -2155,7 +2236,7 @@
     }
 })
 
-(define_insn "*tablejump_internal"
+(define_insn "tablejump_internal"
   [(set (pc) (match_operand:SI 0 "gpr_operand" "r"))
    (use (label_ref (match_operand 1 "" "")))]
   ""
@@ -2169,16 +2250,84 @@
   "jr %0;"
   [(set_attr "type" "uncond_branch")])
 
+; tablejump expansion will use CASE_VECTOR_MODE for the index scaling,
+; but we want CASE_VECTOR_SHORTEN_MODE to take effect.
+(define_expand "casesi"
+  [(match_operand:SI 0 "register_operand" "")   ; index to jump on
+   (match_operand:SI 1 "const_int_operand" "")  ; lower bound
+   (match_operand:SI 2 "const_int_operand" "")  ; total range
+   (match_operand 3 "" "")                      ; table label
+   (match_operand 4 "" "")]                     ; out of range label
+  "flag_pic"
+{
+  if (operands[1] != const0_rtx)
+    {
+      rtx reg = gen_reg_rtx (Pmode);
+      rtx offset = gen_int_mode (-INTVAL (operands[1]), Pmode);
+      
+      if (!add_operand (offset, Pmode))
+	offset = force_reg (Pmode, offset);
 
+      emit_insn (gen_addsi3 (reg, operands[0], offset));
+      operands[0] = reg;
+    }
+  emit_cmp_and_jump_insns (operands[0], operands[2], GTU, NULL_RTX, Pmode, 1,
+			   operands[4], -1);
+  rtx target = gen_reg_rtx (Pmode);
+  emit_insn (gen_casesi_load (target, operands[0], operands[3]));
+  emit_jump_insn (gen_tablejump_internal (target, operands[3]));
+  DONE;
+})
+
+(define_insn "casesi_load"
+  [(set (match_operand:SI 0 "gpr_operand" "=&r,r")
+	(unspec:SI [(match_operand:SI 1 "gpr_operand" "r,r")
+		    (label_ref (match_operand 2 "" ""))] UNSPEC_CASESI))
+   (clobber (match_scratch:SI 3 "=X,r"))
+   (clobber (match_scratch:SI 4 "=r,r"))
+   (clobber (reg:CC CC_REGNUM))]
+  "flag_pic"
+{
+  rtx diff_vec = PATTERN (next_nonnote_insn (operands[2]));
+  gcc_assert (GET_CODE (diff_vec) == ADDR_DIFF_VEC);
+  enum machine_mode mode = GET_MODE (diff_vec);
+  int shift = exact_log2 (GET_MODE_SIZE (mode));
+  if (!gpr_operand (operands[3], SImode))
+    operands[3] = operands[0];
+  asm_fprintf (asm_out_file, "0:");
+  output_asm_insn ("movfs %3,pc\;add %3,%3,(%2)-0b", operands);
+  rtx xop[3] = { operands[4], operands[1], GEN_INT (shift) };
+  output_asm_insn ("lsl %0,%1,%2", xop);
+  output_asm_insn (mode == HImode ? "ldrh %4,[%3,%4]" : "ldr %4,[%3,%4]",
+		   operands);
+  output_asm_insn ("add %0,%3,%4", operands);
+  return "";
+}
+  [(set_attr "type" "load")
+   (set_attr "length" "20")])
+
+
+/* For the overlay ABI, calls need to build a readily parsable frame
+   for the benefit of callees (or the intercepting runtime on its behalf,
+   or of it callees);
+   that does not apply to sibcalls, which get satisfied by being handed
+   the sibcaller's caller GRP_SP / GPR_FP.
+   For this reason, we set a flag when we expand a non-sibcall, so that
+   we can tell at register allocation time.
+   We also put in an explicit use of the memory pointed to by the hard frame
+   pointer, so that the frame pointer setting insn is not optimized away.  */
 (define_expand "call"
   ;; operands[1] is stack_size_rtx
   ;; operands[2] is next_arg_register
   [(parallel [(call (match_operand:SI 0 "call_operand" "")
 		    (match_operand 1 "" ""))
-	     (clobber (reg:SI GPR_LR))])]
+	      (use (mem:BLK (reg:SI GPR_FP)))
+	      (clobber (reg:SI GPR_LR))])]
   ""
 {
   bool target_uninterruptible = epiphany_call_uninterruptible_p (operands[0]);
+
+  MACHINE_FUNCTION (cfun)->expanded_non_sibcall = 1;
 
   if (!call_operand (operands[1], VOIDmode))
     operands[0]
@@ -2191,7 +2340,9 @@
       emit_call_insn
 	(gen_rtx_PARALLEL
 	  (VOIDmode,
-	   gen_rtvec (2, gen_rtx_CALL (VOIDmode, operands[0], operands[1]),
+	   gen_rtvec (3, gen_rtx_CALL (VOIDmode, operands[0], operands[1]),
+			 gen_rtx_USE (VOIDmode, gen_rtx_MEM (BLKmode,
+				      hard_frame_pointer_rtx)),
 			 gen_rtx_CLOBBER (VOIDmode,
 					  gen_rtx_REG (SImode, GPR_LR)))));
       emit_insn (target_uninterruptible ? gen_gie (): gen_gid ());
@@ -2203,6 +2354,7 @@
   [(match_parallel 2 "float_operation"
      [(call (mem:SI (match_operand:SI 0 "call_address_operand" "Csy,r"))
 	    (match_operand 1 "" ""))
+      (use (match_operand:BLK 3 "trace_operand" ""))
       (clobber (reg:SI GPR_LR))])]
   ""
   "%f0"
@@ -2213,7 +2365,7 @@
   ;; operands[2] is next_arg_register
   [(parallel [(call (match_operand:SI 0 "call_operand" "")
 		    (match_operand 1 "" ""))
-	     (return)])]
+	      (return)])]
   ""
 {
   bool target_uninterruptible = epiphany_call_uninterruptible_p (operands[0]);
@@ -2252,10 +2404,13 @@
   [(parallel [(set (match_operand 0 "gpr_operand" "=r")
 		   (call (match_operand:SI 1 "call_operand" "")
 			 (match_operand 2 "" "")))
-	     (clobber (reg:SI GPR_LR))])]
+	      (use (mem:BLK (reg:SI GPR_FP)))
+	      (clobber (reg:SI GPR_LR))])]
   ""
 {
   bool target_uninterruptible = epiphany_call_uninterruptible_p (operands[1]);
+
+  MACHINE_FUNCTION (cfun)->expanded_non_sibcall = 1;
 
   if (!call_operand (operands[1], VOIDmode))
     operands[1]
@@ -2268,11 +2423,13 @@
       emit_call_insn
 	(gen_rtx_PARALLEL
 	  (VOIDmode,
-	   gen_rtvec (2, gen_rtx_SET
-			   (VOIDmode, operands[0],
-			    gen_rtx_CALL (VOIDmode, operands[1], operands[2])),
-			 gen_rtx_CLOBBER (VOIDmode,
-					  gen_rtx_REG (SImode, GPR_LR)))));
+	   gen_rtvec
+	    (3,
+	     gen_rtx_SET (VOIDmode, operands[0],
+			  gen_rtx_CALL (VOIDmode, operands[1], operands[2])),
+	     gen_rtx_USE (VOIDmode, gen_rtx_MEM (BLKmode,
+			  hard_frame_pointer_rtx)),
+	     gen_rtx_CLOBBER (VOIDmode, gen_rtx_REG (SImode, GPR_LR)))));
       emit_insn (target_uninterruptible ? gen_gie (): gen_gid ());
       DONE;
     }
@@ -2283,6 +2440,7 @@
      [(set (match_operand 0 "gpr_operand" "=r,r")
 	   (call (mem:SI (match_operand:SI 1 "call_address_operand" "Csy,r"))
 	         (match_operand 2 "" "")))
+      (use (match_operand:BLK 4 "trace_operand" ""))
       (clobber (reg:SI GPR_LR))])]
   ""
   "%f1"
@@ -2295,7 +2453,7 @@
   [(parallel [(set (match_operand 0 "gpr_operand" "=r")
 		   (call (match_operand:SI 1 "call_operand" "")
 			 (match_operand 2 "" "")))
-	     (return)])]
+	      (return)])]
   ""
 {
   bool target_uninterruptible = epiphany_call_uninterruptible_p (operands[1]);
@@ -2384,11 +2542,26 @@
   "reload_completed"
   "add sp,sp,%0")
 
+(define_insn "stack_adjust_addfp"
+  [(set (reg:SI GPR_SP)
+	(plus:SI (reg:SI GPR_FP) (match_operand:SI 0 "arith_operand" "rL")))
+   (clobber (reg:CC CC_REGNUM))
+   (clobber (reg:SI STATUS_REGNUM))
+   (clobber (match_operand:BLK 1 "memory_operand" "=m"))]
+  "reload_completed"
+{
+  rtx xop[2];
+  xop[0] = operands[0];
+  xop[1] = hard_frame_pointer_rtx;
+  output_asm_insn ("add sp,%1,%0", xop);
+  return "";
+})
+
 (define_insn "stack_adjust_mov"
   [(set (reg:SI GPR_SP) (reg:SI GPR_FP))
    (clobber (match_operand:BLK 0 "memory_operand" "=m"))]
   "reload_completed"
-  "mov sp,fp"
+  { asm_fprintf (asm_out_file, "\tmov sp,%s\n", reg_names[GPR_FP]); return ""; }
   [(set_attr "type" "move")])
 
 (define_insn "stack_adjust_str"

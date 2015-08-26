@@ -55,7 +55,10 @@ along with GCC; see the file COPYING3.  If not see
   "%{m1reg-r43:crtm1reg-r43.o%s} %{m1reg-r63:crtm1reg-r63.o%s} " \
   "crtbegin.o%s"
 
-#define ENDFILE_SPEC "crtend.o%s crtn.o%s"
+#define ENDFILE_SPEC "crtend.o%s crtn.o%s " \
+  "%{fsoftware-cache|fpic:cachemanager.o%s}"
+
+#define CC1_SPEC "%{fsoftware-cache:-fpic}"
 
 #define EPIPHANY_LIBRARY_EXTRA_SPEC \
   "-ffixed-r40 -ffixed-r41 -ffixed-r42 -ffixed-r43"
@@ -451,6 +454,7 @@ typedef struct GTY (()) machine_function
   unsigned lr_clobbered : 1;
   unsigned control_use_inserted : 1;
   unsigned lr_slot_known : 1;
+  unsigned expanded_non_sibcall : 1;
   unsigned sw_entities_processed : 6;
   long lr_slot_offset;
   rtx and_mask;
@@ -511,6 +515,7 @@ typedef struct GTY (()) machine_function
 #define ELIMINABLE_REGS						\
 {{ FRAME_POINTER_REGNUM, STACK_POINTER_REGNUM},			\
  { FRAME_POINTER_REGNUM, HARD_FRAME_POINTER_REGNUM},		\
+ { HARD_FRAME_POINTER_REGNUM, STACK_POINTER_REGNUM},		\
  { ARG_POINTER_REGNUM, STACK_POINTER_REGNUM},                   \
  { ARG_POINTER_REGNUM, HARD_FRAME_POINTER_REGNUM},		\
 }
@@ -769,6 +774,17 @@ extern char epiphany_punct_chars[256];
 #define PRINT_OPERAND_PUNCT_VALID_P(CHAR) \
   epiphany_punct_chars[(unsigned char) (CHAR)]
 
+#if 1 /* FIXME: Assembler is not yet ready.  */
+#define ASM_OUTPUT_SYMBOL_REF(FILE, SYM) \
+  do \
+    { \
+      assemble_name ((FILE), (XSTR ((SYM), 0))); \
+      if (flag_pic && ! SYMBOL_REF_LOCAL_P (x) && SYMBOL_REF_FUNCTION_P (SYM)) \
+	fputs ("@PLT", FILE); \
+    } \
+  while (0)
+#endif
+
 /* This is how to output an element of a case-vector that is absolute.  */
 #define ASM_OUTPUT_ADDR_VEC_ELT(FILE, VALUE)  \
 do { \
@@ -781,7 +797,7 @@ do { \
 /* This is how to output an element of a case-vector that is relative.  */
 #define ASM_OUTPUT_ADDR_DIFF_ELT(FILE, BODY, VALUE, REL) \
 do {							\
-  if (CASE_VECTOR_MODE == Pmode) \
+  if (GET_MODE (BODY) == Pmode) \
     asm_fprintf ((FILE), "\t.word"); \
   else \
     asm_fprintf ((FILE), "\t.short"); \
@@ -842,6 +858,16 @@ do \
 /* Specify the machine mode that this machine uses
    for the index in the tablejump instruction.  */
 #define CASE_VECTOR_MODE (TARGET_SMALL16 && optimize_size ? HImode : Pmode)
+
+/* When generating PIC code, we are already need pc-relative switch tables;
+   the cost of a zero-extending load is relatively low compared to the
+   saving in code size (which is at a premium for overlays), so try to
+   use shorter tables unless optimize >= 3 (considering that -O3 is for
+   aggressive size increasing optimizations).  */
+#define CASE_VECTOR_SHORTEN_MODE(MIN, MAX, BODY) \
+  (TARGET_SMALL16 && optimize_size ? HImode \
+   : flag_pic && optimize < 3 && ((MIN) >= 0 && (MAX) < 65535) ? HImode \
+   : Pmode)
 
 /* Define if operations between registers always perform the operation
    on the full register even if a narrower mode is specified.  */

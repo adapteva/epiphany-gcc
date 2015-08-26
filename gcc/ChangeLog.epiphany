@@ -1,0 +1,398 @@
+2015-04-20  Hesham ALMatary  <heshamelmatary@gmail.com>
+
+	* config.gcc: Fix missing t-rtems include.
+	* config/epiphany/t-rtems: Add new dummy epiphany/t-rtems
+	file.
+
+2015-02-24  Hesham ALMatary  <heshamelmatary@gmail.com>
+
+	* config.gcc: Add Epiphany RTEMS target.
+	* config/epiphany/rtems.h: New file.
+
+2014-12-12  Simon Cook  <simon.cook@embecosm.com>
+
+	* config/epiphany/epiphany.h (ENDFILE_SPEC): Add cachemanager.o
+	when -fpic is used.
+
+2014-12-12  Joern Rennecke  <joern.rennecke@embecosm.com>
+
+	* config/epiphany/epiphany.md (casesi_load): Use next_nonnote_insn to
+	find jump_table_data insn.
+
+2014-12-03  Joern Rennecke  <joern.rennecke@embecosm.com>
+
+gcc:
+	* config/epiphany/epiphany.c (epiphany_override_options):
+	If TARGET_SOFT_CMPSF is not enabled, set flag_finite_math_only.
+	* config/epiphany/epiphany.md (mov<mode>cc): Don't use
+	reverse_condition_maybe_unordered if flag_finite_math_only is set.
+testsuite:
+	* gcc.target/epiphany/fcmp-1.c: New test.
+
+2014-09-20  Joern Rennecke  <joern.rennecke@embecosm.com>
+
+	* config/epiphany/epiphany.md (sub_f_add_imm): Change constraint of
+	operand 3 to "CnL".
+
+2014-04-04  Joern Rennecke  <joern.rennecke@embecosm.com>
+
+	* config/epiphany/epiphany.c (epiphany_rtx_costs): Check for
+	code == SET rather than outer_code == SET, to account for
+	asymmetric calling patterns between combine and postreload.
+	* (TARGET_MAX_ANCHOR_OFFSET, TARGET_MIN_ANCHOR_OFFSET): For
+	optimize_size, reduce range to range for short SImode loads/stores.
+	* gcc.target/epiphany/t1068-2.c: Adjust count to what is possible
+	whilst move2add is stumped by flag clobbers.
+
+2014-04-03  Joern Rennecke  <joern.rennecke@embecosm.com>
+
+gcc:
+	* common/config/epiphany/epiphany-common.c
+	(epiphany_option_optimization_table): Enable section anchors by
+	default at -O1 or higher.
+	* config/epiphany/epiphany.c (TARGET_MAX_ANCHOR_OFFSET): Define.
+	(TARGET_MIN_ANCHOR_OFFSET): Likewise.
+	(epiphany_rtx_costs): PLUS and MINUS carry no extra cost inside SET.
+	(epiphany_legitimate_address_p): For BLKmode, apply SImode check.
+	* config/epiphany/epiphany.h (ASM_OUTPUT_DEF): Define.
+	* config/epiphany/predicates.md (memclob_operand): New predicate.
+	* config/epiphany/epiphany.md (stack_adjust_add, stack_adjust_str):
+	Use memclob_operand predicate and X constraint for operand 3.
+testsuite:
+	* gcc.target/epiphany/t1068-2.c: New file.
+
+2014-04-03  Joern Rennecke  <joern.rennecke@embecosm.com>
+
+gcc:
+	* config/epiphany/epiphany.c (epiphany_expand_epilogue): Don't move
+	stack adjustment offset into a register unless we have to.
+gcc/testsuite:
+	* gcc.target/epiphany/pop-1.c: New test.
+
+2014-04-03  Joern Rennecke  <joern.rennecke@embecosm.com>
+
+gcc:
+	* config/epiphany/epiphany.c (epiphany_rtx_cost): Compare
+	with CC_N_NE / CC_C_LTU / CC_C_GTU carries no extra cost for
+	its operands.
+gcc/testsuite:
+	* gcc.target/epiphany/btst-1.c: New test.
+
+2014-04-03  Joern Rennecke  <joern.rennecke@embecosm.com>
+
+gcc:
+	PR rtl-optimization/60651
+	* mode-switching.c (optimize_mode_switching): Make sure to emit
+	sets of a lower numbered entity before sets of a higher numbered
+	entity to a mode of the same or lower priority.
+	When creating a seginfo for a basic block that starts with a code
+	label, move the insertion point past the code label.
+	(new_seginfo): Document and enforce requirement that
+	NOTE_INSN_BASIC_BLOCK only appears for empty blocks.
+	* doc/tm.texi.in: Document ordering constraint for emitted mode sets.
+	* doc/tm.texi: Regenerate.
+gcc/testsuite:
+	PR rtl-optimization/60651
+	* gcc.target/epiphany/mode-switch.c: New test.
+
+2013-10-31  Joern Rennecke <joern.rennecke@embecosm.com>
+
+	* config/epiphany/epiphany.md (stack_adjust_addfp, stack_adjust_mov):
+	Don't hard code frame pointer name, but find it from reg_names.
+
+2014-09-25  Simon Cook  <simon.cook@embecosm.com>
+
+	* config/epiphany/epiphany.h (EPIPHANY_LIBRARY_EXTRA_SPEC): Don't
+	build libraries with -fpic by default.
+	* config/epiphany/epiphany.opt: Fix CC1 warning when
+	-fsoftware-cache enabled.
+
+2014-09-23  Simon Cook  <simon.cook@embecosm.com>
+
+	* config/epiphany/epiphany.h (ENDFILE_SPEC): Add cachemanager.o
+	when -fsoftware-cache is used.
+	(CC1_SPEC): Add -fpic when -fsoftware-cache is used.
+	* config/epiphany/epiphany.opt: New option.
+
+2014-05-30  Pierre Langlois  <pierre.langlois@embecosm.com>
+
+	* config/epiphany/epiphany.h (EPIPHANY_LIBRARY_EXTRA_SPEC): Build
+	libraries with -fpic.
+
+2014-05-28  Pierre Langlois  <pierre.langlois@embecosm.com>
+
+	* config/epiphany/epiphany.md (GPR_FP): Change to 11.
+
+2013-09-03  Simon Cook  <simon.cook@embecosm.com>
+
+	* config/epiphany/epiphany.h (EPIPHANY_LIBRARY_EXTRA_SPEC): Don't
+	build libraries with -fpic for now.
+	(ASM_OUTPUT_SYMBOL_REF): Enable and only use @PLT for functions.
+
+2013-08-13  Joern Rennecke <joern.rennecke@embecosm.com>
+
+	* config/epiphany/predicates.md (pcrel_operand): New predicate.
+	(move_src_operand): Exclude pcrel_operand for flag_pic.
+	(nonsymbolic_immediate_operand): Rename to ..
+	(nonpcrel_immediate_operand) .. this.  Changed all users.
+	Exclude pcrel_operand.
+	* config/epiphany/constraints.md (Clb): New constraint.
+	* config/epiphany/epiphany.h (ASM_OUTPUT_ADDR_DIFF_ELT):
+	Use mode of BODY.
+	(CASE_VECTOR_SHORTEN_MODE): Define.
+	* config/epiphany/epiphany.md (UNSPEC_CASESI): New constant.
+	(mov<mode>) <SImode>: Use gen_movsi_pcrel.
+	(movsi_pcrel, movsi_pcrel_r, movsi_pcrel_r+[12]): New patterns.
+	(tablejump_internal): Emit expander.
+	(casesi, casesi_load): New patterns.
+	* config/epiphany/epiphany.c (epiphany_secondary_reload):
+	For flag_pic, handle pcrel_operand.
+
+2013-08-08  Joern Rennecke <joern.rennecke@embecosm.com>
+
+	* config/epiphany/epiphany.c (epiphany_expand_epilogue): Avoid
+	unsigned calculation for frame_adjust.
+
+2013-08-02  Joern Rennecke <joern.rennecke@embecosm.com>
+
+	* config/epiphany/epiphany.c (epiphany_compute_frame_size):
+	Move call to set_lr_slot_offset after the bulk of current_frame_info
+	member initializations.
+
+	* config/epiphany/epiphany.c (set_lr_slot_offset): For
+	frame_offset_known case, fix assert and calculate appropriate
+	lr_slot_offset.
+	(epiphany_compute_frame_size): Avoid getting a split/unaligned trace.
+	(epiphany_emit_save_restore): Don't worry about last_saved if
+	reg_size is aligned.
+
+	* config/epiphany/predicates.md (trace_operand): Verify that address
+	is a PLUS or REG.
+
+2013-08-01  Joern Rennecke <joern.rennecke@embecosm.com>
+
+	* config/epiphany/epiphany.h (FIRST_PSEUDO_REGISTER): Bump up to 79.
+	(FIXED_REGISTERS, CALL_USED_REGISTERS): Include TRACE_REGNUM entry.
+	(REG_ALLOC_ORDER, REGISTER_NAMES): Likewise.
+	(REG_CLASS_CONTEENTS) <ALL_REGS>: Likewise.
+	* config/epiphany/epiphany.md (TRACE_REGNUM): New constant.
+	(call, call_i, sibcall, sibcall_i): Add use of trace.
+	(call_value, call_value_i, sibcall_value, sibcall_value_i): Likewise.
+	(stack_adjust_addfp): New pattern.
+	(stack_adjust_mov): Use new hard frame pointer register.
+	* config/epiphany/predicates.md (trace_operand): New predicate.
+	(float_operation): Allow for three-element CALL_INSN patterns.
+	* config/epiphany/epiphany.c (epiphany_expand_prologue):
+	Don't use frame_insn for hard frame pointer initialization when
+	frame_pointer_needed is not set.
+	Add a REG_FRAME_RELATED_NOTE when adding a register to allocate a
+	large frame.
+	(epiphany_expand_epilogue): Fix sign of frame_adjust.
+	Use gen_stack_adjust_addfp.
+	(epiphany_initial_elimination_offset): Define elimination from
+	TRACE_REGNUM.
+	(epiphany_can_eliminate): Only restrict elimination from
+	TRACE_REGNUM.
+
+	Backout these changes:
+	* config/epiphany/epiphany.h (FIRST_PSEUDO_REGISTER): Bump up to 79.
+	(FIXED_REGISTERS, CALL_USED_REGISTERS): Include TRACE_REGNUM entry.
+	(REG_ALLOC_ORDER, REGISTER_NAMES): Likewise.
+	(REG_CLASS_CONTEENTS) <ALL_REGS>: Likewise.
+	* config/epiphany/epiphany.md (TRACE_REGNUM): New constant.
+	(sibcall, sibcall_i): Add use of trace.
+	(sibcall_value, sibcall_value_i): Likewise.
+	* config/epiphany/epiphany.c (epiphany_initial_elimination_offset):
+	Define elimination from TRACE_REGNUM.
+	(epiphany_can_eliminate): Only restrict elimination from
+	TRACE_REGNUM.
+
+	* config/epiphany/epiphany-protos.h (epiphany_need_fp): Declare.
+	* config/epiphany/epiphany.c (struct epiphany_frame_info):
+	Change need_fp to bool.
+	New member need_trace.
+	(epiphany_compute_frame_size): Set / use need_trace member.
+	Avoid GPR_LR in last_slot.
+	(piphany_initial_elimination_offset): Handle elimination of
+	HARD_FRAME_POINTER_REGNUM.
+	(epiphany_can_eliminate): Likewise.
+	* config/epiphany/epiphany.h (machine_function): Add member
+	expanded_non_sibcall.
+	(ELIMINABLE_REGS): Add entry for HARD_FRAME_POINTER_REGNUM.
+	* config/epiphany/epiphany.md (reload_insi_ra): Use epiphany_need_fp.
+	(call_i, call_value_i): Use (mem:BLK (reg:SI GPR_FP)) instead
+	of TRACE_REGNUM.
+	(call, call_value): Likewise.
+	Set MACHINE_FUNCTION (cfun)->expanded_non_sibcall.
+	* config/epiphany/predicates.md (trace_operand): Check for MEM.
+
+2013-07-31  Joern Rennecke <joern.rennecke@embecosm.com>
+
+	Overlay (-fpic) support:
+
+	* config/epiphany/epiphany.h (ASM_OUTPUT_SYMBOL_REF): Define.
+	#if 0 for now because assembler is not ready.
+
+	* config/epiphany/epiphany.h (EPIPHANY_LIBRARY_EXTRA_SPEC): Add -fpic.
+	* config/epiphany/epiphany.md (GPR_FP): Change to 15.
+	* config/epiphany/epiphany.c (TARGET_CAN_ELIMINATE): Define.
+	(struct epiphany_frame_info) <initialized>: Now bool.
+	(struct epiphany_frame_info) <frame_offset_known, sft_hd_frame_offset>:
+	New members.
+	(set_lr_slot_offset): New static function.
+	(MUST_SAVE_REGISTER): If frame_pointer_needed, Save GPR_FP.
+	(MUST_SAVE_RETURN_ADDR): Delete usused macro.
+	(epiphany_compute_frame_size): Compute new current_frame_info
+	members.  Avoid un-pairing double word register save.
+	Pad pretend args if that helps building a post-decrement.
+	Remove small_slots overhang.
+	Allow GPR_LR and GPR_FP to be paired up.
+	Make sure first_offset allows fits into add range.
+	(epiphany_emit_save_restore): Use set_lr_slot_offset.
+	(epiphany_expand_prologue): Remove unsued variable save_config.
+	Record LR slot offset when encounterd at first_slot.
+	Use add to set hard frame pointer where necessary.
+	(epiphany_initial_elimination_offset): Use
+	current_frame_info.sft_hd_frame_offset.
+	(epiphany_can_eliminate): New static function.
+
+2013-07-30  Joern Rennecke <joern.rennecke@embecosm.com>
+
+	PR rtl-optimization/58029
+	* alias.c (base_alias_check): Allow for aliases between stack-
+	and frame-pointer referenced memory.
+
+2013-07-29  Joern Rennecke <joern.rennecke@embecosm.com>
+	merged from trunk:
+
+	* config/epiphany/epiphany.md (*isub_i+2): New peephole.
+	(ashlv2si3): New expander.
+	(*ashlv2si3_i): New define_insn_and_split.
+	* predicates.md (float_operation): Allow patterns with three
+	basic sub-patterns.
+
+	testsuite:
+	* gcc.dg/tree-ssa/pr44258.c: Disable scan test for Epiphany.
+
+	PR rtl-optimization/58021
+	* mode-switching.c (create_pre_exit): Always split off
+	preceding insns if we are not at the basic block head.
+
+2013-07-27  Joern Rennecke <joern.rennecke@embecosm.com>
+
+	merged from trunk:
+	* config/epiphany/epiphany.c (epiphany_compute_frame_size):
+	Also reserve space for saving UNKNOWN_REGNUM for leaf functions.
+
+2013-07-26  Joern Rennecke <joern.rennecke@embecosm.com>
+	merged from trunk:
+
+  2013-07-26  Joern Rennecke <joern.rennecke@embecosm.com>
+	testsuite:
+	Skip tests that make assumptions about struct layout that don't hold
+	on epiphany:
+	* g++.dg/cpp0x/cast.C: Skip for epiphany-*-*.
+	* g++.dg/cpp0x/iop.C: Likewise.
+	* g++.dg/cpp0x/named_refs.C: Likewise.
+	* g++.dg/cpp0x/rv1p.C: Likewise.
+	* g++.dg/cpp0x/rv2p.C: Likewise.
+	* g++.dg/cpp0x/rv3p.C: Likewise.
+	* g++.dg/cpp0x/rv4p.C: Likewise.
+	* g++.dg/cpp0x/rv5p.C: Likewise.
+	* g++.dg/cpp0x/rv6p.C: Likewise.
+	* g++.dg/cpp0x/rv7p.C: Likewise.
+	* g++.dg/cpp0x/rv8p.C: Likewise.
+	* g++.dg/ext/strncpy-chk1.C: Likewise.
+	* gcc.dg/builtin-object-size-10.c: Likewise.
+	* gcc.dg/builtin-object-size-11.c: Likewise.
+	* gcc.dg/builtin-stringop-chk-1.c: Likewise.
+	* gcc.dg/pr25805.c: Likewise.
+	* gcc.c-torture/execute/builtins/memcpy-chk.x: New file.
+	* gcc.c-torture/execute/builtins/memmove-chk.x: Likewise.
+	* gcc.c-torture/execute/builtins/mempcpy-chk.x: Likewise.
+	* gcc.c-torture/execute/builtins/memset-chk.x: Likewise.
+	* gcc.c-torture/execute/builtins/snprintf-chk.x: Likewise.
+	* gcc.c-torture/execute/builtins/sprintf-chk.x: Likewise.
+	* gcc.c-torture/execute/builtins/stpcpy-chk.x: Likewise.
+	* gcc.c-torture/execute/builtins/strcat-chk.x: Likewise.
+	* gcc.c-torture/execute/builtins/strcpy-chk.x: Likewise.
+	* gcc.c-torture/execute/builtins/strncat-chk.x: Likewise.
+	* gcc.c-torture/execute/builtins/strncpy-chk.x: Likewise.
+	* gcc.c-torture/execute/builtins/vsnprintf-chk.x: Likewise.
+	* gcc.c-torture/execute/builtins/vsprintf-chk.x: Likewise.
+	* gcc.c-torture/execute/zerolen-2.x: Likewise.
+	* gcc.c-torture/execute/builtins/stpcpy-chk.x: New file.
+
+	* gcc.dg/pr27095.c: For Epiphany, add -mshort-calls.
+	* gcc.dg/tree-ssa/loop-1.c: Likewise. 
+
+	* gcc.dg/torture/pr37868.c: Disable for epiphany.
+	* gcc.dg/sibcall-6.c: Enable for epiphany.
+
+2013-07-24  Joern Rennecke  <joern.rennecke@embecosm.com>
+
+	* mode-switching.c (create_pre_exit): Allow instructions that
+	don't set a return register to need a non-exit mode.
+
+2013-05-09  Joern Rennecke  <joern.rennecke@embecosm.com>
+
+	merged from trunk:
+
+  2013-05-03  Joern Rennecke <joern.rennecke@embecosm.com>
+	PR tree-optimization/57027
+	* tree-ssa-math-opts.c (convert_mult_to_fma): When checking
+	for fnms opportunity, check we got the prerequisite kind
+	of tree / gimple before using accessor functions.
+  2013-04-10  Joern Rennecke <joern.rennecke@embecosm.com>
+	gcc:
+	PR tree-optimization/55524
+	* tree-ssa-math-opts.c
+	(convert_mult_to_fma): Don't use an fms construct
+	when we don't have an fms operation, but fnma, and it looks
+	likely that we'll be able to use the latter.
+	testsuite:
+	PR tree-optimization/55524
+	* gcc.target/epiphany/fnma-1.c: New test.
+  2013-04-08  Joern Rennecke  <joern.rennecke@embecosm.com>
+	* config/epiphany/epiphany.md (<insn_opname>v2si3):
+	Use gen_addsi3_i / gen_subsi3_i.
+  2013-04-08  Joern Rennecke  <joern.rennecke@embecosm.com>
+	* config/epiphany/epiphany.md (mov_f+2): New peephole2 pattern.
+	(cstoresi4): Also allow re-use of zero result when doing a NE
+	comparison to a non-zero operand.
+	Use (clobber (sratch)) for first insn if the gpr output is not needed.
+  2013-04-08  Joern Rennecke  <joern.rennecke@embecosm.com>
+	* config/epiphany/epiphany.md (logical_op): New code iterator.
+	(op_mnc): New code attribute.
+	(<op_mnc>_f, mov_f, cstoresi4): New patterns.
+	(mov_f+1, mov_f+2): New peephole2 patterns.
+  2013-04-08  Joern Rennecke  <joern.rennecke@embecosm.com>
+	* config/epiphany/constraints.md (CnL): New constraint.
+	* config/epiphany/epiphany.md (addsi3_i): Add r/r/CnL alternative.
+	* config/epiphany/predicates.md (add_operand): Allow 1024.
+  2013-04-08  Joern Rennecke  <joern.rennecke@embecosm.com>
+	* config/epiphany/epiphany.c (epiphany_select_cc_mode):
+	Don't use CC_FPmode for ORDERED / UNORDERED.
+	* config/epiphany/epiphany.md (cmpsf_ord): Make pattern
+	unconditional.
+  2013-04-08  Joern Rennecke  <joern.rennecke@embecosm.com>
+	* config/epiphany/epiphany.md (GPR_1): New constant.
+	(define_expand "mov<mode>cc): FAIL if gen_compare_reg returned 0.
+	* config/epiphany/epiphany.c (gen_compare_reg):
+	For flag_finite_math_only, avoid swapping operands when r0 and/or r1
+	is already in place.
+	Use GPR_0 / GPR_1 instead of 0/1 for r0/r1 register numbers.
+	Don't require being called during rtl expansion; If y operlaps r0,
+	return 0.
+	(epiphany_compute_frame_size, epiphany_expand_prologue): Use GPR_1.
+	(epiphany_expand_epilogue): Likewise.
+  2013-04-08  Joern Rennecke  <joern.rennecke@embecosm.com>
+	* config/epiphany/epiphany.h (struct GTY (()) machine_function):
+	Add member lr_slot_known.
+	* config/epiphany/epiphany.md (reload_insi_ra): Compute lr_slot_offs
+	if necessary.
+	* config/epiphany/epiphany.c (epiphany_compute_frame_size):
+	Remove code that sets lr_slot_offset according to what a previous
+	version of epiphany_emit_save_restore used to do.
+	(epiphany_emit_save_restore): When doing an lr save or restore,
+	set/verify lr_slot_known and lr_slot_offset.

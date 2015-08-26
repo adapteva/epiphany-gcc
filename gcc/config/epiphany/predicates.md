@@ -54,6 +54,11 @@
   return call_address_operand (op, mode);
 })
 
+(define_predicate "trace_operand"
+  (and (match_code "mem")
+       (match_test "GET_CODE (XEXP (op, 0)) == PLUS
+		    || GET_CODE (XEXP (op, 0)) == REG")))
+
 ;; general purpose register.
 (define_predicate "gpr_operand"
   (match_code "reg,subreg")
@@ -127,6 +132,7 @@
     {
     case SYMBOL_REF :
     case LABEL_REF :
+      return !flag_pic || !pcrel_operand (op, Pmode);
     case CONST :
       return 1;
     case CONST_INT :
@@ -294,9 +300,12 @@
 
   if (count == 2
       /* Vector ashift has an extra use for the constant factor required to
-	 implement the shift as multiply.  */
+	 implement the shift as multiply.
+	 Calls have an extra use of TRACE_REGNUM.  */
+      || (count == 3 && GET_CODE (XVECEXP (op, 0, 0)) == CALL)
       || (count == 3 && GET_CODE (XVECEXP (op, 0, 0)) == SET
-	  && GET_CODE (XEXP (XVECEXP (op, 0, 0), 1)) == ASHIFT))
+	  && (GET_CODE (XEXP (XVECEXP (op, 0, 0), 1)) == ASHIFT
+	      || GET_CODE (XEXP (XVECEXP (op, 0, 0), 1)) == CALL)))
     return !inserted;
 
   /* combine / recog will pass any old garbage here before checking the
@@ -363,8 +372,15 @@
 (define_predicate "memclob_operand"
   (match_code "mem"))
 
-(define_predicate "nonsymbolic_immediate_operand"
-  (ior (match_test "immediate_operand (op, mode)")
+(define_predicate "pcrel_operand"
+  (ior (match_code "label_ref")
+       (and (match_code "const,plus")
+	    (match_test "pcrel_operand (XEXP (op, 0), mode)"))))
+; ??? should also include overlay-local SYMBOL_REFs, if we can identify these.
+
+(define_predicate "nonpcrel_immediate_operand"
+  (ior (and (match_operand 0 "immediate_operand")
+	    (not (match_operand 0 "pcrel_operand")))
        (match_code "const_vector"))) /* Is this specific enough?  */
 
 ;; Return true if OP is misaligned memory operand

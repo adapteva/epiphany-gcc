@@ -243,6 +243,7 @@ static void memory_modified_1 (rtx, const_rtx, void *);
 	Each of these rtxes has a separate ADDRESS associated with it,
 	each with a negative id.
 
+	Before register elimination / prologue/epilogue generation,
 	GCC is (and is required to be) precise in which register it
 	chooses to access a particular region of stack.  We can therefore
 	assume that accesses based on one of these rtxes do not alias
@@ -1871,6 +1872,17 @@ base_alias_check (rtx x, rtx x_base, rtx y, rtx y_base,
   /* Differing symbols not accessed via AND never alias.  */
   if (GET_CODE (x_base) != ADDRESS && GET_CODE (y_base) != ADDRESS)
     return 0;
+
+  /* If both are stack references, one via the stack pointer, the other via
+     the frame pointer, there can be an alias.
+     E.g.: gcc.c-torture/execute/20041113-1.c -O3 -g,
+           gcc.dg/torture/stackalign/vararg-1.c  -O2  */
+  if (reload_completed
+      && (x_base == static_reg_base_value[STACK_POINTER_REGNUM]
+	  || x_base == static_reg_base_value[HARD_FRAME_POINTER_REGNUM])
+      && (y_base == static_reg_base_value[STACK_POINTER_REGNUM]
+	  || y_base == static_reg_base_value[HARD_FRAME_POINTER_REGNUM]))
+    return 1;
 
   if (unique_base_value_p (x_base) || unique_base_value_p (y_base))
     return 0;
