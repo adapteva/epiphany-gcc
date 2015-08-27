@@ -23,10 +23,10 @@
 (define_constants
   [(GPR_0			 0)
    (GPR_1			 1)
-   (GPR_FP			11)
    (GPR_IP			12)
    (GPR_SP			13)
    (GPR_LR			14)
+   (GPR_FP			15)
    (GPR_16			16)
    (GPR_18			18)
    (GPR_20			20)

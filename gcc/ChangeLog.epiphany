@@ -1,3 +1,8 @@
+2015-08-27  Ola Jeppsson  <ola@adapteva.com>
+
+	* gcc/config/epiphany/epiphany.h: Move "fp" to register 15
+	* gcc/config/epiphany/epiphany.md (GPR_FP): Change to 15
+
 2015-04-20  Hesham ALMatary  <heshamelmatary@gmail.com>
 
 	* config.gcc: Fix missing t-rtems include.

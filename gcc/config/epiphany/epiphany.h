@@ -748,11 +748,11 @@ typedef struct GTY (()) machine_function
 /* How to refer to registers in assembler output.
    This sequence is indexed by compiler's hard-register-number (see above).  */
 
-#define REGISTER_NAMES							\
-{									\
+#define REGISTER_NAMES						\
+{								\
   "r0",  "r1",  "r2",  "r3",  "r4",  "r5",  "r6",  "r7",	\
-  "r8",  "r9",  "r10", "fp",  "ip",  "sp",  "lr",  "r15",	\
-  "r16",  "r17","r18", "r19", "r20", "r21", "r22", "r23",	\
+  "r8",  "r9",  "r10", "r11", "ip",  "sp",  "lr",  "fp",	\
+  "r16", "r17", "r18", "r19", "r20", "r21", "r22", "r23",	\
   "r24", "r25", "r26", "r27", "r28", "r29", "r30", "r31",	\
   "r32", "r33", "r34", "r35", "r36", "r37", "r38", "r39",	\
   "r40", "r41", "r42", "r43", "r44", "r45", "r46", "r47",	\
