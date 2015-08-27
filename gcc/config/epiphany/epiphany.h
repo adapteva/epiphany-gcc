@@ -72,7 +72,7 @@ along with GCC; see the file COPYING3.  If not see
 #define DRIVER_SELF_SPECS " %(epiphany_library_extra_spec) "
 
 #undef USER_LABEL_PREFIX
-#define USER_LABEL_PREFIX "_"
+#define USER_LABEL_PREFIX ""
 
 #define CRT_CALL_STATIC_FUNCTION(SECTION_OP, FUNC) \
    asm (SECTION_OP "\n\

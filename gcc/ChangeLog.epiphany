@@ -1,5 +1,10 @@
 2015-08-27  Ola Jeppsson  <ola@adapteva.com>
 
+	* config/epiphany/epiphany.h: Change USER_LABEL_PREFIX
+	from "_" to "". Consistent with binutils and most elf targets.
+
+2015-08-27  Ola Jeppsson  <ola@adapteva.com>
+
 	* gcc/config/epiphany/epiphany.h: Move "fp" to register 15
 	* gcc/config/epiphany/epiphany.md (GPR_FP): Change to 15
 
