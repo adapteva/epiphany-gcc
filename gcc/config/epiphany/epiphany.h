@@ -58,7 +58,8 @@ along with GCC; see the file COPYING3.  If not see
 #define ENDFILE_SPEC "crtend.o%s crtn.o%s " \
   "%{fsoftware-cache|fpic:cachemanager.o%s}"
 
-#define CC1_SPEC "%{fsoftware-cache:-fpic}"
+#define CC1_SPEC "%{fsoftware-cache:-fpic} " \
+  "%{ffast-math:-mno-soft-cmpsf}"
 
 #define EPIPHANY_LIBRARY_EXTRA_SPEC \
   "-ffixed-r40 -ffixed-r41 -ffixed-r42 -ffixed-r43"

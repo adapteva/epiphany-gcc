@@ -12427,7 +12427,8 @@ and test the flags.  This is faster than a software comparison, but can
 get incorrect results in the presence of NaNs, or when two different small
 numbers are compared such that their difference is calculated as zero.
 The default is @option{-msoft-cmpsf}, which uses slower, but IEEE-compliant,
-software comparisons.
+software comparisons. @option{-mno-soft-cmpsf} is enabled under
+@option{-ffast-math}.
 
 @item -mstack-offset=@var{num}
 @opindex mstack-offset

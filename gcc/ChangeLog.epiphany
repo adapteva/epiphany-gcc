@@ -1,3 +1,9 @@
+2015-08-28  Ola Jeppsson  <ola@adapteva.com>
+
+	* gcc/config/epiphany/epiphany.h: Enable -mno-soft-cmpsf under
+	-ffast-math.
+	* gcc/doc/invoke.texi: Document.
+
 2015-08-27  Ola Jeppsson  <ola@adapteva.com>
 
 	* config/epiphany/epiphany.h: Change USER_LABEL_PREFIX
