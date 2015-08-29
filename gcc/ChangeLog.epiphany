@@ -1,3 +1,9 @@
+2015-08-29  Ola Jeppsson  <ola@adapteva.com>
+
+	* config/epiphany/epiphany.c (epiphany_start_function):
+	Emit function type directive. Emit type and size directive for
+	forwarder functions.
+
 2015-08-28  Ola Jeppsson  <ola@adapteva.com>
 
 	* gcc/config/epiphany/epiphany.h: Enable -mno-soft-cmpsf under

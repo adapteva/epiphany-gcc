@@ -3154,6 +3154,7 @@ epiphany_start_function (FILE *file, const char *name, tree decl)
       forwarder_attr = TREE_VALUE (TREE_VALUE (forwarder_attr));
       switch_to_section (get_section (TREE_STRING_POINTER (forwarder_attr),
 			 SECTION_CODE, decl));
+      ASM_OUTPUT_TYPE_DIRECTIVE (file, name, "function");
       ASM_OUTPUT_FUNCTION_LABEL (file, name, decl);
       if (epiphany_is_long_call_p (XEXP (DECL_RTL (decl), 0)))
 	{
@@ -3178,9 +3179,11 @@ epiphany_start_function (FILE *file, const char *name, tree decl)
 	  assemble_name (file, dst_name);
 	  fputc ('\n', file);
 	}
+      ASM_OUTPUT_MEASURED_SIZE (file, name);
       name = dst_name;
     }
   switch_to_section (function_section (decl));
+  ASM_OUTPUT_TYPE_DIRECTIVE (file, name, "function");
   ASM_OUTPUT_FUNCTION_LABEL (file, name, decl);
 }
 
