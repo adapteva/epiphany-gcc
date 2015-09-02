@@ -9523,7 +9523,7 @@
 	(mult:V4DI
 	  (sign_extend:V4DI
 	    (vec_select:V4SI
-	      (match_operand:V8SI 1 "nonimmediate_operand" "v")
+	      (match_operand:V8SI 1 "nonimmediate_operand" "%v")
 	      (parallel [(const_int 0) (const_int 2)
 			 (const_int 4) (const_int 6)])))
 	  (sign_extend:V4DI
@@ -13161,10 +13161,12 @@
    (set_attr "atom_sse_attr" "fence")
    (set_attr "memory" "unknown")])
 
-
+;; As per AMD and Intel ISA manuals, the first operand is extensions
+;; and it goes to %ecx. The second operand received is hints and it goes
+;; to %eax.
 (define_insn "sse3_mwait"
-  [(unspec_volatile [(match_operand:SI 0 "register_operand" "a")
-		     (match_operand:SI 1 "register_operand" "c")]
+  [(unspec_volatile [(match_operand:SI 0 "register_operand" "c")
+		     (match_operand:SI 1 "register_operand" "a")]
 		    UNSPECV_MWAIT)]
   "TARGET_SSE3"
 ;; 64bit version is "mwait %rax,%rcx". But only lower 32bits are used.
