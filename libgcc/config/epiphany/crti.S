@@ -22,13 +22,13 @@
 # <http://www.gnu.org/licenses/>.
 
 	.section .init
-	.global	init
+	.global	_init
 	.balign 2
-init:
+_init:
 	str lr,[sp],-4
 
 	.section .fini
-	.global	fini
+	.global	_fini
 	.balign 2
-fini:
+_fini:
 	str lr,[sp],-4

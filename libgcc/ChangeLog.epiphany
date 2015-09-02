@@ -1,3 +1,9 @@
+2015-09-03  Ola Jeppsson  <ola@adapteva.com>
+
+	* config/epiphany/crti.S: Add underscore prefix to init and
+	fini functions so that we're still namespace clean.
+	{USER_LABEL_PREFIX changed from "_" to "" in previous commit.}
+
 2015-04-20  Hesham ALMatary  <heshamelmatary@gmail.com>
 
 	* config.host: Add Epiphany RTEMS target.
