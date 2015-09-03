@@ -5,6 +5,6 @@
 
 int f (int i)
 {
-  volatile j = i;
+  volatile int j = i;
   return j;
 }

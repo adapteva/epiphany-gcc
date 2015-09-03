@@ -15,4 +15,4 @@ h (void)
 { /* { dg-warning "is not a string constant" } */
 }
 
-/* { dg-final { scan-assembler-times "b\[ \t\]*_dma0_handler" 1 } } */
+/* { dg-final { scan-assembler-times "b\[ \t\]*\[_\]?dma0_handler" 1 } } */

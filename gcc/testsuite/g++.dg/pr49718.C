@@ -2,8 +2,10 @@
 /* { dg-options "-O2 -finstrument-functions" } */
 /* { dg-additional-options "-mno-explicit-relocs" { target alpha*-*-* } } */
 /* { dg-additional-options "-mno-relax-pic-calls" { target mips*-*-* } } */
-/* { dg-final { scan-assembler-times "__cyg_profile_func_enter" 1 { target { ! { hppa*-*-hpux* } } } } } */
+/* { dg-final { scan-assembler-times "__cyg_profile_func_enter" 1 { target { ! { hppa*-*-hpux* epiphany-*-* } } } } } */
 /* { dg-final { scan-assembler-times "__cyg_profile_func_enter,%r" 1 { target hppa*-*-hpux* } } } */
+/* { dg-final { scan-assembler-times "%low\[(\]__cyg_profile_func_enter\[)\]" 1 { target epiphany-*-* } } } */
+/* { dg-final { scan-assembler-times "%high\[(\]__cyg_profile_func_enter\[)\]" 1 { target epiphany-*-* } } } */
 
 #define NOINSTR __attribute__((no_instrument_function))
 

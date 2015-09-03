@@ -1,5 +1,7 @@
 /* { dg-options "-g" } */
 
+extern void *dma0;
+
 void __attribute__((interrupt))
 universal_handler (void)
 {
@@ -21,4 +23,4 @@ h (void)
 { /* { dg-warning "is not a string constant" } */
 }
 
-/* { dg-final { scan-assembler-times "b\[ \t\]*_misc_handler" 4 } } */
+/* { dg-final { scan-assembler-times "b\[ \t\]*\[_\]?misc_handler" 4 } } */
