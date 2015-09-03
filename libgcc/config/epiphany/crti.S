@@ -21,14 +21,16 @@
 # see the files COPYING3 and COPYING.RUNTIME respectively.  If not, see
 # <http://www.gnu.org/licenses/>.
 
+#include "epiphany-asm.h"
+
 	.section .init
-	.global	_init
+	.global	SYM(_init)
 	.balign 2
-_init:
+SYM(_init):
 	str lr,[sp],-4
 
 	.section .fini
-	.global	_fini
+	.global	SYM(_fini)
 	.balign 2
-_fini:
+SYM(_fini):
 	str lr,[sp],-4

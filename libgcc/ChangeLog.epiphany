@@ -1,5 +1,10 @@
 2015-09-03  Ola Jeppsson  <ola@adapteva.com>
 
+	* config/epiphany/crti.S (_init) (_fini): Respect
+	__USER_LABEL_PREFIX__.
+
+2015-09-03  Ola Jeppsson  <ola@adapteva.com>
+
 	* config/epiphany/crti.S: Add underscore prefix to init and
 	fini functions so that we're still namespace clean.
 	{USER_LABEL_PREFIX changed from "_" to "" in previous commit.}
