@@ -847,7 +847,12 @@ do \
 
 /* Generate DBX and DWARF debugging information.  */
 #define DBX_DEBUGGING_INFO 1
+#define DWARF2_DEBUGGING_INFO 1
 
+/* Let the assembler generate debug line info.  */
+#define DWARF2_ASM_LINE_DEBUG_INFO 1
+
+/* Use DWARF2 debugging info by default.  */
 #undef PREFERRED_DEBUGGING_TYPE
 #define PREFERRED_DEBUGGING_TYPE DWARF2_DEBUG
 

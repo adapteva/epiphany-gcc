@@ -1,3 +1,8 @@
+2015-09-03  Ola Jeppsson  <ola@adapteva.com>
+
+	* config/epiphany/epiphany.h: Enable
+	DWARF2_ASM_LINE_DEBUG_INFO.
+
 2015-08-29  Ola Jeppsson  <ola@adapteva.com>
 
 	* config/epiphany/epiphany.c (epiphany_start_function):
