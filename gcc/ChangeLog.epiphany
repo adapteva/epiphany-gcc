@@ -1,3 +1,8 @@
+2015-11-02  Ola Jeppsson  <ola@adapteva.com>
+
+	* config/epiphany/epiphany.c (emit_set_fp_mode): If
+	gen_save_config is emitted, insert it right after prologue.
+
 2015-09-04  Ola Jeppsson  <ola@adapteva.com>
 
 	* testsuite/g++.dg/pr49718.C: Add special pattern for

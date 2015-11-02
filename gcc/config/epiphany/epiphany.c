@@ -2751,11 +2751,27 @@ emit_set_fp_mode (int entity, int mode, int prev_mode ATTRIBUTE_UNUSED,
   else if (entity == EPIPHANY_MSW_ENTITY_CONFIG)
     {
       /* Mode switching optimization is done after emit_initial_value_sets,
-	 so we have to take care of CONFIG_REGNUM here.  */
+	 so we have to take care of CONFIG_REGNUM here.
+	 If we emit 'gen_save_config', insert it right after the prologue so
+	 there never can be an uninitialized load from the save-register.  */
+
+      edge entry_edge;
+      rtx_insn *insn, *seq;
+      rtx save;
+
       gcc_assert (mode >= 0 && mode <= 2);
-      rtx save = get_hard_reg_initial_val (SImode, CONFIG_REGNUM);
+
+      start_sequence ();
+      save = get_hard_reg_initial_val (SImode, CONFIG_REGNUM);
       if (mode == 1)
 	emit_insn (gen_save_config (save));
+      seq = get_insns ();
+      end_sequence ();
+
+      entry_edge = single_succ_edge (ENTRY_BLOCK_PTR_FOR_FN (cfun));
+      insert_insn_on_edge (seq, entry_edge);
+      commit_one_edge_insertion (entry_edge);
+
       return;
     }
   fp_mode = (enum attr_fp_mode) mode;
