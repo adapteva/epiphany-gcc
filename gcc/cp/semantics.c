@@ -3119,7 +3119,8 @@ process_outer_var_ref (tree decl, tsubst_flags_t complain)
   tree initializer = convert_from_reference (decl);
 
   /* Mark it as used now even if the use is ill-formed.  */
-  mark_used (decl);
+  if (!mark_used (decl, complain) && !(complain & tf_error))
+    return error_mark_node;
 
   /* Core issue 696: "[At the July 2009 meeting] the CWG expressed
      support for an approach in which a reference to a local
@@ -3580,6 +3581,7 @@ finish_id_expression (tree id_expression,
 	{
 	  decl = finish_template_variable (decl);
 	  mark_used (decl);
+	  decl = convert_from_reference (decl);
 	}
       else if (scope)
 	{
@@ -4103,9 +4105,8 @@ expand_or_defer_fn_1 (tree fn)
       /* We don't want to process FN again, so pretend we've written
 	 it out, even though we haven't.  */
       TREE_ASM_WRITTEN (fn) = 1;
-      /* If this is an instantiation of a constexpr function, keep
-	 DECL_SAVED_TREE for explain_invalid_constexpr_fn.  */
-      if (!is_instantiation_of_constexpr (fn))
+      /* If this is a constexpr function, keep DECL_SAVED_TREE.  */
+      if (!DECL_DECLARED_CONSTEXPR_P (fn))
 	DECL_SAVED_TREE (fn) = NULL_TREE;
       return false;
     }
@@ -4294,8 +4295,6 @@ handle_omp_array_sections_1 (tree c, tree t, vec<tree> &types,
     {
       if (error_operand_p (t))
 	return error_mark_node;
-      if (type_dependent_expression_p (t))
-	return NULL_TREE;
       if (TREE_CODE (t) != VAR_DECL && TREE_CODE (t) != PARM_DECL)
 	{
 	  if (processing_template_decl)
@@ -4318,6 +4317,8 @@ handle_omp_array_sections_1 (tree c, tree t, vec<tree> &types,
 		    omp_clause_code_name[OMP_CLAUSE_CODE (c)]);
 	  return error_mark_node;
 	}
+      if (type_dependent_expression_p (t))
+	return NULL_TREE;
       t = convert_from_reference (t);
       return t;
     }
@@ -5332,7 +5333,8 @@ finish_omp_clauses (tree clauses)
 	  goto check_dup_generic;
 	case OMP_CLAUSE_LINEAR:
 	  t = OMP_CLAUSE_DECL (c);
-	  if (!type_dependent_expression_p (t)
+	  if ((VAR_P (t) || TREE_CODE (t) == PARM_DECL)
+	      && !type_dependent_expression_p (t)
 	      && !INTEGRAL_TYPE_P (TREE_TYPE (t))
 	      && TREE_CODE (TREE_TYPE (t)) != POINTER_TYPE)
 	    {
@@ -5359,7 +5361,9 @@ finish_omp_clauses (tree clauses)
 	  else
 	    {
 	      t = mark_rvalue_use (t);
-	      if (!processing_template_decl)
+	      if (!processing_template_decl
+		  && (VAR_P (OMP_CLAUSE_DECL (c))
+		      || TREE_CODE (OMP_CLAUSE_DECL (c)) == PARM_DECL))
 		{
 		  if (TREE_CODE (OMP_CLAUSE_DECL (c)) == PARM_DECL)
 		    t = maybe_constant_value (t);
@@ -6452,7 +6456,8 @@ handle_omp_for_class_iterator (int i, location_t locus, tree declv, tree initv,
   iter_init = build_x_modify_expr (elocus,
 				   iter, PLUS_EXPR, iter_init,
 				   tf_warning_or_error);
-  iter_init = build1 (NOP_EXPR, void_type_node, iter_init);
+  if (iter_init != error_mark_node)
+    iter_init = build1 (NOP_EXPR, void_type_node, iter_init);
   finish_expr_stmt (iter_init);
   finish_expr_stmt (build_x_modify_expr (elocus,
 					 last, NOP_EXPR, decl,
@@ -7243,7 +7248,7 @@ finish_decltype_type (tree expr, bool id_expression_or_member_access_p,
 
   /* The type denoted by decltype(e) is defined as follows:  */
 
-  expr = resolve_nondeduced_context (expr);
+  expr = resolve_nondeduced_context (expr, complain);
 
   if (invalid_nonstatic_memfn_p (expr, complain))
     return error_mark_node;

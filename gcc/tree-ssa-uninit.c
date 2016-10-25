@@ -1118,14 +1118,16 @@ prune_uninit_phi_opnds_in_unrealizable_paths (gphi *phi,
               edge opnd_edge;
               unsigned uninit_opnds2
                   = compute_uninit_opnds_pos (opnd_def_phi);
-              gcc_assert (!MASK_EMPTY (uninit_opnds2));
-              opnd_edge = gimple_phi_arg_edge (phi, i);
-              if (!is_use_properly_guarded (phi,
-                                            opnd_edge->src,
-                                            opnd_def_phi,
-                                            uninit_opnds2,
-                                            visited_phis))
-                  return false;
+              if (!MASK_EMPTY (uninit_opnds2))
+		{
+		  opnd_edge = gimple_phi_arg_edge (phi, i);
+		  if (!is_use_properly_guarded (phi,
+						opnd_edge->src,
+						opnd_def_phi,
+						uninit_opnds2,
+						visited_phis))
+		    return false;
+		}
             }
           else
             return false;
@@ -1310,7 +1312,8 @@ pred_equal_p (pred_info x1, pred_info x2)
     return false;
 
   c1 = x1.cond_code;
-  if (x1.invert != x2.invert)
+  if (x1.invert != x2.invert
+      && TREE_CODE_CLASS (x2.cond_code) == tcc_comparison)
     c2 = invert_tree_comparison (x2.cond_code, false);
   else
     c2 = x2.cond_code;

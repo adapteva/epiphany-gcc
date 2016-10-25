@@ -695,7 +695,8 @@ ocp_convert (tree type, tree expr, int convtype, int flags,
     }
 
   /* FIXME remove when moving to c_fully_fold model.  */
-  e = scalar_constant_value (e);
+  if (!CLASS_TYPE_P (type))
+    e = scalar_constant_value (e);
   if (error_operand_p (e))
     return error_mark_node;
 
@@ -1259,7 +1260,7 @@ convert_to_void (tree expr, impl_conv_void implicit, tsubst_flags_t complain)
 
     default:;
     }
-  expr = resolve_nondeduced_context (expr);
+  expr = resolve_nondeduced_context (expr, complain);
   {
     tree probe = expr;
 

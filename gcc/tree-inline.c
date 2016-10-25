@@ -649,7 +649,8 @@ remap_decls (tree decls, vec<tree, va_gc> **nonlocalized_list,
 	  /* We need to add this variable to the local decls as otherwise
 	     nothing else will do so.  */
 	  if (TREE_CODE (old_var) == VAR_DECL
-	      && ! DECL_EXTERNAL (old_var))
+	      && ! DECL_EXTERNAL (old_var)
+	      && cfun)
 	    add_local_decl (cfun, old_var);
 	  if ((!optimize || debug_info_level > DINFO_LEVEL_TERSE)
 	      && !DECL_IGNORED_P (old_var)
@@ -872,7 +873,7 @@ is_parm (tree decl)
 static unsigned short
 remap_dependence_clique (copy_body_data *id, unsigned short clique)
 {
-  if (clique == 0)
+  if (clique == 0 || processing_debug_stmt)
     return 0;
   if (!id->dependence_map)
     id->dependence_map
@@ -2900,8 +2901,6 @@ copy_debug_stmt (gdebug *stmt, copy_body_data *id)
   else if (gimple_debug_source_bind_p (stmt))
     {
       gimple_debug_source_bind_set_var (stmt, t);
-      walk_tree (gimple_debug_source_bind_get_value_ptr (stmt),
-		 remap_gimple_op_r, &wi, NULL);
       /* When inlining and source bind refers to one of the optimized
 	 away parameters, change the source bind into normal debug bind
 	 referring to the corresponding DEBUG_EXPR_DECL that should have
@@ -2925,7 +2924,10 @@ copy_debug_stmt (gdebug *stmt, copy_body_data *id)
 		    break;
 		  }
 	    }
-	}      
+	}
+      if (gimple_debug_source_bind_p (stmt))
+	walk_tree (gimple_debug_source_bind_get_value_ptr (stmt),
+		   remap_gimple_op_r, &wi, NULL);
     }
 
   processing_debug_stmt = 0;
@@ -4110,7 +4112,7 @@ estimate_num_insns (gimple stmt, eni_weights *weights)
 	      return 0;
 	    else if (is_inexpensive_builtin (decl))
 	      return weights->target_builtin_call_cost;
-	    else if (DECL_BUILT_IN_CLASS (decl) == BUILT_IN_NORMAL)
+	    else if (gimple_call_builtin_p (stmt, BUILT_IN_NORMAL))
 	      {
 		/* We canonicalize x * x to pow (x, 2.0) with -ffast-math, so
 		   specialize the cheap expansion we do here.
@@ -4345,6 +4347,60 @@ add_local_variables (struct function *callee, struct function *caller,
 	  }
 	add_local_decl (caller, new_var);
       }
+}
+
+/* Add to BINDINGS a debug stmt resetting SRCVAR if inlining might
+   have brought in or introduced any debug stmts for SRCVAR.  */
+
+static inline void
+reset_debug_binding (copy_body_data *id, tree srcvar, gimple_seq *bindings)
+{
+  tree *remappedvarp = id->decl_map->get (srcvar);
+
+  if (!remappedvarp)
+    return;
+
+  if (TREE_CODE (*remappedvarp) != VAR_DECL)
+    return;
+
+  if (*remappedvarp == id->retvar || *remappedvarp == id->retbnd)
+    return;
+
+  tree tvar = target_for_debug_bind (*remappedvarp);
+  if (!tvar)
+    return;
+
+  gdebug *stmt = gimple_build_debug_bind (tvar, NULL_TREE,
+					  id->call_stmt);
+  gimple_seq_add_stmt (bindings, stmt);
+}
+
+/* For each inlined variable for which we may have debug bind stmts,
+   add before GSI a final debug stmt resetting it, marking the end of
+   its life, so that var-tracking knows it doesn't have to compute
+   further locations for it.  */
+
+static inline void
+reset_debug_bindings (copy_body_data *id, gimple_stmt_iterator gsi)
+{
+  tree var;
+  unsigned ix;
+  gimple_seq bindings = NULL;
+
+  if (!gimple_in_ssa_p (id->src_cfun))
+    return;
+
+  if (!opt_for_fn (id->dst_fn, flag_var_tracking_assignments))
+    return;
+
+  for (var = DECL_ARGUMENTS (id->src_fn);
+       var; var = DECL_CHAIN (var))
+    reset_debug_binding (id, var, &bindings);
+
+  FOR_EACH_LOCAL_DECL (id->src_cfun, ix, var)
+    reset_debug_binding (id, var, &bindings);
+
+  gsi_insert_seq_before_without_update (&gsi, bindings, GSI_SAME_STMT);
 }
 
 /* If STMT is a GIMPLE_CALL, replace it with its inline expansion.  */
@@ -4651,6 +4707,8 @@ expand_call_inline (basic_block bb, gimple stmt, copy_body_data *id)
   copy_body (id, cg_edge->callee->count,
   	     GCOV_COMPUTE_SCALE (cg_edge->frequency, CGRAPH_FREQ_BASE),
 	     bb, return_block, NULL);
+
+  reset_debug_bindings (id, stmt_gsi);
 
   /* Reset the escaped solution.  */
   if (cfun->gimple_df)

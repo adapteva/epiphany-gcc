@@ -454,6 +454,8 @@ extern unsigned char ix86_tune_features[X86_TUNE_LAST];
 	ix86_tune_features[X86_TUNE_SLOW_PSHUFB]
 #define TARGET_VECTOR_PARALLEL_EXECUTION \
 	ix86_tune_features[X86_TUNE_VECTOR_PARALLEL_EXECUTION]
+#define TARGET_AVOID_4BYTE_PREFIXES \
+	ix86_tune_features[X86_TUNE_AVOID_4BYTE_PREFIXES]
 #define TARGET_FUSE_CMP_AND_BRANCH_32 \
 	ix86_tune_features[X86_TUNE_FUSE_CMP_AND_BRANCH_32]
 #define TARGET_FUSE_CMP_AND_BRANCH_64 \
@@ -747,7 +749,7 @@ extern const char *host_detect_local_cpu (int argc, const char **argv);
 #define MAIN_STACK_BOUNDARY (TARGET_64BIT ? 128 : 32)
 
 /* Minimum stack boundary.  */
-#define MIN_STACK_BOUNDARY (TARGET_64BIT ? (TARGET_SSE ? 128 : 64) : 32)
+#define MIN_STACK_BOUNDARY BITS_PER_WORD
 
 /* Boundary (in *bits*) on which the stack pointer prefers to be
    aligned; the compiler cannot rely on having this alignment.  */
@@ -1429,7 +1431,7 @@ enum reg_class
 { 0x1ff1ffff,0xffffffe0,   0x1f },       /* FLOAT_INT_SSE_REGS */        \
        { 0x0,       0x0, 0x1fc0 },       /* MASK_EVEX_REGS */           \
        { 0x0,       0x0, 0x1fe0 },       /* MASK_REGS */                 \
-{ 0xffffffff,0xffffffff, 0x1fff }                                        \
+{ 0xffffffff,0xffffffff,0x1ffff }                                        \
 }
 
 /* The same information, inverted:

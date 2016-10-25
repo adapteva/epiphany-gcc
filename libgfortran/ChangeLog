@@ -1,3 +1,100 @@
+2016-06-03  Release Manager
+
+	* GCC 5.4.0 released.
+
+2016-05-02  Jerry DeLisle  <jvdelisle@gcc.gnu.org>
+
+	Backport from trunk.
+	PR libgfortran/70684
+	* io/list_read (check_buffers): Add '\r' to check for end of line.
+
+2016-04-05  Jerry DeLisle  <jvdelisle@gcc.gnu.org>
+	    Dominique d'Humieres  <dominiq@lps.ens.fr>
+
+	PR libgfortran/70235
+	* io/write_float.def: Fix PF format for negative values of the scale
+	factor.
+
+2016-03-28  Alessandro Fanfarillo  <fanfarillo.gcc@gmail.com>
+
+	Backport from trunk.
+	* caf/libcaf.h: caf_stop_numeric and caf_stop_str prototype.
+	* caf/single.c: _gfortran_caf_stop_numeric and
+	_gfortran_caf_stop_str implementation.
+
+2016-02-17  Jerry DeLisle  <jvdelisle@gcc.gnu.org>
+
+	PR libgfortran/69651
+	* io/list_read.c (push_char4): Fix the pointer usage for xrealloc.
+
+2016-02-15  Jerry DeLisle  <jvdelisle@gcc.gnu.org>
+
+	Backport from trunk
+	PR libgfortran/69651
+	PR libgfortran/69668
+	* io/list_read.c: Entire file trailing spaces removed.
+	(CASE_SEPARATORS): Remove '!'.
+	(is_separator): Add namelist mode as condition with '!'.
+	(push_char): Remove un-needed memset. (push_char4): Likewise and remove
+	'new' pointer. (eat_separator): Remove un-needed use of notify_std.
+	(read_logical): If '!' bang encountered when not in namelist mode got
+	bad_logical to give an error. (read_integer): Likewise reject '!'.
+	(read_character): Remove condition testing c = '!' which is now inside
+	the is_separator macro. Remove code related to DELIM_NONE.
+	(parse_real): Reject '!' unless in namelist mode. (read_complex): Reject
+	'!' unless in namelist mode. (read_real): Likewise reject '!'.
+
+2015-12-29  Jerry DeLisle  <jvdelisle@gcc.gnu.org>
+
+	Backport from trunk
+	PR libfortran/68987
+	io/format.c (format_error): Remove unneeded memory cleanup.
+
+2015-12-05  Juoko Orava <jouko.orava@iki.fi>
+
+	PR fortran/50201
+	* io/write_float.def: Avoid marking quadmath_snprintf as an untyped
+	weak reference, which fixing linking with -static.
+
+2015-12-04  Release Manager
+
+	* GCC 5.3.0 released.
+
+2015-11-07 Jerry DeLisle  <jvdelisle@gcc.gnu.org>
+
+	Backport from trunk
+	PR libgfortran/65089
+	* io/format.h (free_format): New function to free memory
+	allocated for building format error messages.
+	* io/format.c (format_error): Add checks before freeing memory
+	to avoid potential segfaults and free formatting data when
+	needed on error conditions. Always allocate and NULL terminate
+	the string.
+	* io/transfer.c (st_read_done, st_write_done): Use new
+	free_format function to clean up memory allocations when done.
+
+2015-09-02  Janne Blomqvist  <jb@gcc.gnu.org>
+
+	PR libfortran/67414
+	* runtime/error.c (gf_strerror): Handle newlocale() failure.
+
+2015-08-28  James Greenhalgh  <james.greenhalgh@arm.com>
+
+	* configure.ac: Define HAVE_FTRUNCATE for ARM/AArch64/SH newlib
+	builds.
+	* configure: Regenerate.
+
+2015-08-18  Francois-Xavier Coudert  <fxcoudert@gcc.gnu.org>
+
+	PR libfortran/66936
+	* io/unix.c (__MINGW32__): Undefine HAVE_UMASK.
+
+2015-07-29  Uros Bizjak  <ubizjak@gmail.com>
+
+	PR libgfortran/66650
+	* libgfortran.h (GFC_DTYPE_SIZE_MASK): Rewrite to avoid
+	"left shift of negative value" warning.
+
 2015-07-16  Release Manager
 
 	* GCC 5.2.0 released.

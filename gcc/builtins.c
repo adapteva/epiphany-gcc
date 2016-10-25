@@ -497,8 +497,12 @@ get_pointer_alignment_1 (tree exp, unsigned int *alignp,
 	{
 	  *bitposp = ptr_misalign * BITS_PER_UNIT;
 	  *alignp = ptr_align * BITS_PER_UNIT;
+	  /* Make sure to return a sensible alignment when the multiplication
+	     by BITS_PER_UNIT overflowed.  */
+	  if (*alignp == 0)
+	    *alignp = 1u << (HOST_BITS_PER_INT - 1);
 	  /* We cannot really tell whether this result is an approximation.  */
-	  return true;
+	  return false;
 	}
       else
 	{
@@ -5271,7 +5275,7 @@ expand_builtin_sync_operation (machine_mode mode, tree exp,
   mem = get_builtin_sync_mem (CALL_EXPR_ARG (exp, 0), mode);
   val = expand_expr_force_mode (CALL_EXPR_ARG (exp, 1), mode);
 
-  return expand_atomic_fetch_op (target, mem, val, code, MEMMODEL_SEQ_CST,
+  return expand_atomic_fetch_op (target, mem, val, code, MEMMODEL_SYNC_SEQ_CST,
 				 after);
 }
 
@@ -5301,8 +5305,8 @@ expand_builtin_compare_and_swap (machine_mode mode, tree exp,
 	poval = &target;
     }
   if (!expand_atomic_compare_and_swap (pbool, poval, mem, old_val, new_val,
-				       false, MEMMODEL_SEQ_CST,
-				       MEMMODEL_SEQ_CST))
+				       false, MEMMODEL_SYNC_SEQ_CST,
+				       MEMMODEL_SYNC_SEQ_CST))
     return NULL_RTX;
 
   return target;
@@ -5337,7 +5341,7 @@ expand_builtin_sync_lock_release (machine_mode mode, tree exp)
   /* Expand the operands.  */
   mem = get_builtin_sync_mem (CALL_EXPR_ARG (exp, 0), mode);
 
-  expand_atomic_store (mem, const0_rtx, MEMMODEL_RELEASE, true);
+  expand_atomic_store (mem, const0_rtx, MEMMODEL_SYNC_RELEASE, true);
 }
 
 /* Given an integer representing an ``enum memmodel'', verify its
@@ -5366,7 +5370,8 @@ get_memmodel (tree exp)
       return MEMMODEL_SEQ_CST;
     }
 
-  if ((INTVAL (op) & MEMMODEL_MASK) >= MEMMODEL_LAST)
+  /* Should never see a user explicit SYNC memodel model, so >= LAST works. */
+  if (memmodel_base (val) >= MEMMODEL_LAST)
     {
       warning (OPT_Winvalid_memory_model,
 	       "invalid memory model argument to builtin");
@@ -5433,8 +5438,7 @@ expand_builtin_atomic_compare_exchange (machine_mode mode, tree exp,
       success = MEMMODEL_SEQ_CST;
     }
  
-  if ((failure & MEMMODEL_MASK) == MEMMODEL_RELEASE
-      || (failure & MEMMODEL_MASK) == MEMMODEL_ACQ_REL)
+  if (is_mm_release (failure) || is_mm_acq_rel (failure))
     {
       warning (OPT_Winvalid_memory_model,
 	       "invalid failure memory model for "
@@ -5496,8 +5500,7 @@ expand_builtin_atomic_load (machine_mode mode, tree exp, rtx target)
   enum memmodel model;
 
   model = get_memmodel (CALL_EXPR_ARG (exp, 1));
-  if ((model & MEMMODEL_MASK) == MEMMODEL_RELEASE
-      || (model & MEMMODEL_MASK) == MEMMODEL_ACQ_REL)
+  if (is_mm_release (model) || is_mm_acq_rel (model))
     {
       warning (OPT_Winvalid_memory_model,
 	       "invalid memory model for %<__atomic_load%>");
@@ -5526,9 +5529,8 @@ expand_builtin_atomic_store (machine_mode mode, tree exp)
   enum memmodel model;
 
   model = get_memmodel (CALL_EXPR_ARG (exp, 2));
-  if ((model & MEMMODEL_MASK) != MEMMODEL_RELAXED
-      && (model & MEMMODEL_MASK) != MEMMODEL_SEQ_CST
-      && (model & MEMMODEL_MASK) != MEMMODEL_RELEASE)
+  if (!(is_mm_relaxed (model) || is_mm_seq_cst (model)
+	|| is_mm_release (model)))
     {
       warning (OPT_Winvalid_memory_model,
 	       "invalid memory model for %<__atomic_store%>");
@@ -5635,9 +5637,7 @@ expand_builtin_atomic_clear (tree exp)
   mem = get_builtin_sync_mem (CALL_EXPR_ARG (exp, 0), mode);
   model = get_memmodel (CALL_EXPR_ARG (exp, 1));
 
-  if ((model & MEMMODEL_MASK) == MEMMODEL_CONSUME
-      || (model & MEMMODEL_MASK) == MEMMODEL_ACQUIRE
-      || (model & MEMMODEL_MASK) == MEMMODEL_ACQ_REL)
+  if (is_mm_consume (model) || is_mm_acquire (model) || is_mm_acq_rel (model))
     {
       warning (OPT_Winvalid_memory_model,
 	       "invalid memory model for %<__atomic_store%>");
@@ -5697,8 +5697,20 @@ fold_builtin_atomic_always_lock_free (tree arg0, tree arg1)
   mode = mode_for_size (size, MODE_INT, 0);
   mode_align = GET_MODE_ALIGNMENT (mode);
 
-  if (TREE_CODE (arg1) == INTEGER_CST && INTVAL (expand_normal (arg1)) == 0)
-    type_align = mode_align;
+  if (TREE_CODE (arg1) == INTEGER_CST)
+    {
+      unsigned HOST_WIDE_INT val = UINTVAL (expand_normal (arg1));
+
+      /* Either this argument is null, or it's a fake pointer encoding
+         the alignment of the object.  */
+      val = val & -val;
+      val *= BITS_PER_UNIT;
+
+      if (val == 0 || mode_align < val)
+        type_align = mode_align;
+      else
+        type_align = val;
+    }
   else
     {
       tree ttype = TREE_TYPE (arg1);
@@ -5833,7 +5845,7 @@ expand_builtin_atomic_signal_fence (tree exp)
 static void
 expand_builtin_sync_synchronize (void)
 {
-  expand_mem_thread_fence (MEMMODEL_SEQ_CST);
+  expand_mem_thread_fence (MEMMODEL_SYNC_SEQ_CST);
 }
 
 static rtx
@@ -9546,6 +9558,8 @@ fold_builtin_interclass_mathfn (location_t loc, tree fndecl, tree arg)
 
   mode = TYPE_MODE (TREE_TYPE (arg));
 
+  bool is_ibm_extended = MODE_COMPOSITE_P (mode);
+
   /* If there is no optab, try generic code.  */
   switch (DECL_FUNCTION_CODE (fndecl))
     {
@@ -9555,10 +9569,18 @@ fold_builtin_interclass_mathfn (location_t loc, tree fndecl, tree arg)
       {
 	/* isinf(x) -> isgreater(fabs(x),DBL_MAX).  */
 	tree const isgr_fn = builtin_decl_explicit (BUILT_IN_ISGREATER);
-	tree const type = TREE_TYPE (arg);
+	tree type = TREE_TYPE (arg);
 	REAL_VALUE_TYPE r;
 	char buf[128];
 
+	if (is_ibm_extended)
+	  {
+	    /* NaN and Inf are encoded in the high-order double value
+	       only.  The low-order value is not significant.  */
+	    type = double_type_node;
+	    mode = DFmode;
+	    arg = fold_build1_loc (loc, NOP_EXPR, type, arg);
+	  }
 	get_max_float (REAL_MODE_FORMAT (mode), buf, sizeof (buf));
 	real_from_string (&r, buf);
 	result = build_call_expr (isgr_fn, 2,
@@ -9571,10 +9593,18 @@ fold_builtin_interclass_mathfn (location_t loc, tree fndecl, tree arg)
       {
 	/* isfinite(x) -> islessequal(fabs(x),DBL_MAX).  */
 	tree const isle_fn = builtin_decl_explicit (BUILT_IN_ISLESSEQUAL);
-	tree const type = TREE_TYPE (arg);
+	tree type = TREE_TYPE (arg);
 	REAL_VALUE_TYPE r;
 	char buf[128];
 
+	if (is_ibm_extended)
+	  {
+	    /* NaN and Inf are encoded in the high-order double value
+	       only.  The low-order value is not significant.  */
+	    type = double_type_node;
+	    mode = DFmode;
+	    arg = fold_build1_loc (loc, NOP_EXPR, type, arg);
+	  }
 	get_max_float (REAL_MODE_FORMAT (mode), buf, sizeof (buf));
 	real_from_string (&r, buf);
 	result = build_call_expr (isle_fn, 2,
@@ -9594,21 +9624,72 @@ fold_builtin_interclass_mathfn (location_t loc, tree fndecl, tree arg)
 	/* isnormal(x) -> isgreaterequal(fabs(x),DBL_MIN) &
 	   islessequal(fabs(x),DBL_MAX).  */
 	tree const isle_fn = builtin_decl_explicit (BUILT_IN_ISLESSEQUAL);
-	tree const isge_fn = builtin_decl_explicit (BUILT_IN_ISGREATEREQUAL);
-	tree const type = TREE_TYPE (arg);
+	tree type = TREE_TYPE (arg);
+	tree orig_arg, max_exp, min_exp;
+	machine_mode orig_mode = mode;
 	REAL_VALUE_TYPE rmax, rmin;
 	char buf[128];
 
+	orig_arg = arg = builtin_save_expr (arg);
+	if (is_ibm_extended)
+	  {
+	    /* Use double to test the normal range of IBM extended
+	       precision.  Emin for IBM extended precision is
+	       different to emin for IEEE double, being 53 higher
+	       since the low double exponent is at least 53 lower
+	       than the high double exponent.  */
+	    type = double_type_node;
+	    mode = DFmode;
+	    arg = fold_build1_loc (loc, NOP_EXPR, type, arg);
+	  }
+	arg = fold_build1_loc (loc, ABS_EXPR, type, arg);
+
 	get_max_float (REAL_MODE_FORMAT (mode), buf, sizeof (buf));
 	real_from_string (&rmax, buf);
-	sprintf (buf, "0x1p%d", REAL_MODE_FORMAT (mode)->emin - 1);
+	sprintf (buf, "0x1p%d", REAL_MODE_FORMAT (orig_mode)->emin - 1);
 	real_from_string (&rmin, buf);
-	arg = builtin_save_expr (fold_build1_loc (loc, ABS_EXPR, type, arg));
-	result = build_call_expr (isle_fn, 2, arg,
-				  build_real (type, rmax));
-	result = fold_build2 (BIT_AND_EXPR, integer_type_node, result,
-			      build_call_expr (isge_fn, 2, arg,
-					       build_real (type, rmin)));
+	max_exp = build_real (type, rmax);
+	min_exp = build_real (type, rmin);
+
+	max_exp = build_call_expr (isle_fn, 2, arg, max_exp);
+	if (is_ibm_extended)
+	  {
+	    /* Testing the high end of the range is done just using
+	       the high double, using the same test as isfinite().
+	       For the subnormal end of the range we first test the
+	       high double, then if its magnitude is equal to the
+	       limit of 0x1p-969, we test whether the low double is
+	       non-zero and opposite sign to the high double.  */
+	    tree const islt_fn = builtin_decl_explicit (BUILT_IN_ISLESS);
+	    tree const isgt_fn = builtin_decl_explicit (BUILT_IN_ISGREATER);
+	    tree gt_min = build_call_expr (isgt_fn, 2, arg, min_exp);
+	    tree eq_min = fold_build2 (EQ_EXPR, integer_type_node,
+				       arg, min_exp);
+	    tree as_complex = build1 (VIEW_CONVERT_EXPR,
+				      complex_double_type_node, orig_arg);
+	    tree hi_dbl = build1 (REALPART_EXPR, type, as_complex);
+	    tree lo_dbl = build1 (IMAGPART_EXPR, type, as_complex);
+	    tree zero = build_real (type, dconst0);
+	    tree hilt = build_call_expr (islt_fn, 2, hi_dbl, zero);
+	    tree lolt = build_call_expr (islt_fn, 2, lo_dbl, zero);
+	    tree logt = build_call_expr (isgt_fn, 2, lo_dbl, zero);
+	    tree ok_lo = fold_build1 (TRUTH_NOT_EXPR, integer_type_node,
+				      fold_build3 (COND_EXPR,
+						   integer_type_node,
+						   hilt, logt, lolt));
+	    eq_min = fold_build2 (TRUTH_ANDIF_EXPR, integer_type_node,
+				  eq_min, ok_lo);
+	    min_exp = fold_build2 (TRUTH_ORIF_EXPR, integer_type_node,
+				   gt_min, eq_min);
+	  }
+	else
+	  {
+	    tree const isge_fn
+	      = builtin_decl_explicit (BUILT_IN_ISGREATEREQUAL);
+	    min_exp = build_call_expr (isge_fn, 2, arg, min_exp);
+	  }
+	result = fold_build2 (BIT_AND_EXPR, integer_type_node,
+			      max_exp, min_exp);
 	return result;
       }
     default:
@@ -9703,6 +9784,15 @@ fold_builtin_classify (location_t loc, tree fndecl, tree arg, int builtin_index)
 	  return real_isnan (&r) ? integer_one_node : integer_zero_node;
 	}
 
+      {
+	bool is_ibm_extended = MODE_COMPOSITE_P (TYPE_MODE (TREE_TYPE (arg)));
+	if (is_ibm_extended)
+	  {
+	    /* NaN and Inf are encoded in the high-order double value
+	       only.  The low-order value is not significant.  */
+	    arg = fold_build1_loc (loc, NOP_EXPR, double_type_node, arg);
+	  }
+      }
       arg = builtin_save_expr (arg);
       return fold_build2_loc (loc, UNORDERED_EXPR, type, arg, arg);
 

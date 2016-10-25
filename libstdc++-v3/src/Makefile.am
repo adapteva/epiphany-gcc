@@ -22,7 +22,13 @@
 
 include $(top_srcdir)/fragment.am
 
-SUBDIRS = c++98 c++11
+if ENABLE_FILESYSTEM_TS
+filesystem_dir = filesystem
+else
+filesystem_dir =
+endif
+
+SUBDIRS = c++98 c++11 $(filesystem_dir)
 
 # Cross compiler support.
 if VTV_CYGMIN
@@ -52,6 +58,9 @@ endif
 
 vpath % $(top_srcdir)/src/c++98
 vpath % $(top_srcdir)/src/c++11
+if ENABLE_FILESYSTEM_TS
+vpath % $(top_srcdir)/src/filesystem
+endif
 
 if GLIBCXX_LDBL_COMPAT
 ldbl_compat_sources = compatibility-ldbl.cc
@@ -218,7 +227,7 @@ libstdc++-symbols.ver:  ${glibcxx_srcdir}/$(SYMVER_FILE) \
 	chmod +w $@.tmp
 	if test "x$(port_specific_symbol_files)" != x; then \
 	  if grep '^# Appended to version file.' \
-	       $(port_specific_symbol_files) /dev/null > /dev/null 2>&1; then \
+	       $(port_specific_symbol_files) > /dev/null 2>&1; then \
 	    cat $(port_specific_symbol_files) >> $@.tmp; \
 	  else \
 	    sed -n '1,/DO NOT DELETE/p' $@.tmp > tmp.top; \

@@ -804,6 +804,9 @@ gfc_clear_pp_buffer (output_buffer *this_buffer)
   pp->buffer = this_buffer;
   pp_clear_output_area (pp);
   pp->buffer = tmp_buffer;
+  /* We need to reset last_location, otherwise we may skip caret lines
+     when we actually give a diagnostic.  */
+  global_dc->last_location = UNKNOWN_LOCATION;
 }
 
 
@@ -1388,6 +1391,7 @@ gfc_error (const char *gmsgid, va_list ap)
 {
   va_list argp;
   va_copy (argp, ap);
+  bool saved_abort_on_error = false;
 
   if (warnings_not_errors)
     {
@@ -1411,10 +1415,14 @@ gfc_error (const char *gmsgid, va_list ap)
 
   if (buffered_p)
     {
+      /* To prevent -dH from triggering an abort on a buffered error,
+	 save abort_on_error and restore it below.  */
+      saved_abort_on_error = global_dc->abort_on_error;
+      global_dc->abort_on_error = false;
       pp->buffer = pp_error_buffer;
       global_dc->fatal_errors = false;
       /* To prevent -fmax-errors= triggering, we decrease it before
-     report_diagnostic increases it.  */
+	 report_diagnostic increases it.  */
       --errorcount;
     }
 
@@ -1425,6 +1433,8 @@ gfc_error (const char *gmsgid, va_list ap)
     {
       pp->buffer = tmp_buffer;
       global_dc->fatal_errors = fatal_errors;
+      global_dc->abort_on_error = saved_abort_on_error;
+
     }
 
   va_end (argp);

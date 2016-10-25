@@ -851,6 +851,18 @@ build_field_list (tree t, tree list, int *uses_unions_p)
   return list;
 }
 
+/* Return the innermost aggregate scope for FIELD, whether that is
+   the enclosing class or an anonymous aggregate within it.  */
+
+static tree
+innermost_aggr_scope (tree field)
+{
+  if (ANON_AGGR_TYPE_P (TREE_TYPE (field)))
+    return TREE_TYPE (field);
+  else
+    return DECL_CONTEXT (field);
+}
+
 /* The MEM_INITS are a TREE_LIST.  The TREE_PURPOSE of each list gives
    a FIELD_DECL or BINFO in T that needs initialization.  The
    TREE_VALUE gives the initializer, or list of initializer arguments.
@@ -994,7 +1006,7 @@ sort_mem_initializers (tree t, tree mem_inits)
 
 	  /* See if this field is a member of a union, or a member of a
 	     structure contained in a union, etc.  */
-	  for (ctx = DECL_CONTEXT (field);
+	  for (ctx = innermost_aggr_scope (field);
 	       !same_type_p (ctx, t);
 	       ctx = TYPE_CONTEXT (ctx))
 	    if (TREE_CODE (ctx) == UNION_TYPE
@@ -1027,8 +1039,9 @@ sort_mem_initializers (tree t, tree mem_inits)
 	       union { struct { int i; int j; }; };
 
 	     initializing both `i' and `j' makes sense.  */
-	  ctx = common_enclosing_class (DECL_CONTEXT (field),
-					DECL_CONTEXT (TREE_PURPOSE (*last_p)));
+	  ctx = common_enclosing_class
+	    (innermost_aggr_scope (field),
+	     innermost_aggr_scope (TREE_PURPOSE (*last_p)));
 
 	  if (ctx && TREE_CODE (ctx) == UNION_TYPE)
 	    {
@@ -2066,6 +2079,11 @@ constant_value_1 (tree decl, bool strict_p, bool return_aggregate_cst_ok_p)
 	      && (TREE_CODE (init) == CONSTRUCTOR
 		  || TREE_CODE (init) == STRING_CST)))
 	break;
+      /* Don't return a CONSTRUCTOR for a variable with partial run-time
+	 initialization, since it doesn't represent the entire value.  */
+      if (TREE_CODE (init) == CONSTRUCTOR
+	  && !DECL_INITIALIZED_BY_CONSTANT_EXPRESSION_P (decl))
+	break;
       decl = unshare_expr (init);
     }
   return decl;
@@ -3013,7 +3031,7 @@ build_new (vec<tree, va_gc> **placement, tree type, tree nelts,
       if (auto_node)
 	{
 	  tree d_init = (**init)[0];
-	  d_init = resolve_nondeduced_context (d_init);
+	  d_init = resolve_nondeduced_context (d_init, complain);
 	  type = do_auto_deduction (type, d_init, auto_node);
 	}
     }

@@ -231,7 +231,21 @@ rs6000_macro_to_expand (cpp_reader *pfile, const cpp_token *tok)
       else if (ident && (ident != C_CPP_HASHNODE (__vector_keyword)))
 	{
 	  enum rid rid_code = (enum rid)(ident->rid_code);
-	  if (ident->type == NT_MACRO)
+	  enum node_type itype = ident->type;
+	  /* If there is a function-like macro, check if it is going to be
+	     invoked with or without arguments.  Without following ( treat
+	     it like non-macro, otherwise the following cpp_get_token eats
+	     what should be preserved.  */
+	  if (itype == NT_MACRO && cpp_fun_like_macro_p (ident))
+	    {
+	      int idx2 = idx;
+	      do
+		tok = cpp_peek_token (pfile, idx2++);
+	      while (tok->type == CPP_PADDING);
+	      if (tok->type != CPP_OPEN_PAREN)
+		itype = NT_VOID;
+	    }
+	  if (itype == NT_MACRO)
 	    {
 	      do
 		(void) cpp_get_token (pfile);
@@ -381,7 +395,11 @@ rs6000_target_modify_macros (bool define_p, HOST_WIDE_INT flags,
   if ((flags & OPTION_MASK_VSX) != 0)
     rs6000_define_or_undefine_macro (define_p, "__VSX__");
   if ((flags & OPTION_MASK_HTM) != 0)
-    rs6000_define_or_undefine_macro (define_p, "__HTM__");
+    {
+      rs6000_define_or_undefine_macro (define_p, "__HTM__");
+      /* Tell the user that our HTM insn patterns act as memory barriers.  */
+      rs6000_define_or_undefine_macro (define_p, "__TM_FENCE__");
+    }
   if ((flags & OPTION_MASK_P8_VECTOR) != 0)
     rs6000_define_or_undefine_macro (define_p, "__POWER8_VECTOR__");
   if ((flags & OPTION_MASK_QUAD_MEMORY) != 0)

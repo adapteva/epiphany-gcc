@@ -1,3 +1,75 @@
+2016-06-03  Release Manager
+
+	* GCC 5.4.0 released.
+
+2016-04-07  Thomas Schwinge  <thomas@codesourcery.com>
+
+	Backport trunk r234428:
+
+	2016-03-23  James Norris  <jnorris@codesourcery.com>
+		    Daichi Fukuoka <dc-fukuoka@sgi.com>
+
+	PR libgomp/69414
+	* oacc-mem.c (delete_copyout, update_dev_host): Fix device address.
+	* testsuite/libgomp.oacc-c-c++-common/update-1.c: Additional tests.
+	* testsuite/libgomp.oacc-c-c++-common/update-1-2.c: Likewise.
+	* testsuite/libgomp.oacc-fortran/update-1.f90: New file.
+
+2016-02-16  Tom de Vries  <tom@codesourcery.com>
+
+	backport from trunk:
+	PR lto/67709
+	2016-02-16  Tom de Vries  <tom@codesourcery.com>
+
+	* testsuite/libgomp.fortran/declare-simd-4.f90: New test.
+
+2016-02-10  Jakub Jelinek  <jakub@redhat.com>
+
+	Backported from mainline
+	2016-01-07  Jakub Jelinek  <jakub@redhat.com>
+
+	PR middle-end/68960
+	* testsuite/libgomp.c/pr68960.c: New test.
+
+2016-01-26  Tom de Vries  <tom@codesourcery.com>
+
+	PR tree-optimization/69110
+	* testsuite/libgomp.c/pr69110.c: New test.
+
+2016-01-14  Dominique d'Humieres <dominiq@lps.ens.fr>
+
+	PR fortran/66680
+	* testsuite/libgomp.fortran/pr66680.f90: New test.
+
+2015-12-04  Release Manager
+
+	* GCC 5.3.0 released.
+
+2015-11-26  David Edelsohn  <dje.gcc@gmail.com>
+
+	* configure: Regenerate.
+
+2015-09-22  Chung-Lin Tang  <cltang@codesourcery.com>
+
+	Backport from mainline:
+
+	2015-09-22  Chung-Lin Tang  <cltang@codesourcery.com>
+
+	PR libgomp/67141
+	* oacc-int.h (goacc_host_init): Add declaration.
+	* oacc-host.c (goacc_host_init): Remove static and constructor attribute.
+	* oacc-init.c (goacc_runtime_initialize): Call goacc_host_init() at end.
+
+2015-08-24  Joost VandeVondele  <vondele@gnu.gcc.org>
+
+	PR libgomp/66761
+	PR libgomp/67303
+	* iter.c (gomp_iter_dynamic_next): Employ an atomic load.
+	(gomp_iter_guided_next): Idem.
+	* iter_ull.c (gomp_iter_ull_dynamic_next): Idem.
+	(gomp_iter_ull_guided_next): Idem.
+	* config/linux/wait.h (do_spin): Idem.
+
 2015-07-16  Release Manager
 
 	* GCC 5.2.0 released.

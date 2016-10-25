@@ -2082,17 +2082,18 @@
 })
 
 (define_expand "addsi3"
-  [(set (match_operand:SI 0 "arith_reg_operand" "")
-	(plus:SI (match_operand:SI 1 "arith_operand" "")
-		 (match_operand:SI 2 "arith_or_int_operand" "")))]
+  [(set (match_operand:SI 0 "arith_reg_dest")
+	(plus:SI (match_operand:SI 1 "arith_reg_operand")
+		 (match_operand:SI 2 "arith_or_int_operand")))]
   ""
 {
-  if (TARGET_SHMEDIA)
-    operands[1] = force_reg (SImode, operands[1]);
-  else if (! arith_operand (operands[2], SImode))
+  if (TARGET_SH1 && !arith_operand (operands[2], SImode))
     {
-      if (reg_overlap_mentioned_p (operands[0], operands[1]))
-	FAIL;
+      if (!sh_lra_p () || reg_overlap_mentioned_p (operands[0], operands[1]))
+	{
+	  emit_insn (gen_addsi3_scr (operands[0], operands[1], operands[2]));
+	  DONE;
+	}
     }
 })
 
@@ -2128,18 +2129,22 @@
 ;; copy or constant load before the actual add insn.
 ;; Use u constraint for that case to avoid the invalid value in the stack
 ;; pointer.
-(define_insn_and_split "*addsi3_compact"
+;; This also results in better code when LRA is not used.  However, we have
+;; to use different sets of patterns and the order of these patterns is
+;; important.
+;; In some cases the constant zero might end up in operands[2] of the
+;; patterns.  We have to accept that and convert it into a reg-reg move.
+(define_insn_and_split "*addsi3_compact_lra"
   [(set (match_operand:SI 0 "arith_reg_dest" "=r,&u")
-	(plus:SI (match_operand:SI 1 "arith_operand" "%0,r")
+	(plus:SI (match_operand:SI 1 "arith_reg_operand" "%0,r")
 		 (match_operand:SI 2 "arith_or_int_operand" "rI08,rn")))]
-  "TARGET_SH1
-   && ((rtx_equal_p (operands[0], operands[1])
-        && arith_operand (operands[2], SImode))
-       || ! reg_overlap_mentioned_p (operands[0], operands[1]))"
+  "TARGET_SH1 && sh_lra_p ()
+   && (! reg_overlap_mentioned_p (operands[0], operands[1])
+       || arith_operand (operands[2], SImode))"
   "@
 	add	%2,%0
 	#"
-  "reload_completed
+  "&& reload_completed
    && ! reg_overlap_mentioned_p (operands[0], operands[1])"
   [(set (match_dup 0) (match_dup 2))
    (set (match_dup 0) (plus:SI (match_dup 0) (match_dup 1)))]
@@ -2147,6 +2152,107 @@
   /* Prefer 'mov r0,r1; add #imm8,r1' over 'mov #imm8,r1; add r0,r1'  */
   if (satisfies_constraint_I08 (operands[2]))
     std::swap (operands[1], operands[2]);
+}
+  [(set_attr "type" "arith")])
+
+(define_insn_and_split "addsi3_scr"
+  [(set (match_operand:SI 0 "arith_reg_dest" "=r,&u,&u")
+	(plus:SI (match_operand:SI 1 "arith_reg_operand" "%0,r,r")
+		 (match_operand:SI 2 "arith_or_int_operand" "rI08,r,n")))
+   (clobber (match_scratch:SI 3 "=X,X,&u"))]
+  "TARGET_SH1"
+  "@
+	add	%2,%0
+	#
+	#"
+  "&& reload_completed"
+  [(set (match_dup 0) (plus:SI (match_dup 0) (match_dup 2)))]
+{
+  if (operands[2] == const0_rtx)
+    {
+      emit_move_insn (operands[0], operands[1]);
+      DONE;
+    }
+
+  if (CONST_INT_P (operands[2]) && !satisfies_constraint_I08 (operands[2]))
+    {
+      if (reg_overlap_mentioned_p (operands[0], operands[1]))
+	{
+	  emit_move_insn (operands[3], operands[2]);
+	  emit_move_insn (operands[0], operands[1]);
+	  operands[2] = operands[3];
+	}
+      else
+	{
+	  emit_move_insn (operands[0], operands[2]);
+	  operands[2] = operands[1];
+	}
+    }
+  else if (!reg_overlap_mentioned_p (operands[0], operands[1]))
+    {
+      if (!reg_overlap_mentioned_p (operands[0], operands[2]))
+	emit_move_insn (operands[0], operands[1]);
+      else
+	operands[2] = operands[1];
+    }
+}
+  [(set_attr "type" "arith")])
+
+;; Old reload might generate add insns directly (not through the expander) for
+;; address register calculations when reloading, in which case it won't try
+;; the addsi_scr pattern.  Because reload will sometimes try to validate
+;; the generated insns and their constraints, this pattern must be
+;; recognizable during and after reload.  However, when reload generates
+;; address register calculations for the stack pointer, we don't allow this
+;; pattern.  This will make reload prefer using indexed @(reg + reg) address
+;; modes when the displacement of a @(disp + reg) doesn't fit.
+(define_insn_and_split "*addsi3"
+  [(set (match_operand:SI 0 "arith_reg_dest" "=r")
+	(plus:SI (match_operand:SI 1 "arith_reg_operand" "r")
+		 (match_operand:SI 2 "arith_or_int_operand" "rn")))]
+  "TARGET_SH1 && !sh_lra_p ()
+   && (reload_completed || reload_in_progress)
+   && !reg_overlap_mentioned_p (operands[0], operands[1])
+   && (!reload_in_progress
+       || ((!REG_P (operands[1]) || REGNO (operands[1]) != SP_REG)
+	   && (!REG_P (operands[2]) || REGNO (operands[2]) != SP_REG)))"
+  "#"
+  "&& 1"
+  [(set (match_dup 0) (plus:SI (match_dup 0) (match_dup 2)))]
+{
+  if (operands[2] == const0_rtx)
+    {
+      emit_move_insn (operands[0], operands[1]);
+      DONE;
+    }
+
+  if (CONST_INT_P (operands[2]))
+    {
+      if (satisfies_constraint_I08 (operands[2]))
+	emit_move_insn (operands[0], operands[1]);
+      else
+	{
+	  emit_move_insn (operands[0], operands[2]);
+	  operands[2] = operands[1];
+	}
+    }
+  else if (!reg_overlap_mentioned_p (operands[0], operands[2]))
+    emit_move_insn (operands[0], operands[1]);
+  else
+    operands[2] = operands[1];
+})
+
+(define_insn_and_split "*addsi3"
+  [(set (match_operand:SI 0 "arith_reg_dest" "=r,r")
+	(plus:SI (match_operand:SI 1 "arith_reg_operand" "%0,r")
+		 (match_operand:SI 2 "arith_operand" "rI08,Z")))]
+  "TARGET_SH1 && !sh_lra_p ()"
+  "@
+	add	%2,%0
+	#"
+  "&& operands[2] == const0_rtx"
+  [(set (match_dup 0) (match_dup 1))]
+{
 }
   [(set_attr "type" "arith")])
 
@@ -7851,6 +7957,24 @@ label:
   ""
 {
   prepare_move_operands (operands, DImode);
+  if (TARGET_SH1)
+    {
+      /* When the dest operand is (R0, R1) register pair, split it to
+	 two movsi of which dest is R1 and R0 so as to lower R0-register
+	 pressure on the first movsi.  Apply only for simple source not
+	 to make complex rtl here.  */
+      if (REG_P (operands[0])
+	  && REGNO (operands[0]) == R0_REG
+	  && REG_P (operands[1])
+	  && REGNO (operands[1]) >= FIRST_PSEUDO_REGISTER)
+	{
+	  emit_insn (gen_movsi (gen_rtx_REG (SImode, R1_REG),
+			        gen_rtx_SUBREG (SImode, operands[1], 4)));
+	  emit_insn (gen_movsi (gen_rtx_REG (SImode, R0_REG),
+			        gen_rtx_SUBREG (SImode, operands[1], 0)));
+	  DONE;
+	}
+    }
 })
 
 (define_insn "movdf_media"
@@ -9404,7 +9528,7 @@ label:
    (use (reg:SI FPSCR_MODES_REG))
    (use (reg:SI PIC_REG))
    (clobber (reg:SI PR_REG))
-   (clobber (match_scratch:SI 2 "=r"))]
+   (clobber (match_scratch:SI 2 "=&r"))]
   "TARGET_SH2"
   "#"
   "reload_completed"
@@ -9538,7 +9662,7 @@ label:
    (use (reg:SI FPSCR_MODES_REG))
    (use (reg:SI PIC_REG))
    (clobber (reg:SI PR_REG))
-   (clobber (match_scratch:SI 3 "=r"))]
+   (clobber (match_scratch:SI 3 "=&r"))]
   "TARGET_SH2"
   "#"
   "reload_completed"
@@ -9939,7 +10063,7 @@ label:
   [(call (mem:SI (match_operand:SI 0 "symbol_ref_operand" ""))
 	 (match_operand 1 "" ""))
    (use (reg:SI FPSCR_MODES_REG))
-   (clobber (match_scratch:SI 2 "=k"))
+   (clobber (match_scratch:SI 2 "=&k"))
    (return)]
   "TARGET_SH2"
   "#"
@@ -10126,12 +10250,16 @@ label:
 		      (const_string "single") (const_string "double")))
    (set_attr "type" "jump_ind")])
 
+;; sibcall_value_pcrel used to have a =&k clobber for the scratch register
+;; that it needs for the branch address.  This causes troubles when there
+;; is a big overlap of argument and return value registers.  Hence, use a
+;; fixed call clobbered register for the address.  See also PR 67260.
 (define_insn_and_split "sibcall_value_pcrel"
   [(set (match_operand 0 "" "=rf")
 	(call (mem:SI (match_operand:SI 1 "symbol_ref_operand" ""))
 	      (match_operand 2 "" "")))
    (use (reg:SI FPSCR_MODES_REG))
-   (clobber (match_scratch:SI 3 "=k"))
+   (clobber (reg:SI R1_REG))
    (return)]
   "TARGET_SH2"
   "#"
@@ -10140,6 +10268,8 @@ label:
 {
   rtx lab = PATTERN (gen_call_site ());
   rtx call_insn;
+
+  operands[3] =  gen_rtx_REG (SImode, R1_REG);
 
   emit_insn (gen_sym_label2reg (operands[3], operands[1], lab));
   call_insn = emit_call_insn (gen_sibcall_valuei_pcrel (operands[0],
@@ -10579,7 +10709,7 @@ label:
   if (TARGET_SHMEDIA)
     {
       rtx tr = gen_rtx_REG (Pmode, TR0_REG);
-      rtx pic = operands[0];
+      rtx pic = operands[1];
       rtx lab = PATTERN (gen_call_site ());
       rtx insn, equiv;
 
@@ -11253,12 +11383,16 @@ label:
 ;; ??? reload might clobber r0 if we use it explicitly in the RTL before
 ;; reload; using a R0_REGS pseudo reg is likely to give poor code.
 ;; So we keep the use of r0 hidden in a R0_REGS clobber until after reload.
+;;
+;; The use on the T_REG in the casesi_worker* patterns links the bounds
+;; checking insns and the table memory access.  See also PR 69713.
 (define_insn "casesi_worker_0"
   [(set (match_operand:SI 0 "register_operand" "=r,r")
 	(unspec:SI [(match_operand:SI 1 "register_operand" "0,r")
 		 (label_ref (match_operand 2 "" ""))] UNSPEC_CASESI))
    (clobber (match_scratch:SI 3 "=X,1"))
-   (clobber (match_scratch:SI 4 "=&z,z"))]
+   (clobber (match_scratch:SI 4 "=&z,z"))
+   (use (reg:SI T_REG))]
   "TARGET_SH1"
   "#")
 
@@ -11267,7 +11401,8 @@ label:
 	(unspec:SI [(match_operand:SI 1 "register_operand" "")
 		    (label_ref (match_operand 2 "" ""))] UNSPEC_CASESI))
    (clobber (match_scratch:SI 3 ""))
-   (clobber (match_scratch:SI 4 ""))]
+   (clobber (match_scratch:SI 4))
+   (use (reg:SI T_REG))]
   "TARGET_SH1 && ! TARGET_SH2 && reload_completed"
   [(set (reg:SI R0_REG) (unspec:SI [(label_ref (match_dup 2))] UNSPEC_MOVA))
    (parallel [(set (match_dup 0)
@@ -11285,7 +11420,8 @@ label:
 	(unspec:SI [(match_operand:SI 1 "register_operand" "")
 		    (label_ref (match_operand 2 "" ""))] UNSPEC_CASESI))
    (clobber (match_scratch:SI 3 ""))
-   (clobber (match_scratch:SI 4 ""))]
+   (clobber (match_scratch:SI 4))
+   (use (reg:SI T_REG))]
   "TARGET_SH2 && reload_completed"
   [(set (reg:SI R0_REG) (unspec:SI [(label_ref (match_dup 2))] UNSPEC_MOVA))
    (parallel [(set (match_dup 0)
@@ -14626,7 +14762,7 @@ label:
   [(const_int 0)]
 {
   emit_insn (gen_addsi3 (operands[1], operands[1], operands[2]));
-  sh_check_add_incdec_notes (emit_move_insn (operands[3], operands[1]));
+  sh_peephole_emit_move_insn (operands[3], operands[1]);
 })
 
 ;;	mov.l	@(r0,r9),r1
@@ -14639,7 +14775,7 @@ label:
   "TARGET_SH1 && peep2_reg_dead_p (2, operands[0])"
   [(const_int 0)]
 {
-  sh_check_add_incdec_notes (emit_move_insn (operands[2], operands[1]));
+  sh_peephole_emit_move_insn (operands[2], operands[1]);
 })
 
 (define_peephole2
@@ -14650,7 +14786,7 @@ label:
   "TARGET_SH1 && peep2_reg_dead_p (2, operands[0])"
   [(const_int 0)]
 {
-  sh_check_add_incdec_notes (emit_move_insn (operands[2], operands[1]));
+  sh_peephole_emit_move_insn (operands[2], operands[1]);
 })
 
 (define_peephole2
@@ -14662,7 +14798,7 @@ label:
   [(const_int 0)]
 {
   sh_check_add_incdec_notes (emit_insn (gen_extend<mode>si2 (operands[2],
-							     operands[1])));
+		   sh_remove_overlapping_post_inc (operands[2], operands[1]))));
 })
 
 ;;	mov.w	@(18,r1),r0 (r0 = HImode)
@@ -14692,8 +14828,9 @@ label:
 
   // We don't know what the new set insn will be in detail.  Just make sure
   // that it still can be recognized and the constraints are satisfied.
-  rtx_insn* i = emit_insn (gen_rtx_SET (VOIDmode, operands[2], operands[3]));
-						     
+  rtx_insn* i = emit_insn (gen_rtx_SET (VOIDmode, operands[2],
+		    sh_remove_overlapping_post_inc (operands[2], operands[3])));
+
   recog_data_d prev_recog_data = recog_data;
   bool i_invalid = insn_invalid_p (i, false); 
   recog_data = prev_recog_data;
@@ -14731,7 +14868,8 @@ label:
 {
   // We don't know what the new set insn will be in detail.  Just make sure
   // that it still can be recognized and the constraints are satisfied.
-  rtx_insn* i = emit_insn (gen_rtx_SET (VOIDmode, operands[2], operands[3]));
+  rtx_insn* i = emit_insn (gen_rtx_SET (VOIDmode, operands[2],
+		    sh_remove_overlapping_post_inc (operands[2], operands[3])));
 
   recog_data_d prev_recog_data = recog_data;
   bool i_invalid = insn_invalid_p (i, false); 

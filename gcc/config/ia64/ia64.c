@@ -1146,6 +1146,15 @@ ia64_expand_load_address (rtx dest, rtx src)
     emit_insn (gen_load_fptr (dest, src));
   else if (sdata_symbolic_operand (src, VOIDmode))
     emit_insn (gen_load_gprel (dest, src));
+  else if (local_symbolic_operand64 (src, VOIDmode))
+    {
+      /* We want to use @gprel rather than @ltoff relocations for local
+	 symbols:
+	  - @gprel does not require dynamic linker
+	  - and does not use .sdata section
+	 https://gcc.gnu.org/bugzilla/60465 */
+      emit_insn (gen_load_gprel64 (dest, src));
+    }
   else
     {
       HOST_WIDE_INT addend = 0;
@@ -1944,7 +1953,7 @@ ia64_expand_vecint_compare (enum rtx_code code, machine_mode mode,
 
 	    /* Subtract (-(INT MAX) - 1) from both operands to make
 	       them signed.  */
-	    mask = GEN_INT (0x80000000);
+	    mask = gen_int_mode (0x80000000, SImode);
 	    mask = gen_rtx_CONST_VECTOR (V2SImode, gen_rtvec (2, mask, mask));
 	    mask = force_reg (mode, mask);
 	    t1 = gen_reg_rtx (mode);
@@ -2389,10 +2398,12 @@ ia64_expand_atomic_op (enum rtx_code code, rtx mem, rtx val,
 	{
 	case MEMMODEL_ACQ_REL:
 	case MEMMODEL_SEQ_CST:
+	case MEMMODEL_SYNC_SEQ_CST:
 	  emit_insn (gen_memory_barrier ());
 	  /* FALLTHRU */
 	case MEMMODEL_RELAXED:
 	case MEMMODEL_ACQUIRE:
+	case MEMMODEL_SYNC_ACQUIRE:
 	case MEMMODEL_CONSUME:
 	  if (mode == SImode)
 	    icode = CODE_FOR_fetchadd_acq_si;
@@ -2400,6 +2411,7 @@ ia64_expand_atomic_op (enum rtx_code code, rtx mem, rtx val,
 	    icode = CODE_FOR_fetchadd_acq_di;
 	  break;
 	case MEMMODEL_RELEASE:
+	case MEMMODEL_SYNC_RELEASE:
 	  if (mode == SImode)
 	    icode = CODE_FOR_fetchadd_rel_si;
 	  else
@@ -2426,8 +2438,7 @@ ia64_expand_atomic_op (enum rtx_code code, rtx mem, rtx val,
      front half of the full barrier.  The end half is the cmpxchg.rel.
      For relaxed and release memory models, we don't need this.  But we
      also don't bother trying to prevent it either.  */
-  gcc_assert (model == MEMMODEL_RELAXED
-	      || model == MEMMODEL_RELEASE
+  gcc_assert (is_mm_relaxed (model) || is_mm_release (model)
 	      || MEM_VOLATILE_P (mem));
 
   old_reg = gen_reg_rtx (DImode);
@@ -2471,6 +2482,7 @@ ia64_expand_atomic_op (enum rtx_code code, rtx mem, rtx val,
     {
     case MEMMODEL_RELAXED:
     case MEMMODEL_ACQUIRE:
+    case MEMMODEL_SYNC_ACQUIRE:
     case MEMMODEL_CONSUME:
       switch (mode)
 	{
@@ -2484,8 +2496,10 @@ ia64_expand_atomic_op (enum rtx_code code, rtx mem, rtx val,
       break;
 
     case MEMMODEL_RELEASE:
+    case MEMMODEL_SYNC_RELEASE:
     case MEMMODEL_ACQ_REL:
     case MEMMODEL_SEQ_CST:
+    case MEMMODEL_SYNC_SEQ_CST:
       switch (mode)
 	{
 	case QImode: icode = CODE_FOR_cmpxchg_rel_qi;  break;

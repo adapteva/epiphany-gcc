@@ -399,7 +399,15 @@ less_than_bitsize2 (const char *arg1, gfc_expr *expr1, const char *arg2,
 static bool
 same_type_check (gfc_expr *e, int n, gfc_expr *f, int m)
 {
-  if (gfc_compare_types (&e->ts, &f->ts))
+  gfc_typespec *ets = &e->ts;
+  gfc_typespec *fts = &f->ts;
+
+  if (e->ts.type == BT_PROCEDURE && e->symtree->n.sym)
+    ets = &e->symtree->n.sym->ts;
+  if (f->ts.type == BT_PROCEDURE && f->symtree->n.sym)
+    fts = &f->symtree->n.sym->ts;
+
+  if (gfc_compare_types (ets, fts))
     return true;
 
   gfc_error ("%qs argument of %qs intrinsic at %L must be the same type "
@@ -1144,6 +1152,59 @@ gfc_check_atomic_cas (gfc_expr *atom, gfc_expr *old, gfc_expr *compare,
       gfc_error ("OLD argument of the %s intrinsic function at %L shall be "
 		 "definable", gfc_current_intrinsic, &old->where);
       return false;
+    }
+
+  return true;
+}
+
+bool
+gfc_check_event_query (gfc_expr *event, gfc_expr *count, gfc_expr *stat)
+{
+  if (event->ts.type != BT_DERIVED
+      || event->ts.u.derived->from_intmod != INTMOD_ISO_FORTRAN_ENV
+      || event->ts.u.derived->intmod_sym_id != ISOFORTRAN_EVENT_TYPE)
+    {
+      gfc_error ("EVENT argument at %L to the intrinsic EVENT_QUERY "
+		 "shall be of type EVENT_TYPE", &event->where);
+      return false;
+    }
+
+  if (!scalar_check (event, 0))
+    return false;
+
+  if (!gfc_check_vardef_context (count, false, false, false, NULL))
+    {
+      gfc_error ("COUNT argument of the EVENT_QUERY intrinsic function at %L "
+		 "shall be definable", &count->where);
+      return false;
+    }
+
+  if (!type_check (count, 1, BT_INTEGER))
+    return false;
+
+  int i = gfc_validate_kind (BT_INTEGER, count->ts.kind, false);
+  int j = gfc_validate_kind (BT_INTEGER, gfc_default_integer_kind, false);
+
+  if (gfc_integer_kinds[i].range < gfc_integer_kinds[j].range)
+    {
+      gfc_error ("COUNT argument of the EVENT_QUERY intrinsic function at %L "
+		 "shall have at least the range of the default integer",
+		 &count->where);
+      return false;
+    }
+
+  if (stat != NULL)
+    {
+      if (!type_check (stat, 2, BT_INTEGER))
+	return false;
+      if (!scalar_check (stat, 2))
+	return false;
+      if (!variable_check (stat, 2, false))
+	return false;
+
+      if (!gfc_notify_std (GFC_STD_F2008_TS, "STAT= argument to %s at %L",
+			   gfc_current_intrinsic, &stat->where))
+	return false;
     }
 
   return true;
@@ -3707,6 +3768,36 @@ gfc_check_reshape (gfc_expr *source, gfc_expr *shape,
 			 "negative element (%d)",
 			 gfc_current_intrinsic_arg[1]->name,
 			 gfc_current_intrinsic, &e->where, extent);
+	      return false;
+	    }
+	}
+    }
+  else if (shape->expr_type == EXPR_VARIABLE && shape->ref
+	   && shape->ref->u.ar.type == AR_FULL && shape->ref->u.ar.dimen == 1
+	   && shape->ref->u.ar.as
+	   && shape->ref->u.ar.as->lower[0]->expr_type == EXPR_CONSTANT
+	   && shape->ref->u.ar.as->lower[0]->ts.type == BT_INTEGER
+	   && shape->ref->u.ar.as->upper[0]->expr_type == EXPR_CONSTANT
+	   && shape->ref->u.ar.as->upper[0]->ts.type == BT_INTEGER
+	   && shape->symtree->n.sym->attr.flavor == FL_PARAMETER)
+    {
+      int i, extent;
+      gfc_expr *e, *v;
+
+      v = shape->symtree->n.sym->value;
+
+      for (i = 0; i < shape_size; i++)
+	{
+	  e = gfc_constructor_lookup_expr (v->value.constructor, i);
+	  if (e == NULL)
+	     break;
+
+	  gfc_extract_int (e, &extent);
+
+	  if (extent < 0)
+	    {
+	      gfc_error ("Element %d of actual argument of RESHAPE at %L "
+			 "cannot be negative", i + 1, &shape->where);
 	      return false;
 	    }
 	}

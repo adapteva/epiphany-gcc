@@ -249,13 +249,14 @@ struct agg_position_info
   bool by_ref;
 };
 
-/* Add condition to condition list CONDS.  AGGPOS describes whether the used
-   oprand is loaded from an aggregate and where in the aggregate it is.  It can
-   be NULL, which means this not a load from an aggregate.  */
+/* Add condition to condition list SUMMARY. OPERAND_NUM, SIZE, CODE and VAL
+   correspond to fields of condition structure.  AGGPOS describes whether the
+   used operand is loaded from an aggregate and where in the aggregate it is.
+   It can be NULL, which means this not a load from an aggregate.  */
 
 static struct predicate
 add_condition (struct inline_summary *summary, int operand_num,
-	       struct agg_position_info *aggpos,
+	       HOST_WIDE_INT size, struct agg_position_info *aggpos,
 	       enum tree_code code, tree val)
 {
   int i;
@@ -281,6 +282,7 @@ add_condition (struct inline_summary *summary, int operand_num,
   for (i = 0; vec_safe_iterate (summary->conds, i, &c); i++)
     {
       if (c->operand_num == operand_num
+	  && c->size == size
 	  && c->code == code
 	  && c->val == val
 	  && c->agg_contents == agg_contents
@@ -297,6 +299,7 @@ add_condition (struct inline_summary *summary, int operand_num,
   new_cond.agg_contents = agg_contents;
   new_cond.by_ref = by_ref;
   new_cond.offset = offset;
+  new_cond.size = size;
   vec_safe_push (summary->conds, new_cond);
   return single_cond_predicate (i + predicate_first_dynamic_condition);
 }
@@ -900,21 +903,25 @@ evaluate_conditions_for_known_args (struct cgraph_node *node,
 	  clause |= 1 << (i + predicate_first_dynamic_condition);
 	  continue;
 	}
-      if (c->code == IS_NOT_CONSTANT || c->code == CHANGED)
+      if (c->code == CHANGED)
 	continue;
 
-      if (operand_equal_p (TYPE_SIZE (TREE_TYPE (c->val)),
-			   TYPE_SIZE (TREE_TYPE (val)), 0))
+      if (tree_to_shwi (TYPE_SIZE (TREE_TYPE (val))) != c->size)
 	{
-	  val = fold_unary (VIEW_CONVERT_EXPR, TREE_TYPE (c->val), val);
-
-	  res = val
-	    ? fold_binary_to_constant (c->code, boolean_type_node, val, c->val)
-	    : NULL;
-
-	  if (res && integer_zerop (res))
-	    continue;
+	  clause |= 1 << (i + predicate_first_dynamic_condition);
+	  continue;
 	}
+      if (c->code == IS_NOT_CONSTANT)
+	continue;
+
+      val = fold_unary (VIEW_CONVERT_EXPR, TREE_TYPE (c->val), val);
+      res = val
+	? fold_binary_to_constant (c->code, boolean_type_node, val, c->val)
+	: NULL;
+
+      if (res && integer_zerop (res))
+	continue;
+
       clause |= 1 << (i + predicate_first_dynamic_condition);
     }
   return clause;
@@ -1551,16 +1558,21 @@ mark_modified (ao_ref *ao ATTRIBUTE_UNUSED, tree vdef ATTRIBUTE_UNUSED,
 }
 
 /* If OP refers to value of function parameter, return the corresponding
-   parameter.  */
+   parameter.  If non-NULL, the size of the memory load (or the SSA_NAME of the
+   PARM_DECL) will be stored to *SIZE_P in that case too.  */
 
 static tree
-unmodified_parm_1 (gimple stmt, tree op)
+unmodified_parm_1 (gimple stmt, tree op, HOST_WIDE_INT *size_p)
 {
   /* SSA_NAME referring to parm default def?  */
   if (TREE_CODE (op) == SSA_NAME
       && SSA_NAME_IS_DEFAULT_DEF (op)
       && TREE_CODE (SSA_NAME_VAR (op)) == PARM_DECL)
-    return SSA_NAME_VAR (op);
+    {
+      if (size_p)
+	*size_p = tree_to_shwi (TYPE_SIZE (TREE_TYPE (op)));
+      return SSA_NAME_VAR (op);
+    }
   /* Non-SSA parm reference?  */
   if (TREE_CODE (op) == PARM_DECL)
     {
@@ -1571,18 +1583,24 @@ unmodified_parm_1 (gimple stmt, tree op)
       walk_aliased_vdefs (&refd, gimple_vuse (stmt), mark_modified, &modified,
 			  NULL);
       if (!modified)
-	return op;
+	{
+	  if (size_p)
+	    *size_p = tree_to_shwi (TYPE_SIZE (TREE_TYPE (op)));
+	  return op;
+	}
     }
   return NULL_TREE;
 }
 
 /* If OP refers to value of function parameter, return the corresponding
-   parameter.  Also traverse chains of SSA register assignments.  */
+   parameter.  Also traverse chains of SSA register assignments.  If non-NULL,
+   the size of the memory load (or the SSA_NAME of the PARM_DECL) will be
+   stored to *SIZE_P in that case too.  */
 
 static tree
-unmodified_parm (gimple stmt, tree op)
+unmodified_parm (gimple stmt, tree op, HOST_WIDE_INT *size_p)
 {
-  tree res = unmodified_parm_1 (stmt, op);
+  tree res = unmodified_parm_1 (stmt, op, size_p);
   if (res)
     return res;
 
@@ -1590,28 +1608,30 @@ unmodified_parm (gimple stmt, tree op)
       && !SSA_NAME_IS_DEFAULT_DEF (op)
       && gimple_assign_single_p (SSA_NAME_DEF_STMT (op)))
     return unmodified_parm (SSA_NAME_DEF_STMT (op),
-			    gimple_assign_rhs1 (SSA_NAME_DEF_STMT (op)));
+			    gimple_assign_rhs1 (SSA_NAME_DEF_STMT (op)),
+			    size_p);
   return NULL_TREE;
 }
 
 /* If OP refers to a value of a function parameter or value loaded from an
    aggregate passed to a parameter (either by value or reference), return TRUE
-   and store the number of the parameter to *INDEX_P and information whether
-   and how it has been loaded from an aggregate into *AGGPOS.  INFO describes
-   the function parameters, STMT is the statement in which OP is used or
-   loaded.  */
+   and store the number of the parameter to *INDEX_P, the access size into
+   *SIZE_P, and information whether and how it has been loaded from an
+   aggregate into *AGGPOS.  INFO describes the function parameters, STMT is the
+   statement in which OP is used or loaded.  */
 
 static bool
-unmodified_parm_or_parm_agg_item (struct ipa_node_params *info,
+unmodified_parm_or_parm_agg_item (struct ipa_func_body_info *fbi,
 				  gimple stmt, tree op, int *index_p,
+				  HOST_WIDE_INT *size_p,
 				  struct agg_position_info *aggpos)
 {
-  tree res = unmodified_parm_1 (stmt, op);
+  tree res = unmodified_parm_1 (stmt, op, size_p);
 
   gcc_checking_assert (aggpos);
   if (res)
     {
-      *index_p = ipa_get_param_decl_index (info, res);
+      *index_p = ipa_get_param_decl_index (fbi->info, res);
       if (*index_p < 0)
 	return false;
       aggpos->agg_contents = false;
@@ -1627,13 +1647,14 @@ unmodified_parm_or_parm_agg_item (struct ipa_node_params *info,
       stmt = SSA_NAME_DEF_STMT (op);
       op = gimple_assign_rhs1 (stmt);
       if (!REFERENCE_CLASS_P (op))
-	return unmodified_parm_or_parm_agg_item (info, stmt, op, index_p,
+	return unmodified_parm_or_parm_agg_item (fbi, stmt, op, index_p, size_p,
 						 aggpos);
     }
 
   aggpos->agg_contents = true;
-  return ipa_load_from_parm_agg (info, stmt, op, index_p, &aggpos->offset,
-				 &aggpos->by_ref);
+  return ipa_load_from_parm_agg (fbi, fbi->info->descriptors,
+				 stmt, op, index_p, &aggpos->offset,
+				 size_p, &aggpos->by_ref);
 }
 
 /* See if statement might disappear after inlining.
@@ -1684,7 +1705,7 @@ eliminated_by_inlining_prob (gimple stmt)
 	    inner_lhs = lhs;
 
 	  /* Reads of parameter are expected to be free.  */
-	  if (unmodified_parm (stmt, inner_rhs))
+	  if (unmodified_parm (stmt, inner_rhs, NULL))
 	    rhs_free = true;
 	  /* Match expressions of form &this->field. Those will most likely
 	     combine with something upstream after inlining.  */
@@ -1694,7 +1715,7 @@ eliminated_by_inlining_prob (gimple stmt)
 	      if (TREE_CODE (op) == PARM_DECL)
 		rhs_free = true;
 	      else if (TREE_CODE (op) == MEM_REF
-		       && unmodified_parm (stmt, TREE_OPERAND (op, 0)))
+		       && unmodified_parm (stmt, TREE_OPERAND (op, 0), NULL))
 		rhs_free = true;
 	    }
 
@@ -1707,7 +1728,7 @@ eliminated_by_inlining_prob (gimple stmt)
 	  /* Reads of parameters passed by reference
 	     expected to be free (i.e. optimized out after inlining).  */
 	  if (TREE_CODE (inner_rhs) == MEM_REF
-	      && unmodified_parm (stmt, TREE_OPERAND (inner_rhs, 0)))
+	      && unmodified_parm (stmt, TREE_OPERAND (inner_rhs, 0), NULL))
 	    rhs_free = true;
 
 	  /* Copying parameter passed by reference into gimple register is
@@ -1748,7 +1769,7 @@ eliminated_by_inlining_prob (gimple stmt)
 	  if (TREE_CODE (inner_lhs) == PARM_DECL
 	      || TREE_CODE (inner_lhs) == RESULT_DECL
 	      || (TREE_CODE (inner_lhs) == MEM_REF
-		  && (unmodified_parm (stmt, TREE_OPERAND (inner_lhs, 0))
+		  && (unmodified_parm (stmt, TREE_OPERAND (inner_lhs, 0), NULL)
 		      || (TREE_CODE (TREE_OPERAND (inner_lhs, 0)) == SSA_NAME
 			  && SSA_NAME_VAR (TREE_OPERAND (inner_lhs, 0))
 			  && TREE_CODE (SSA_NAME_VAR (TREE_OPERAND
@@ -1772,12 +1793,13 @@ eliminated_by_inlining_prob (gimple stmt)
    predicates to the CFG edges.   */
 
 static void
-set_cond_stmt_execution_predicate (struct ipa_node_params *info,
+set_cond_stmt_execution_predicate (struct ipa_func_body_info *fbi,
 				   struct inline_summary *summary,
 				   basic_block bb)
 {
   gimple last;
   tree op;
+  HOST_WIDE_INT size;
   int index;
   struct agg_position_info aggpos;
   enum tree_code code, inverted_code;
@@ -1795,7 +1817,7 @@ set_cond_stmt_execution_predicate (struct ipa_node_params *info,
   /* TODO: handle conditionals like
      var = op0 < 4;
      if (var != 0).  */
-  if (unmodified_parm_or_parm_agg_item (info, last, op, &index, &aggpos))
+  if (unmodified_parm_or_parm_agg_item (fbi, last, op, &index, &size, &aggpos))
     {
       code = gimple_cond_code (last);
       inverted_code = invert_tree_comparison (code, HONOR_NANS (op));
@@ -1809,7 +1831,7 @@ set_cond_stmt_execution_predicate (struct ipa_node_params *info,
 	     unordered one.  Be sure it is not confused with NON_CONSTANT.  */
 	  if (this_code != ERROR_MARK)
 	    {
-	      struct predicate p = add_condition (summary, index, &aggpos,
+	      struct predicate p = add_condition (summary, index, size, &aggpos,
 						  this_code,
 						  gimple_cond_rhs (last));
 	      e->aux = pool_alloc (edge_predicate_pool);
@@ -1838,12 +1860,12 @@ set_cond_stmt_execution_predicate (struct ipa_node_params *info,
       || gimple_call_num_args (set_stmt) != 1)
     return;
   op2 = gimple_call_arg (set_stmt, 0);
-  if (!unmodified_parm_or_parm_agg_item
-      (info, set_stmt, op2, &index, &aggpos))
+  if (!unmodified_parm_or_parm_agg_item (fbi, set_stmt, op2, &index, &size,
+					 &aggpos))
     return;
   FOR_EACH_EDGE (e, ei, bb->succs) if (e->flags & EDGE_FALSE_VALUE)
     {
-      struct predicate p = add_condition (summary, index, &aggpos,
+      struct predicate p = add_condition (summary, index, size, &aggpos,
 					  IS_NOT_CONSTANT, NULL_TREE);
       e->aux = pool_alloc (edge_predicate_pool);
       *(struct predicate *) e->aux = p;
@@ -1855,13 +1877,14 @@ set_cond_stmt_execution_predicate (struct ipa_node_params *info,
    predicates to the CFG edges.   */
 
 static void
-set_switch_stmt_execution_predicate (struct ipa_node_params *info,
+set_switch_stmt_execution_predicate (struct ipa_func_body_info *fbi,
 				     struct inline_summary *summary,
 				     basic_block bb)
 {
   gimple lastg;
   tree op;
   int index;
+  HOST_WIDE_INT size;
   struct agg_position_info aggpos;
   edge e;
   edge_iterator ei;
@@ -1873,7 +1896,7 @@ set_switch_stmt_execution_predicate (struct ipa_node_params *info,
     return;
   gswitch *last = as_a <gswitch *> (lastg);
   op = gimple_switch_index (last);
-  if (!unmodified_parm_or_parm_agg_item (info, last, op, &index, &aggpos))
+  if (!unmodified_parm_or_parm_agg_item (fbi, last, op, &index, &size, &aggpos))
     return;
 
   FOR_EACH_EDGE (e, ei, bb->succs)
@@ -1898,12 +1921,12 @@ set_switch_stmt_execution_predicate (struct ipa_node_params *info,
       if (!min && !max)
 	p = true_predicate ();
       else if (!max)
-	p = add_condition (summary, index, &aggpos, EQ_EXPR, min);
+	p = add_condition (summary, index, size, &aggpos, EQ_EXPR, min);
       else
 	{
 	  struct predicate p1, p2;
-	  p1 = add_condition (summary, index, &aggpos, GE_EXPR, min);
-	  p2 = add_condition (summary, index, &aggpos, LE_EXPR, max);
+	  p1 = add_condition (summary, index, size, &aggpos, GE_EXPR, min);
+	  p2 = add_condition (summary, index, size, &aggpos, LE_EXPR, max);
 	  p = and_predicates (summary->conds, &p1, &p2);
 	}
       *(struct predicate *) e->aux
@@ -1916,8 +1939,8 @@ set_switch_stmt_execution_predicate (struct ipa_node_params *info,
    which it is executable.  */
 
 static void
-compute_bb_predicates (struct cgraph_node *node,
-		       struct ipa_node_params *parms_info,
+compute_bb_predicates (struct ipa_func_body_info *fbi,
+		       struct cgraph_node *node,
 		       struct inline_summary *summary)
 {
   struct function *my_function = DECL_STRUCT_FUNCTION (node->decl);
@@ -1926,8 +1949,8 @@ compute_bb_predicates (struct cgraph_node *node,
 
   FOR_EACH_BB_FN (bb, my_function)
     {
-      set_cond_stmt_execution_predicate (parms_info, summary, bb);
-      set_switch_stmt_execution_predicate (parms_info, summary, bb);
+      set_cond_stmt_execution_predicate (fbi, summary, bb);
+      set_switch_stmt_execution_predicate (fbi, summary, bb);
     }
 
   /* Entry block is always executable.  */
@@ -2003,13 +2026,14 @@ will_be_nonconstant_expr_predicate (struct ipa_node_params *info,
 {
   tree parm;
   int index;
+  HOST_WIDE_INT size;
 
   while (UNARY_CLASS_P (expr))
     expr = TREE_OPERAND (expr, 0);
 
-  parm = unmodified_parm (NULL, expr);
+  parm = unmodified_parm (NULL, expr, &size);
   if (parm && (index = ipa_get_param_decl_index (info, parm)) >= 0)
-    return add_condition (summary, index, NULL, CHANGED, NULL_TREE);
+    return add_condition (summary, index, size, NULL, CHANGED, NULL_TREE);
   if (is_gimple_min_invariant (expr))
     return false_predicate ();
   if (TREE_CODE (expr) == SSA_NAME)
@@ -2059,7 +2083,7 @@ will_be_nonconstant_expr_predicate (struct ipa_node_params *info,
    a compile time constant.  */
 
 static struct predicate
-will_be_nonconstant_predicate (struct ipa_node_params *info,
+will_be_nonconstant_predicate (struct ipa_func_body_info *fbi,
 			       struct inline_summary *summary,
 			       gimple stmt,
 			       vec<predicate_t> nonconstant_names)
@@ -2070,6 +2094,7 @@ will_be_nonconstant_predicate (struct ipa_node_params *info,
   struct predicate op_non_const;
   bool is_load;
   int base_index;
+  HOST_WIDE_INT size;
   struct agg_position_info aggpos;
 
   /* What statments might be optimized away
@@ -2093,7 +2118,7 @@ will_be_nonconstant_predicate (struct ipa_node_params *info,
       tree op;
       gcc_assert (gimple_assign_single_p (stmt));
       op = gimple_assign_rhs1 (stmt);
-      if (!unmodified_parm_or_parm_agg_item (info, stmt, op, &base_index,
+      if (!unmodified_parm_or_parm_agg_item (fbi, stmt, op, &base_index, &size,
 					     &aggpos))
 	return p;
     }
@@ -2104,9 +2129,9 @@ will_be_nonconstant_predicate (struct ipa_node_params *info,
      adding conditionals.  */
   FOR_EACH_SSA_TREE_OPERAND (use, stmt, iter, SSA_OP_USE)
     {
-      tree parm = unmodified_parm (stmt, use);
+      tree parm = unmodified_parm (stmt, use, NULL);
       /* For arguments we can build a condition.  */
-      if (parm && ipa_get_param_decl_index (info, parm) >= 0)
+      if (parm && ipa_get_param_decl_index (fbi->info, parm) >= 0)
 	continue;
       if (TREE_CODE (use) != SSA_NAME)
 	return p;
@@ -2119,18 +2144,19 @@ will_be_nonconstant_predicate (struct ipa_node_params *info,
 
   if (is_load)
     op_non_const =
-      add_condition (summary, base_index, &aggpos, CHANGED, NULL);
+      add_condition (summary, base_index, size, &aggpos, CHANGED, NULL);
   else
     op_non_const = false_predicate ();
   FOR_EACH_SSA_TREE_OPERAND (use, stmt, iter, SSA_OP_USE)
     {
-      tree parm = unmodified_parm (stmt, use);
+      HOST_WIDE_INT size;
+      tree parm = unmodified_parm (stmt, use, &size);
       int index;
 
-      if (parm && (index = ipa_get_param_decl_index (info, parm)) >= 0)
+      if (parm && (index = ipa_get_param_decl_index (fbi->info, parm)) >= 0)
 	{
 	  if (index != base_index)
-	    p = add_condition (summary, index, NULL, CHANGED, NULL_TREE);
+	    p = add_condition (summary, index, size, NULL, CHANGED, NULL_TREE);
 	  else
 	    continue;
 	}
@@ -2509,13 +2535,17 @@ estimate_function_body_sizes (struct cgraph_node *node, bool early)
   int freq;
   struct inline_summary *info = inline_summaries->get (node);
   struct predicate bb_predicate;
-  struct ipa_node_params *parms_info = NULL;
+  struct ipa_func_body_info fbi;
   vec<predicate_t> nonconstant_names = vNULL;
   int nblocks, n;
   int *order;
   predicate array_index = true_predicate ();
   gimple fix_builtin_expect_stmt;
 
+  gcc_assert (my_function && my_function->cfg);
+  gcc_assert (cfun == my_function);
+
+  memset(&fbi, 0, sizeof(fbi));
   info->conds = NULL;
   info->entry = NULL;
 
@@ -2538,7 +2568,11 @@ estimate_function_body_sizes (struct cgraph_node *node, bool early)
 
       if (ipa_node_params_sum)
 	{
-	  parms_info = IPA_NODE_REF (node);
+	  fbi.node = node;
+	  fbi.info = IPA_NODE_REF (node);
+	  fbi.bb_infos = vNULL;
+	  fbi.bb_infos.safe_grow_cleared (last_basic_block_for_fn (cfun));
+	  fbi.param_count = count_formal_params(node->decl);
 	  nonconstant_names.safe_grow_cleared
 	    (SSANAMES (my_function)->length ());
 	}
@@ -2556,10 +2590,8 @@ estimate_function_body_sizes (struct cgraph_node *node, bool early)
   bb_predicate = not_inlined_predicate ();
   account_size_time (info, 2 * INLINE_SIZE_SCALE, 0, &bb_predicate);
 
-  gcc_assert (my_function && my_function->cfg);
-  if (parms_info)
-    compute_bb_predicates (node, parms_info, info);
-  gcc_assert (cfun == my_function);
+  if (fbi.info)
+    compute_bb_predicates (&fbi, node, info);
   order = XNEWVEC (int, n_basic_blocks_for_fn (cfun));
   nblocks = pre_and_rev_post_order_compute (NULL, order, false);
   for (n = 0; n < nblocks; n++)
@@ -2576,7 +2608,7 @@ estimate_function_body_sizes (struct cgraph_node *node, bool early)
 	}
 
       /* TODO: Obviously predicates can be propagated down across CFG.  */
-      if (parms_info)
+      if (fbi.info)
 	{
 	  if (bb->aux)
 	    bb_predicate = *(struct predicate *) bb->aux;
@@ -2592,7 +2624,7 @@ estimate_function_body_sizes (struct cgraph_node *node, bool early)
 	  dump_predicate (dump_file, info->conds, &bb_predicate);
 	}
 
-      if (parms_info && nonconstant_names.exists ())
+      if (fbi.info && nonconstant_names.exists ())
 	{
 	  struct predicate phi_predicate;
 	  bool first_phi = true;
@@ -2601,7 +2633,7 @@ estimate_function_body_sizes (struct cgraph_node *node, bool early)
 	       gsi_next (&bsi))
 	    {
 	      if (first_phi
-		  && !phi_result_unknown_predicate (parms_info, info, bb,
+		  && !phi_result_unknown_predicate (fbi.info, info, bb,
 						    &phi_predicate,
 						    nonconstant_names))
 		break;
@@ -2710,9 +2742,9 @@ estimate_function_body_sizes (struct cgraph_node *node, bool early)
 	  /* TODO: When conditional jump or swithc is known to be constant, but
 	     we did not translate it into the predicates, we really can account
 	     just maximum of the possible paths.  */
-	  if (parms_info)
+	  if (fbi.info)
 	    will_be_nonconstant
-	      = will_be_nonconstant_predicate (parms_info, info,
+	      = will_be_nonconstant_predicate (&fbi, info,
 					       stmt, nonconstant_names);
 	  if (this_time || this_size)
 	    {
@@ -2727,7 +2759,7 @@ estimate_function_body_sizes (struct cgraph_node *node, bool early)
 	      if (prob == 2 && dump_file && (dump_flags & TDF_DETAILS))
 		fprintf (dump_file, "\t\tWill be eliminated by inlining\n");
 
-	      if (parms_info)
+	      if (fbi.info)
 		p = and_predicates (info->conds, &bb_predicate,
 				    &will_be_nonconstant);
 	      else
@@ -2784,9 +2816,8 @@ estimate_function_body_sizes (struct cgraph_node *node, bool early)
 	{
 	  vec<edge> exits;
 	  edge ex;
-	  unsigned int j, i;
+	  unsigned int j;
 	  struct tree_niter_desc niter_desc;
-	  basic_block *body = get_loop_body (loop);
 	  bb_predicate = *(struct predicate *) loop->header->aux;
 
 	  exits = get_loop_exit_edges (loop);
@@ -2795,7 +2826,7 @@ estimate_function_body_sizes (struct cgraph_node *node, bool early)
 		&& !is_gimple_min_invariant (niter_desc.niter))
 	    {
 	      predicate will_be_nonconstant
-		= will_be_nonconstant_expr_predicate (parms_info, info,
+		= will_be_nonconstant_expr_predicate (fbi.info, info,
 						      niter_desc.niter,
 						      nonconstant_names);
 	      if (!true_predicate_p (&will_be_nonconstant))
@@ -2812,46 +2843,32 @@ estimate_function_body_sizes (struct cgraph_node *node, bool early)
 	    }
 	  exits.release ();
 
-	  for (i = 0; i < loop->num_nodes; i++)
+	  for (gphi_iterator gsi = gsi_start_phis (loop->header);
+	       !gsi_end_p (gsi); gsi_next (&gsi))
 	    {
-	      gimple_stmt_iterator gsi;
-	      bb_predicate = *(struct predicate *) body[i]->aux;
-	      for (gsi = gsi_start_bb (body[i]); !gsi_end_p (gsi);
-		   gsi_next (&gsi))
-		{
-		  gimple stmt = gsi_stmt (gsi);
-		  affine_iv iv;
-		  ssa_op_iter iter;
-		  tree use;
-
-		  FOR_EACH_SSA_TREE_OPERAND (use, stmt, iter, SSA_OP_USE)
-		  {
-		    predicate will_be_nonconstant;
-
-		    if (!simple_iv
-			(loop, loop_containing_stmt (stmt), use, &iv, true)
-			|| is_gimple_min_invariant (iv.step))
-		      continue;
-		    will_be_nonconstant
-		      = will_be_nonconstant_expr_predicate (parms_info, info,
-							    iv.step,
-							    nonconstant_names);
-		    if (!true_predicate_p (&will_be_nonconstant))
-		      will_be_nonconstant
-			 = and_predicates (info->conds,
-					   &bb_predicate,
-					   &will_be_nonconstant);
-		    if (!true_predicate_p (&will_be_nonconstant)
-			&& !false_predicate_p (&will_be_nonconstant))
-		      /* This is slightly inprecise.  We may want to represent
-			 each loop with independent predicate.  */
-		      loop_stride =
-			and_predicates (info->conds, &loop_stride,
-					&will_be_nonconstant);
-		  }
-		}
+	      gphi *phi = gsi.phi ();
+	      tree use = gimple_phi_result (phi);
+	      affine_iv iv;
+	      predicate will_be_nonconstant;
+	      if (virtual_operand_p (use)
+		  || !simple_iv (loop, loop, use, &iv, true)
+		  || is_gimple_min_invariant (iv.step))
+		continue;
+	      will_be_nonconstant
+		= will_be_nonconstant_expr_predicate (fbi.info, info,
+						      iv.step,
+						      nonconstant_names);
+	      if (!true_predicate_p (&will_be_nonconstant))
+		will_be_nonconstant = and_predicates (info->conds,
+						      &bb_predicate,
+						      &will_be_nonconstant);
+	      if (!true_predicate_p (&will_be_nonconstant)
+		  && !false_predicate_p (&will_be_nonconstant))
+		/* This is slightly inprecise.  We may want to represent
+		   each loop with independent predicate.  */
+		loop_stride = and_predicates (info->conds, &loop_stride,
+					      &will_be_nonconstant);
 	    }
-	  free (body);
 	}
       set_hint_predicate (&inline_summaries->get (node)->loop_iterations,
 			  loop_iterations);
@@ -3133,6 +3150,9 @@ estimate_calls_size_and_time (struct cgraph_node *node, int *size,
   struct cgraph_edge *e;
   for (e = node->callees; e; e = e->next_callee)
     {
+      if (inline_edge_summary_vec.length () <= (unsigned) e->uid)
+	continue;
+
       struct inline_edge_summary *es = inline_edge_summary (e);
 
       /* Do not care about zero sized builtins.  */
@@ -3164,6 +3184,9 @@ estimate_calls_size_and_time (struct cgraph_node *node, int *size,
     }
   for (e = node->indirect_calls; e; e = e->next_callee)
     {
+      if (inline_edge_summary_vec.length () <= (unsigned) e->uid)
+	continue;
+
       struct inline_edge_summary *es = inline_edge_summary (e);
       if (!es->predicate
 	  || evaluate_predicate (es->predicate, possible_truths))
@@ -3387,7 +3410,8 @@ remap_predicate (struct inline_summary *info,
 		    ap.by_ref = c->by_ref;
 		    cond_predicate = add_condition (info,
 						    operand_map[c->operand_num],
-						    &ap, c->code, c->val);
+						    c->size, &ap, c->code,
+						    c->val);
 		  }
 	      }
 	    /* Fixed conditions remains same, construct single
@@ -4242,6 +4266,7 @@ inline_read_section (struct lto_file_decl_data *file_data, const char *data,
 	{
 	  struct condition c;
 	  c.operand_num = streamer_read_uhwi (&ib);
+	  c.size = streamer_read_uhwi (&ib);
 	  c.code = (enum tree_code) streamer_read_uhwi (&ib);
 	  c.val = stream_read_tree (&ib, data_in);
 	  bp = streamer_read_bitpack (&ib);
@@ -4406,6 +4431,7 @@ inline_write_summary (void)
 	  for (i = 0; vec_safe_iterate (info->conds, i, &c); i++)
 	    {
 	      streamer_write_uhwi (ob, c->operand_num);
+	      streamer_write_uhwi (ob, c->size);
 	      streamer_write_uhwi (ob, c->code);
 	      stream_write_tree (ob, c->val, true);
 	      bp = bitpack_create (ob->main_stream);

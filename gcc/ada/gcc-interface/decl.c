@@ -5450,7 +5450,26 @@ get_minimal_subprog_decl (Entity_Id gnat_entity)
 bool
 is_cplusplus_method (Entity_Id gnat_entity)
 {
+  /* Check that the subprogram has C++ convention.  */
   if (Convention (gnat_entity) != Convention_CPP)
+    return false;
+
+  /* A constructor is a method on the C++ side.  We deal with it now because
+     it is declared without the 'this' parameter in the sources and, although
+     the front-end will create a version with the 'this' parameter for code
+     generation purposes, we want to return true for both versions.  */
+  if (Is_Constructor (gnat_entity))
+    return true;
+
+  /* And that the type of the first parameter (indirectly) has it too.  */
+  Entity_Id gnat_first = First_Formal (gnat_entity);
+  if (No (gnat_first))
+    return false;
+
+  Entity_Id gnat_type = Etype (gnat_first);
+  if (Is_Access_Type (gnat_type))
+    gnat_type = Directly_Designated_Type (gnat_type);
+  if (Convention (gnat_type) != Convention_CPP)
     return false;
 
   /* This is the main case: C++ method imported as a primitive operation.
@@ -5461,10 +5480,6 @@ is_cplusplus_method (Entity_Id gnat_entity)
 
   /* A thunk needs to be handled like its associated primitive operation.  */
   if (Is_Subprogram (gnat_entity) && Is_Thunk (gnat_entity))
-    return true;
-
-  /* A constructor is a method on the C++ side.  */
-  if (Is_Constructor (gnat_entity))
     return true;
 
   /* This is set on the E_Subprogram_Type built for a dispatching call.  */
@@ -7365,6 +7380,25 @@ components_to_record (tree gnu_record_type, Node_Id gnat_component_list,
      order to do a correct layout, i.e. avoid having overlapping fields.  */
   if (p_gnu_rep_list && gnu_rep_list)
     *p_gnu_rep_list = chainon (*p_gnu_rep_list, gnu_rep_list);
+
+  /* Deal with the annoying case of an extension of a record with variable size
+     and partial rep clause, for which the _Parent field is forced at offset 0
+     and has variable size, which we do not support below.  Note that we cannot
+     do it if the field has fixed size because we rely on the presence of the
+     REP part built below to trigger the reordering of the fields in a derived
+     record type when all the fields have a fixed position.  */
+  else if (gnu_rep_list
+	   && !DECL_CHAIN (gnu_rep_list)
+	   && TREE_CODE (DECL_SIZE (gnu_rep_list)) != INTEGER_CST
+	   && !variants_have_rep
+	   && first_free_pos
+	   && integer_zerop (first_free_pos)
+	   && integer_zerop (bit_position (gnu_rep_list)))
+    {
+      DECL_CHAIN (gnu_rep_list) = gnu_field_list;
+      gnu_field_list = gnu_rep_list;
+      gnu_rep_list = NULL_TREE;
+    }
 
   /* Otherwise, sort the fields by bit position and put them into their own
      record, before the others, if we also have fields without rep clause.  */

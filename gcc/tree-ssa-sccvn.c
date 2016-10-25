@@ -844,8 +844,11 @@ copy_reference_ops_from_ref (tree ref, vec<vn_reference_op_s> *result)
 	case MEM_REF:
 	  /* The base address gets its own vn_reference_op_s structure.  */
 	  temp.op0 = TREE_OPERAND (ref, 1);
-	  if (tree_fits_shwi_p (TREE_OPERAND (ref, 1)))
-	    temp.off = tree_to_shwi (TREE_OPERAND (ref, 1));
+	    {
+	      offset_int off = mem_ref_offset (ref);
+	      if (wi::fits_shwi_p (off))
+		temp.off = off.to_shwi ();
+	    }
 	  break;
 	case BIT_FIELD_REF:
 	  /* Record bits and position.  */
@@ -2196,11 +2199,12 @@ vn_reference_lookup_pieces (tree vuse, alias_set_type set, tree type,
    number if it exists in the hash table.  Return NULL_TREE if it does
    not exist in the hash table or if the result field of the structure
    was NULL..  VNRESULT will be filled in with the vn_reference_t
-   stored in the hashtable if one exists.  */
+   stored in the hashtable if one exists.  When TBAA_P is false assume
+   we are looking up a store and treat it as having alias-set zero.  */
 
 tree
 vn_reference_lookup (tree op, tree vuse, vn_lookup_kind kind,
-		     vn_reference_t *vnresult)
+		     vn_reference_t *vnresult, bool tbaa_p)
 {
   vec<vn_reference_op_s> operands;
   struct vn_reference_s vr1;
@@ -2214,7 +2218,7 @@ vn_reference_lookup (tree op, tree vuse, vn_lookup_kind kind,
   vr1.operands = operands
     = valueize_shared_reference_ops_from_ref (op, &valuezied_anything);
   vr1.type = TREE_TYPE (op);
-  vr1.set = get_alias_set (op);
+  vr1.set = tbaa_p ? get_alias_set (op) : 0;
   vr1.hashcode = vn_reference_compute_hash (&vr1);
   if ((cst = fully_constant_vn_reference_p (&vr1)))
     return cst;
@@ -2230,6 +2234,8 @@ vn_reference_lookup (tree op, tree vuse, vn_lookup_kind kind,
 	  || !ao_ref_init_from_vn_reference (&r, vr1.set, vr1.type,
 					     vr1.operands))
 	ao_ref_init (&r, op);
+      if (! tbaa_p)
+	r.ref_alias_set = r.base_alias_set = 0;
       vn_walk_kind = kind;
       wvnresult =
 	(vn_reference_t)walk_non_aliased_vuses (&r, vr1.vuse,
@@ -3027,7 +3033,7 @@ visit_reference_op_load (tree lhs, tree op, gimple stmt)
   last_vuse = gimple_vuse (stmt);
   last_vuse_ptr = &last_vuse;
   result = vn_reference_lookup (op, gimple_vuse (stmt),
-				default_vn_walk_kind, NULL);
+				default_vn_walk_kind, NULL, true);
   last_vuse_ptr = NULL;
 
   /* We handle type-punning through unions by value-numbering based
@@ -3146,7 +3152,7 @@ visit_reference_op_store (tree lhs, tree op, gimple stmt)
      Otherwise, the vdefs for the store are used when inserting into
      the table, since the store generates a new memory state.  */
 
-  result = vn_reference_lookup (lhs, vuse, VN_NOWALK, NULL);
+  result = vn_reference_lookup (lhs, vuse, VN_NOWALK, NULL, false);
 
   if (result)
     {
@@ -3161,7 +3167,7 @@ visit_reference_op_store (tree lhs, tree op, gimple stmt)
       && default_vn_walk_kind == VN_WALK)
     {
       assign = build2 (MODIFY_EXPR, TREE_TYPE (lhs), lhs, op);
-      vn_reference_lookup (assign, vuse, VN_NOWALK, &vnresult);
+      vn_reference_lookup (assign, vuse, VN_NOWALK, &vnresult, false);
       if (vnresult)
 	{
 	  VN_INFO (vdef)->use_processed = true;

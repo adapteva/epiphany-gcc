@@ -1103,7 +1103,6 @@ static bool
 reload_combine_recognize_pattern (rtx_insn *insn)
 {
   rtx set, reg, src;
-  unsigned int regno;
 
   set = single_set (insn);
   if (set == NULL_RTX)
@@ -1115,7 +1114,20 @@ reload_combine_recognize_pattern (rtx_insn *insn)
       || hard_regno_nregs[REGNO (reg)][GET_MODE (reg)] != 1)
     return false;
 
-  regno = REGNO (reg);
+  unsigned int regno = REGNO (reg);
+  machine_mode mode = GET_MODE (reg);
+
+  if (reg_state[regno].use_index < 0
+      || reg_state[regno].use_index >= RELOAD_COMBINE_MAX_USES)
+    return false;
+
+  for (int i = reg_state[regno].use_index;
+       i < RELOAD_COMBINE_MAX_USES; i++)
+    {
+      struct reg_use *use = reg_state[regno].reg_use + i;
+      if (GET_MODE (*use->usep) != mode)
+	return false;
+    }
 
   /* Look for (set (REGX) (CONST_INT))
      (set (REGX) (PLUS (REGX) (REGY)))
@@ -1137,8 +1149,6 @@ reload_combine_recognize_pattern (rtx_insn *insn)
       && REG_P (XEXP (src, 1))
       && rtx_equal_p (XEXP (src, 0), reg)
       && !rtx_equal_p (XEXP (src, 1), reg)
-      && reg_state[regno].use_index >= 0
-      && reg_state[regno].use_index < RELOAD_COMBINE_MAX_USES
       && last_label_ruid < reg_state[regno].use_ruid)
     {
       rtx base = XEXP (src, 1);
@@ -2164,11 +2174,28 @@ reload_cse_move2add (rtx_insn *first)
 	 unknown values.  */
       if (CALL_P (insn))
 	{
+	  rtx link;
+
 	  for (i = FIRST_PSEUDO_REGISTER - 1; i >= 0; i--)
 	    {
 	      if (call_used_regs[i])
 		/* Reset the information about this register.  */
 		reg_mode[i] = VOIDmode;
+	    }
+
+	  for (link = CALL_INSN_FUNCTION_USAGE (insn); link;
+	       link = XEXP (link, 1))
+	    {
+	      rtx setuse = XEXP (link, 0);
+	      rtx usage_rtx = XEXP (setuse, 0);
+	      if (GET_CODE (setuse) == CLOBBER
+		  && REG_P (usage_rtx))
+	        {
+		  unsigned int end_regno = END_REGNO (usage_rtx);
+		  for (unsigned int r = REGNO (usage_rtx); r < end_regno; ++r)
+		    /* Reset the information about this register.  */
+		    reg_mode[r] = VOIDmode;
+		}
 	    }
 	}
     }

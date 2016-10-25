@@ -296,6 +296,9 @@
 ;; For constraints used in scalar immediate vector moves
 (define_mode_attr hq [(HI "h") (QI "q")])
 
+;; For doubling width of an integer mode
+(define_mode_attr DWI [(QI "HI") (HI "SI") (SI "DI") (DI "TI")])
+
 ;; For scalar usage of vector/FP registers
 (define_mode_attr v [(QI "b") (HI "h") (SI "s") (DI "d")
 		    (SF "s") (DF "d")
@@ -341,9 +344,6 @@
 
 ;; Attribute to describe constants acceptable in logical operations
 (define_mode_attr lconst [(SI "K") (DI "L")])
-
-;; Attribute to describe constants acceptable in atomic logical operations
-(define_mode_attr lconst_atomic [(QI "K") (HI "K") (SI "K") (DI "L")])
 
 ;; Map a mode to a specific constraint character.
 (define_mode_attr cmode [(QI "q") (HI "h") (SI "s") (DI "d")])
@@ -844,6 +844,16 @@
    (and "aarch64_logical_operand")
    (plus "aarch64_plus_operand")
    (minus "aarch64_plus_operand")])
+
+;; Constants acceptable for atomic operations.
+;; This definition must appear in this file before the iterators it refers to.
+(define_code_attr const_atomic
+ [(plus "IJ") (minus "IJ")
+  (xor "<lconst_atomic>") (ior "<lconst_atomic>")
+  (and "<lconst_atomic>")])
+
+;; Attribute to describe constants acceptable in atomic logical operations
+(define_mode_attr lconst_atomic [(QI "K") (HI "K") (SI "K") (DI "L")])
 
 ;; -------------------------------------------------------------------
 ;; Int Iterators.

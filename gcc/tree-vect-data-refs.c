@@ -648,7 +648,6 @@ vect_compute_data_ref_alignment (struct data_reference *dr)
   tree ref = DR_REF (dr);
   tree vectype;
   tree base, base_addr;
-  bool base_aligned;
   tree misalign;
   tree aligned_to;
   unsigned HOST_WIDE_INT alignment;
@@ -721,6 +720,19 @@ vect_compute_data_ref_alignment (struct data_reference *dr)
 	}
     }
 
+  /* To look at alignment of the base we have to preserve an inner MEM_REF
+     as that carries alignment information of the actual access.  */
+  base = ref;
+  while (handled_component_p (base))
+    base = TREE_OPERAND (base, 0);
+  if (TREE_CODE (base) == MEM_REF)
+    base = build2 (MEM_REF, TREE_TYPE (base), base_addr,
+		   build_int_cst (TREE_TYPE (TREE_OPERAND (base, 1)), 0));
+  unsigned int base_alignment = get_object_alignment (base);
+
+  if (base_alignment >= TYPE_ALIGN (TREE_TYPE (vectype)))
+    DR_VECT_AUX (dr)->base_element_aligned = true;
+
   alignment = TYPE_ALIGN_UNIT (vectype);
 
   if ((compare_tree_int (aligned_to, alignment) < 0)
@@ -736,21 +748,7 @@ vect_compute_data_ref_alignment (struct data_reference *dr)
       return true;
     }
 
-  /* To look at alignment of the base we have to preserve an inner MEM_REF
-     as that carries alignment information of the actual access.  */
-  base = ref;
-  while (handled_component_p (base))
-    base = TREE_OPERAND (base, 0);
-  if (TREE_CODE (base) == MEM_REF)
-    base = build2 (MEM_REF, TREE_TYPE (base), base_addr,
-		   build_int_cst (TREE_TYPE (TREE_OPERAND (base, 1)), 0));
-
-  if (get_object_alignment (base) >= TYPE_ALIGN (vectype))
-    base_aligned = true;
-  else
-    base_aligned = false;
-
-  if (!base_aligned)
+  if (base_alignment < TYPE_ALIGN (vectype))
     {
       /* Strip an inner MEM_REF to a bare decl if possible.  */
       if (TREE_CODE (base) == MEM_REF
@@ -780,8 +778,9 @@ vect_compute_data_ref_alignment (struct data_reference *dr)
           dump_printf (MSG_NOTE, "\n");
         }
 
-      ((dataref_aux *)dr->aux)->base_decl = base;
-      ((dataref_aux *)dr->aux)->base_misaligned = true;
+      DR_VECT_AUX (dr)->base_decl = base;
+      DR_VECT_AUX (dr)->base_misaligned = true;
+      DR_VECT_AUX (dr)->base_element_aligned = true;
     }
 
   /* If this is a backward running DR then first access in the larger
@@ -2906,10 +2905,38 @@ vect_prune_runtime_alias_test_list (loop_vec_info loop_vinfo)
 	      || !tree_fits_shwi_p (dr_a2->offset))
 	    continue;
 
-	  HOST_WIDE_INT diff = (tree_to_shwi (dr_a2->offset)
-				- tree_to_shwi (dr_a1->offset));
+	  /* Make sure dr_a1 starts left of dr_a2.  */
+	  if (tree_int_cst_lt (dr_a2->offset, dr_a1->offset))
+	    std::swap (*dr_a1, *dr_a2);
+
+	  unsigned HOST_WIDE_INT diff
+	    = tree_to_shwi (dr_a2->offset) - tree_to_shwi (dr_a1->offset);
 
 
+	  bool do_remove = false;
+
+	  /* If the left segment does not extend beyond the start of the
+	     right segment the new segment length is that of the right
+	     plus the segment distance.  */
+	  if (tree_fits_uhwi_p (dr_a1->seg_len)
+	      && compare_tree_int (dr_a1->seg_len, diff) <= 0)
+	    {
+	      dr_a1->seg_len = size_binop (PLUS_EXPR, dr_a2->seg_len,
+					   size_int (diff));
+	      do_remove = true;
+	    }
+	  /* Generally the new segment length is the maximum of the
+	     left segment size and the right segment size plus the distance.
+	     ???  We can also build tree MAX_EXPR here but it's not clear this
+	     is profitable.  */
+	  else if (tree_fits_uhwi_p (dr_a1->seg_len)
+		   && tree_fits_uhwi_p (dr_a2->seg_len))
+	    {
+	      unsigned HOST_WIDE_INT seg_len_a1 = tree_to_uhwi (dr_a1->seg_len);
+	      unsigned HOST_WIDE_INT seg_len_a2 = tree_to_uhwi (dr_a2->seg_len);
+	      dr_a1->seg_len = size_int (MAX (seg_len_a1, diff + seg_len_a2));
+	      do_remove = true;
+	    }
 	  /* Now we check if the following condition is satisfied:
 
 	     DIFF - SEGMENT_LENGTH_A < SEGMENT_LENGTH_B
@@ -2922,38 +2949,39 @@ vect_prune_runtime_alias_test_list (loop_vec_info loop_vinfo)
 	     one above:
 
 	     1: DIFF <= MIN_SEG_LEN_B
-	     2: DIFF - SEGMENT_LENGTH_A < MIN_SEG_LEN_B
+	     2: DIFF - SEGMENT_LENGTH_A < MIN_SEG_LEN_B  */
+	  else
+	    {
+	      unsigned HOST_WIDE_INT min_seg_len_b
+		= (tree_fits_uhwi_p (dr_b1->seg_len)
+		   ? tree_to_uhwi (dr_b1->seg_len)
+		   : vect_factor);
 
-	     */
+	      if (diff <= min_seg_len_b
+		  || (tree_fits_uhwi_p (dr_a1->seg_len)
+		      && diff - tree_to_uhwi (dr_a1->seg_len) < min_seg_len_b))
+		{
+		  dr_a1->seg_len = size_binop (PLUS_EXPR,
+					       dr_a2->seg_len, size_int (diff));
+		  do_remove = true;
+		}
+	    }
 
-	  HOST_WIDE_INT  min_seg_len_b = (tree_fits_shwi_p (dr_b1->seg_len)
-					  ? tree_to_shwi (dr_b1->seg_len)
-					  : vect_factor);
-
-	  if (diff <= min_seg_len_b
-	      || (tree_fits_shwi_p (dr_a1->seg_len)
-		  && diff - tree_to_shwi (dr_a1->seg_len) < min_seg_len_b))
+	  if (do_remove)
 	    {
 	      if (dump_enabled_p ())
 		{
 		  dump_printf_loc (MSG_NOTE, vect_location,
 				   "merging ranges for ");
-		  dump_generic_expr (MSG_NOTE, TDF_SLIM,
-				     DR_REF (dr_a1->dr));
+		  dump_generic_expr (MSG_NOTE, TDF_SLIM, DR_REF (dr_a1->dr));
 		  dump_printf (MSG_NOTE,  ", ");
-		  dump_generic_expr (MSG_NOTE, TDF_SLIM,
-				     DR_REF (dr_b1->dr));
+		  dump_generic_expr (MSG_NOTE, TDF_SLIM, DR_REF (dr_b1->dr));
 		  dump_printf (MSG_NOTE,  " and ");
-		  dump_generic_expr (MSG_NOTE, TDF_SLIM,
-				     DR_REF (dr_a2->dr));
+		  dump_generic_expr (MSG_NOTE, TDF_SLIM, DR_REF (dr_a2->dr));
 		  dump_printf (MSG_NOTE,  ", ");
-		  dump_generic_expr (MSG_NOTE, TDF_SLIM,
-				     DR_REF (dr_b2->dr));
+		  dump_generic_expr (MSG_NOTE, TDF_SLIM, DR_REF (dr_b2->dr));
 		  dump_printf (MSG_NOTE, "\n");
 		}
-
-	      dr_a1->seg_len = size_binop (PLUS_EXPR,
-					   dr_a2->seg_len, size_int (diff));
 	      comp_alias_ddrs.ordered_remove (i--);
 	    }
 	}

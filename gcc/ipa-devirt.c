@@ -483,7 +483,7 @@ types_same_for_odr (const_tree type1, const_tree type2, bool strict)
 	return false;
       if (TREE_CODE (type1) == RECORD_TYPE
 	  && (TYPE_BINFO (type1) == NULL_TREE)
-	      != (TYPE_BINFO (type1) == NULL_TREE))
+	      != (TYPE_BINFO (type2) == NULL_TREE))
 	return false;
       if (TREE_CODE (type1) == RECORD_TYPE && TYPE_BINFO (type1)
 	  && (BINFO_VTABLE (TYPE_BINFO (type1)) == NULL_TREE)
@@ -1536,6 +1536,7 @@ odr_types_equivalent_p (tree t1, tree t2, bool warn, bool *warned,
 	break;
       }
     case VOID_TYPE:
+    case NULLPTR_TYPE:
       break;
 
     default:

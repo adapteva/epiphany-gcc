@@ -5256,7 +5256,8 @@ set_unique_reg_note (rtx insn, enum reg_note kind, rtx datum)
     {
     case REG_EQUAL:
     case REG_EQUIV:
-      if (!set_for_reg_notes (insn))
+      /* We need to support the REG_EQUAL on USE trick of find_reloads.  */
+      if (!set_for_reg_notes (insn) && GET_CODE (PATTERN (insn)) != USE)
 	return NULL_RTX;
 
       /* Don't add ASM_OPERAND REG_EQUAL/REG_EQUIV notes.
@@ -6323,11 +6324,14 @@ need_atomic_barrier_p (enum memmodel model, bool pre)
     case MEMMODEL_CONSUME:
       return false;
     case MEMMODEL_RELEASE:
+    case MEMMODEL_SYNC_RELEASE:
       return pre;
     case MEMMODEL_ACQUIRE:
+    case MEMMODEL_SYNC_ACQUIRE:
       return !pre;
     case MEMMODEL_ACQ_REL:
     case MEMMODEL_SEQ_CST:
+    case MEMMODEL_SYNC_SEQ_CST:
       return true;
     default:
       gcc_unreachable ();

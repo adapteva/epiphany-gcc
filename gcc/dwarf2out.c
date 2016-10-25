@@ -389,12 +389,14 @@ dump_struct_debug (tree type, enum debug_info_usage usage,
 #endif
 
 /* Get the number of HOST_WIDE_INTs needed to represent the precision
-   of the number.  */
+   of the number.  Some constants have a large uniform precision, so
+   we get the precision needed for the actual value of the number.  */
 
 static unsigned int
 get_full_len (const wide_int &op)
 {
-  return ((op.get_precision () + HOST_BITS_PER_WIDE_INT - 1)
+  int prec = wi::min_precision (op, UNSIGNED);
+  return ((prec + HOST_BITS_PER_WIDE_INT - 1)
 	  / HOST_BITS_PER_WIDE_INT);
 }
 
@@ -8901,14 +8903,14 @@ output_die (dw_die_ref die)
 		{
 		  dw2_asm_output_data (l, a->dw_attr_val.v.val_wide->elt (i),
 				       "%s", name);
-		  name = NULL;
+		  name = "";
 		}
 	    else
 	      for (i = 0; i < len; ++i)
 		{
 		  dw2_asm_output_data (l, a->dw_attr_val.v.val_wide->elt (i),
 				       "%s", name);
-		  name = NULL;
+		  name = "";
 		}
 	  }
 	  break;
@@ -15470,8 +15472,13 @@ add_const_value_attribute (dw_die_ref die, rtx rtl)
       return true;
 
     case CONST_WIDE_INT:
-      add_AT_wide (die, DW_AT_const_value,
-		   std::make_pair (rtl, GET_MODE (rtl)));
+      {
+	wide_int w1 = std::make_pair (rtl, MAX_MODE_INT);
+	unsigned int prec = MIN (wi::min_precision (w1, UNSIGNED),
+				 (unsigned int)CONST_WIDE_INT_NUNITS (rtl) * HOST_BITS_PER_WIDE_INT);
+	wide_int w = wi::zext (w1, prec);
+	add_AT_wide (die, DW_AT_const_value, w);
+      }
       return true;
 
     case CONST_DOUBLE:
@@ -16248,7 +16255,7 @@ native_encode_initializer (tree init, unsigned char *array, int size)
 	      fieldsize = tree_to_shwi (DECL_SIZE_UNIT (field));
 	      pos = int_byte_position (field);
 	      gcc_assert (pos + fieldsize <= size);
-	      if (val
+	      if (val && fieldsize != 0
 		  && !native_encode_initializer (val, array + pos, fieldsize))
 		return false;
 	    }
@@ -19122,7 +19129,7 @@ gen_variable_die (tree decl, tree origin, dw_die_ref context_die)
 		 DW_TAG_common_block and DW_TAG_variable.  */
 	      loc = loc_list_from_tree (com_decl, 2, NULL);
 	    }
-          else if (DECL_EXTERNAL (decl))
+	  else if (DECL_EXTERNAL (decl_or_origin))
 	    add_AT_flag (com_die, DW_AT_declaration, 1);
 	  if (want_pubnames ())
 	    add_pubname_string (cnam, com_die); /* ??? needed? */
@@ -19137,9 +19144,9 @@ gen_variable_die (tree decl, tree origin, dw_die_ref context_die)
 	  remove_AT (com_die, DW_AT_declaration);
 	}
       var_die = new_die (DW_TAG_variable, com_die, decl);
-      add_name_and_src_coords_attributes (var_die, decl);
-      add_type_attribute (var_die, TREE_TYPE (decl), decl_quals (decl),
-			  context_die);
+      add_name_and_src_coords_attributes (var_die, decl_or_origin);
+      add_type_attribute (var_die, TREE_TYPE (decl_or_origin),
+			  decl_quals (decl_or_origin), context_die);
       add_AT_flag (var_die, DW_AT_external, 1);
       if (loc)
 	{
@@ -19160,9 +19167,10 @@ gen_variable_die (tree decl, tree origin, dw_die_ref context_die)
 	    }
 	  add_AT_location_description (var_die, DW_AT_location, loc);
 	}
-      else if (DECL_EXTERNAL (decl))
+      else if (DECL_EXTERNAL (decl_or_origin))
 	add_AT_flag (var_die, DW_AT_declaration, 1);
-      equate_decl_number_to_die (decl, var_die);
+      if (decl)
+	equate_decl_number_to_die (decl, var_die);
       return;
     }
 
@@ -20283,9 +20291,10 @@ gen_type_die_with_usage (tree type, dw_die_ref context_die,
   /* We are going to output a DIE to represent the unqualified version
      of this type (i.e. without any const or volatile qualifiers) so
      get the main variant (i.e. the unqualified version) of this type
-     now.  (Vectors are special because the debugging info is in the
+     now.  (Vectors and arrays are special because the debugging info is in the
      cloned type itself).  */
-  if (TREE_CODE (type) != VECTOR_TYPE)
+  if (TREE_CODE (type) != VECTOR_TYPE
+      && TREE_CODE (type) != ARRAY_TYPE)
     type = type_main_variant (type);
 
   /* If this is an array type with hidden descriptor, handle it first.  */
