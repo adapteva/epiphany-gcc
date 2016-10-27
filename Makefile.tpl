@@ -554,7 +554,8 @@ HOST_LIB_PATH_gcc = $$r/$(HOST_SUBDIR)/gcc$(GCC_SHLIB_SUBDIR):$$r/$(HOST_SUBDIR)
 [+ FOR host_modules +][+ IF lib_path +]
 @if [+module+]
 HOST_LIB_PATH_[+module+] = \
-  $$r/$(HOST_SUBDIR)/[+module+]/[+lib_path+]:[+ IF bootstrap
+  [+ IF lib_path2 +]$$r/$(HOST_SUBDIR)/[+module+]/[+lib_path2+]:[+ ENDIF
+  lib_path2 +]$$r/$(HOST_SUBDIR)/[+module+]/[+lib_path+]:[+ IF bootstrap
   +]$$r/$(HOST_SUBDIR)/prev-[+module+]/[+lib_path+]:[+ ENDIF bootstrap +]
 @endif [+module+]
 [+ ENDIF lib_path +][+ ENDFOR host_modules +]
