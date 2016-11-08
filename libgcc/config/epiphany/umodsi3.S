@@ -33,12 +33,12 @@ SYM(__umodsi3):
 	mov r2,5
 	lsl r2,r2,29 ; 0xa0000000
 	orr r3,r2,r0
-	lsr r15,r0,16
-	movt r15,0xa800
-	movne r3,r15
+	lsr r17,r0,16
+	movt r17,0xa800
+	movne r3,r17
 	lsr r16,r2,2 ; 0x28000000
-	and r15,r3,r16
-	fadd r12,r3,r15
+	and r17,r3,r16
+	fadd r12,r3,r17
 	 orr r3,r2,r1
 	lsr r2,r1,16
 	movt r2,0xa800

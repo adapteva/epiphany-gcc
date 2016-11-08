@@ -38,12 +38,12 @@ SYM(__modsi3):
 	movgt r1,r3
 	movt r2,0xa000 ; 0xa0000000
 	orr r3,r2,r0
-	lsr r15,r0,16
-	movt r15,0xa800
-	movne r3,r15
+	lsr r18,r0,16
+	movt r18,0xa800
+	movne r3,r18
 	lsr r16,r2,2 ; 0x28000000
-	and r15,r3,r16
-	fadd r12,r3,r15
+	and r18,r3,r16
+	fadd r12,r3,r18
 	 orr r3,r2,r1
 	lsr r2,r1,16
 	movt r2,0xa800
