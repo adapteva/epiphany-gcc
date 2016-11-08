@@ -1,3 +1,13 @@
+2016-11-08  Ola Jeppsson  <ola@adapteva.com>
+
+	* config/epiphany/epiphany.md (define_constants)
+	<UNSPECV_BLOCKAGE>: New constant.
+	(blockage): New define_insn.
+	* config/epiphany/epiphany.opt (mno-sched-prolog): New option.
+	Default to allow scheduling in prologue.
+	* config/epiphany/epiphany.c (epiphany_expand_prologue): Emit
+	blockage if TARGET_NO_SCHED_PROLOG is set.
+
 2016-04-04  Ola Jeppsson  <ola@adapteva.com>
 
 	* config/epiphany/epiphany.h (CALL_USED_REGISTERS): Make

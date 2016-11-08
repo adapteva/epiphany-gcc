@@ -53,7 +53,8 @@
    (UNSPEC_CASESI		 2)
 
    (UNSPECV_GID			 0)
-   (UNSPECV_GIE			 1)])
+   (UNSPECV_GIE			 1)
+   (UNSPECV_BLOCKAGE		 2)])
 
 ;; Insn type.  Used to default other attribute values.
 
@@ -146,6 +147,12 @@
       DONE;
     }
 })
+
+(define_insn "blockage"
+  [(unspec_volatile [(const_int 0)] UNSPECV_BLOCKAGE)]
+  ""
+  ""
+  [(set_attr "length" "0")])
 
 (define_insn "*movqi_insn"
   [(set (match_operand:QI 0 "move_dest_operand" "=Rcs,   r,  r,r,m")

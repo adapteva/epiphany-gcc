@@ -2011,6 +2011,9 @@ epiphany_expand_prologue (void)
       if (note)
 	add_reg_note (insn, REG_FRAME_RELATED_EXPR, note);
     }
+
+  if (TARGET_NO_SCHED_PROLOG)
+    emit_insn (gen_blockage ());
 }
 
 void
