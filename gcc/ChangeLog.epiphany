@@ -1,3 +1,16 @@
+2017-04-22  Ola Jeppsson  <ola@adapteva.com>
+
+	* config/epiphany/epiphany.h [IN_TARGET_LIBS]
+	(BIGGEST_FIELD_ALIGNMENT): Add definition. Hack for libobjc.
+	[!IN_TARGET_LIBS] (ROUND_TYPE_ALIGN, ADJUST_FIELD_ALIGN):
+	Guard macros so they are not defined when included from target
+	libs.
+	[!IN_LIBGCC2] (make_pass_mode_switch_use,
+	make_pass_resolve_sw_modes): Change ...
+	[!IN_LIBGCC2 && !IN_TARGET_LIBS] (make_pass_mode_switch_use,
+	make_pass_resolve_sw_modes): ... to this. I.e., don't declare
+	when included from target libs.
+
 2016-11-08  Ola Jeppsson  <ola@adapteva.com>
 
 	* config/epiphany/epiphany.md (define_constants)
