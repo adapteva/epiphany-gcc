@@ -1,5 +1,5 @@
 /* Primary expression subroutines
-   Copyright (C) 2000-2015 Free Software Foundation, Inc.
+   Copyright (C) 2000-2016 Free Software Foundation, Inc.
    Contributed by Andy Vaught
 
 This file is part of GCC.
@@ -21,7 +21,7 @@ along with GCC; see the file COPYING3.  If not see
 #include "config.h"
 #include "system.h"
 #include "coretypes.h"
-#include "flags.h"
+#include "options.h"
 #include "gfortran.h"
 #include "arith.h"
 #include "match.h"
@@ -736,6 +736,58 @@ done:
       gfc_internal_error ("gfc_range_check() returned bad value");
     }
 
+  /* Warn about trailing digits which suggest the user added too many
+     trailing digits, which may cause the appearance of higher pecision
+     than the kind kan support.
+
+     This is done by replacing the rightmost non-zero digit with zero
+     and comparing with the original value.  If these are equal, we
+     assume the user supplied more digits than intended (or forgot to
+     convert to the correct kind).
+  */
+
+  if (warn_conversion_extra)
+    {
+      mpfr_t r;
+      char *c, *p;
+      bool did_break;
+
+      c = strchr (buffer, 'e');
+      if (c == NULL)
+	c = buffer + strlen(buffer);
+
+      did_break = false;
+      for (p = c - 1; p >= buffer; p--)
+	{
+	  if (*p == '.')
+	    continue;
+
+	  if (*p != '0')
+	    {
+	      *p = '0';
+	      did_break = true;
+	      break;
+	    }
+	}
+
+      if (did_break)
+	{
+	  mpfr_init (r);
+	  mpfr_set_str (r, buffer, 10, GFC_RND_MODE);
+	  if (negate)
+	    mpfr_neg (r, r, GFC_RND_MODE);
+
+	  mpfr_sub (r, r, e->value.real, GFC_RND_MODE);
+
+	  if (mpfr_cmp_ui (r, 0) == 0)
+	    gfc_warning (OPT_Wconversion_extra, "Non-significant digits "
+			 "in %qs number at %C, maybe incorrect KIND",
+			 gfc_typename (&e->ts));
+
+	  mpfr_clear (r);
+	}
+    }
+
   *result = e;
   return MATCH_YES;
 
@@ -1277,8 +1329,7 @@ static match
 match_complex_constant (gfc_expr **result)
 {
   gfc_expr *e, *real, *imag;
-  gfc_error_buf old_error_1;
-  output_buffer old_error;
+  gfc_error_buffer old_error;
   gfc_typespec target;
   locus old_loc;
   int kind;
@@ -1291,18 +1342,22 @@ match_complex_constant (gfc_expr **result)
   if (m != MATCH_YES)
     return m;
 
-  gfc_push_error (&old_error, &old_error_1);
+  gfc_push_error (&old_error);
 
   m = match_complex_part (&real);
   if (m == MATCH_NO)
     {
-      gfc_free_error (&old_error, &old_error_1);
+      gfc_free_error (&old_error);
       goto cleanup;
     }
 
   if (gfc_match_char (',') == MATCH_NO)
     {
-      gfc_pop_error (&old_error, &old_error_1);
+      /* It is possible that gfc_int2real issued a warning when
+	 converting an integer to real.  Throw this away here.  */
+
+      gfc_clear_warning ();
+      gfc_pop_error (&old_error);
       m = MATCH_NO;
       goto cleanup;
     }
@@ -1314,10 +1369,10 @@ match_complex_constant (gfc_expr **result)
 
   if (m == MATCH_ERROR)
     {
-      gfc_free_error (&old_error, &old_error_1);
+      gfc_free_error (&old_error);
       goto cleanup;
     }
-  gfc_pop_error (&old_error, &old_error_1);
+  gfc_pop_error (&old_error);
 
   m = match_complex_part (&imag);
   if (m == MATCH_NO)
@@ -1501,6 +1556,12 @@ match_actual_arg (gfc_expr **result)
 
 	  sym = symtree->n.sym;
 	  gfc_set_sym_referenced (sym);
+	  if (sym->attr.flavor == FL_NAMELIST)
+	    {
+	      gfc_error ("Namelist '%s' can not be an argument at %L",
+	      sym->name, &where);
+	      break;
+	    }
 	  if (sym->attr.flavor != FL_PROCEDURE
 	      && sym->attr.flavor != FL_UNKNOWN)
 	    break;
@@ -1826,11 +1887,12 @@ gfc_match_varspec (gfc_expr *primary, int equiv_flag, bool sub_flag,
 		   bool ppc_arg)
 {
   char name[GFC_MAX_SYMBOL_LEN + 1];
-  gfc_ref *substring, *tail;
+  gfc_ref *substring, *tail, *tmp;
   gfc_component *component;
   gfc_symbol *sym = primary->symtree->n.sym;
   match m;
   bool unknown;
+  char sep;
 
   tail = NULL;
 
@@ -1863,7 +1925,8 @@ gfc_match_varspec (gfc_expr *primary, int equiv_flag, bool sub_flag,
   if (sym->assoc && gfc_peek_ascii_char () == '('
       && !(sym->assoc->dangling && sym->assoc->st
 	   && sym->assoc->st->n.sym
-	   && sym->assoc->st->n.sym->attr.dimension == 0))
+	   && sym->assoc->st->n.sym->attr.dimension == 0)
+      && sym->ts.type != BT_CLASS)
     sym->attr.dimension = 1;
 
   if ((equiv_flag && gfc_peek_ascii_char () == '(')
@@ -1914,25 +1977,31 @@ gfc_match_varspec (gfc_expr *primary, int equiv_flag, bool sub_flag,
   if (equiv_flag)
     return MATCH_YES;
 
-  if (sym->ts.type == BT_UNKNOWN && gfc_peek_ascii_char () == '%'
+  /* With DEC extensions, member separator may be '.' or '%'.  */
+  sep = gfc_peek_ascii_char ();
+  m = gfc_match_member_sep (sym);
+  if (m == MATCH_ERROR)
+    return MATCH_ERROR;
+
+  if (sym->ts.type == BT_UNKNOWN && m == MATCH_YES
       && gfc_get_default_type (sym->name, sym->ns)->type == BT_DERIVED)
     gfc_set_default_type (sym, 0, sym->ns);
 
-  if (sym->ts.type == BT_UNKNOWN && gfc_match_char ('%') == MATCH_YES)
+  if (sym->ts.type == BT_UNKNOWN && m == MATCH_YES)
     {
       gfc_error ("Symbol %qs at %C has no IMPLICIT type", sym->name);
       return MATCH_ERROR;
     }
   else if ((sym->ts.type != BT_DERIVED && sym->ts.type != BT_CLASS)
-	   && gfc_match_char ('%') == MATCH_YES)
+           && m == MATCH_YES)
     {
-      gfc_error ("Unexpected %<%%%> for nonderived-type variable %qs at %C",
-		 sym->name);
+      gfc_error ("Unexpected %<%c%> for nonderived-type variable %qs at %C",
+		 sep, sym->name);
       return MATCH_ERROR;
     }
 
   if ((sym->ts.type != BT_DERIVED && sym->ts.type != BT_CLASS)
-      || gfc_match_char ('%') != MATCH_YES)
+      || m != MATCH_YES)
     goto check_substring;
 
   sym = sym->ts.u.derived;
@@ -1948,7 +2017,7 @@ gfc_match_varspec (gfc_expr *primary, int equiv_flag, bool sub_flag,
       if (m != MATCH_YES)
 	return MATCH_ERROR;
 
-      if (sym->f2k_derived)
+      if (sym && sym->f2k_derived)
 	tbp = gfc_find_typebound_proc (sym, &t, name, false, &gfc_current_locus);
       else
 	tbp = NULL;
@@ -2003,15 +2072,24 @@ gfc_match_varspec (gfc_expr *primary, int equiv_flag, bool sub_flag,
 	  break;
 	}
 
-      component = gfc_find_component (sym, name, false, false);
+      component = gfc_find_component (sym, name, false, false, &tmp);
       if (component == NULL)
 	return MATCH_ERROR;
 
-      tail = extend_ref (primary, tail);
-      tail->type = REF_COMPONENT;
+      /* Extend the reference chain determined by gfc_find_component.  */
+      if (primary->ref == NULL)
+        primary->ref = tmp;
+      else
+        {
+          /* Set by the for loop below for the last component ref.  */
+          gcc_assert (tail != NULL);
+          tail->next = tmp;
+        }
 
-      tail->u.c.component = component;
-      tail->u.c.sym = sym;
+      /* The reference chain may be longer than one hop for union
+         subcomponents; find the new tail.  */
+      for (tail = tmp; tail->next; tail = tail->next)
+        ;
 
       primary->ts = component->ts;
 
@@ -2061,7 +2139,7 @@ gfc_match_varspec (gfc_expr *primary, int equiv_flag, bool sub_flag,
 	}
 
       if ((component->ts.type != BT_DERIVED && component->ts.type != BT_CLASS)
-	  || gfc_match_char ('%') != MATCH_YES)
+	  || gfc_match_member_sep (component->ts.u.derived) != MATCH_YES)
 	break;
 
       sym = component->ts.u.derived;
@@ -2069,7 +2147,7 @@ gfc_match_varspec (gfc_expr *primary, int equiv_flag, bool sub_flag,
 
 check_substring:
   unknown = false;
-  if (primary->ts.type == BT_UNKNOWN && sym->attr.flavor != FL_DERIVED)
+  if (primary->ts.type == BT_UNKNOWN && !gfc_fl_struct (sym->attr.flavor))
     {
       if (gfc_get_default_type (sym->name, sym->ns)->type == BT_CHARACTER)
        {
@@ -2490,11 +2568,11 @@ gfc_convert_to_structure_constructor (gfc_expr *e, gfc_symbol *sym, gfc_expr **c
       /* Find the current component in the structure definition and check
 	     its access is not private.  */
       if (comp)
-	this_comp = gfc_find_component (sym, comp->name, false, false);
+	this_comp = gfc_find_component (sym, comp->name, false, false, NULL);
       else
 	{
 	  this_comp = gfc_find_component (sym, (const char *)comp_tail->name,
-					  false, false);
+					  false, false, NULL);
 	  comp = NULL; /* Reset needed!  */
 	}
 
@@ -2538,7 +2616,7 @@ gfc_convert_to_structure_constructor (gfc_expr *e, gfc_symbol *sym, gfc_expr **c
           if (comp && comp == sym->components
                 && sym->attr.extension
 		&& comp_tail->val
-                && (comp_tail->val->ts.type != BT_DERIVED
+                && (!gfc_bt_struct (comp_tail->val->ts.type)
                       ||
                     comp_tail->val->ts.u.derived != this_comp->ts.u.derived))
             {
@@ -2639,26 +2717,32 @@ gfc_match_structure_constructor (gfc_symbol *sym, gfc_expr **result)
   e->symtree = symtree;
   e->expr_type = EXPR_FUNCTION;
 
-  gcc_assert (sym->attr.flavor == FL_DERIVED
+  gcc_assert (gfc_fl_struct (sym->attr.flavor)
 	      && symtree->n.sym->attr.flavor == FL_PROCEDURE);
   e->value.function.esym = sym;
   e->symtree->n.sym->attr.generic = 1;
 
-   m = gfc_match_actual_arglist (0, &e->value.function.actual);
-   if (m != MATCH_YES)
-     {
-       gfc_free_expr (e);
-       return m;
-     }
+  m = gfc_match_actual_arglist (0, &e->value.function.actual);
+  if (m != MATCH_YES)
+    {
+      gfc_free_expr (e);
+      return m;
+    }
 
-   if (!gfc_convert_to_structure_constructor (e, sym, NULL, NULL, false))
-     {
-       gfc_free_expr (e);
-       return MATCH_ERROR;
-     }
+  if (!gfc_convert_to_structure_constructor (e, sym, NULL, NULL, false))
+    {
+      gfc_free_expr (e);
+      return MATCH_ERROR;
+    }
 
-   *result = e;
-   return MATCH_YES;
+  /* If a structure constructor is in a DATA statement, then each entity
+     in the structure constructor must be a constant.  Try to reduce the
+     expression here.  */
+  if (gfc_in_match_data ())
+    gfc_reduce_init_expr (e);
+ 
+  *result = e;
+  return MATCH_YES;
 }
 
 
@@ -2731,14 +2815,28 @@ gfc_match_rvalue (gfc_expr **result)
   if (m != MATCH_YES)
     return m;
 
-  if (gfc_find_state (COMP_INTERFACE)
-      && !gfc_current_ns->has_import_set)
-    i = gfc_get_sym_tree (name, NULL, &symtree, false);
-  else
-    i = gfc_get_ha_sym_tree (name, &symtree);
-
-  if (i)
+  /* Check if the symbol exists.  */
+  if (gfc_find_sym_tree (name, NULL, 1, &symtree))
     return MATCH_ERROR;
+
+  /* If the symbol doesn't exist, create it unless the name matches a FL_STRUCT
+     type. For derived types we create a generic symbol which links to the
+     derived type symbol; STRUCTUREs are simpler and must not conflict with
+     variables.  */
+  if (!symtree)
+    if (gfc_find_sym_tree (gfc_dt_upper_string (name), NULL, 1, &symtree))
+      return MATCH_ERROR;
+  if (!symtree || symtree->n.sym->attr.flavor != FL_STRUCT)
+    {
+      if (gfc_find_state (COMP_INTERFACE)
+          && !gfc_current_ns->has_import_set)
+        i = gfc_get_sym_tree (name, NULL, &symtree, false);
+      else
+        i = gfc_get_ha_sym_tree (name, &symtree);
+      if (i)
+        return MATCH_ERROR;
+    }
+
 
   sym = symtree->n.sym;
   e = NULL;
@@ -2850,6 +2948,7 @@ gfc_match_rvalue (gfc_expr **result)
 
       break;
 
+    case FL_STRUCT:
     case FL_DERIVED:
       sym = gfc_use_derived (sym);
       if (sym == NULL)
@@ -2900,7 +2999,8 @@ gfc_match_rvalue (gfc_expr **result)
 
       st = gfc_enclosing_unit (NULL);
 
-      if (st != NULL && st->state == COMP_FUNCTION
+      if (st != NULL
+	  && st->state == COMP_FUNCTION
 	  && st->sym == sym
 	  && !sym->attr.recursive)
 	{
@@ -2989,10 +3089,12 @@ gfc_match_rvalue (gfc_expr **result)
 	 via an IMPLICIT statement.  This can't wait for the
 	 resolution phase.  */
 
-      if (gfc_peek_ascii_char () == '%'
+      old_loc = gfc_current_locus;
+      if (gfc_match_member_sep (sym) == MATCH_YES
 	  && sym->ts.type == BT_UNKNOWN
 	  && gfc_get_default_type (sym->name, sym->ns)->type == BT_DERIVED)
 	gfc_set_default_type (sym, 0, sym->ns);
+      gfc_current_locus = old_loc;
 
       /* If the symbol has a (co)dimension attribute, the expression is a
 	 variable.  */
@@ -3145,19 +3247,29 @@ gfc_match_rvalue (gfc_expr **result)
       break;
 
     generic_function:
-      gfc_get_sym_tree (name, NULL, &symtree, false);	/* Can't fail */
+      /* Look for symbol first; if not found, look for STRUCTURE type symbol
+         specially. Creates a generic symbol for derived types.  */
+      gfc_find_sym_tree (name, NULL, 1, &symtree);
+      if (!symtree)
+        gfc_find_sym_tree (gfc_dt_upper_string (name), NULL, 1, &symtree);
+      if (!symtree || symtree->n.sym->attr.flavor != FL_STRUCT)
+        gfc_get_sym_tree (name, NULL, &symtree, false); /* Can't fail */
 
       e = gfc_get_expr ();
       e->symtree = symtree;
       e->expr_type = EXPR_FUNCTION;
 
-      if (sym->attr.flavor == FL_DERIVED)
+      if (gfc_fl_struct (sym->attr.flavor))
 	{
 	  e->value.function.esym = sym;
 	  e->symtree->n.sym->attr.generic = 1;
 	}
 
       m = gfc_match_actual_arglist (0, &e->value.function.actual);
+      break;
+
+    case FL_NAMELIST:
+      m = MATCH_ERROR;
       break;
 
     default:
@@ -3191,10 +3303,10 @@ gfc_match_rvalue (gfc_expr **result)
 static match
 match_variable (gfc_expr **result, int equiv_flag, int host_flag)
 {
-  gfc_symbol *sym;
+  gfc_symbol *sym, *dt_sym;
   gfc_symtree *st;
   gfc_expr *expr;
-  locus where;
+  locus where, old_loc;
   match m;
 
   /* Since nothing has any business being an lvalue in a module
@@ -3204,6 +3316,7 @@ match_variable (gfc_expr **result, int equiv_flag, int host_flag)
      of keywords, such as 'end', being turned into variables by
      failed matching to assignments for, e.g., END INTERFACE.  */
   if (gfc_current_state () == COMP_MODULE
+      || gfc_current_state () == COMP_SUBMODULE
       || gfc_current_state () == COMP_INTERFACE
       || gfc_current_state () == COMP_CONTAINS)
     host_flag = 0;
@@ -3224,6 +3337,17 @@ match_variable (gfc_expr **result, int equiv_flag, int host_flag)
   sym->attr.implied_index = 0;
 
   gfc_set_sym_referenced (sym);
+
+  /* STRUCTUREs may share names with variables, but derived types may not.  */
+  if (sym->attr.flavor == FL_PROCEDURE && sym->generic
+      && (dt_sym = gfc_find_dt_in_generic (sym)))
+    {
+      if (dt_sym->attr.flavor == FL_DERIVED)
+        gfc_error ("Derived type '%s' cannot be used as a variable at %C",
+                   sym->name);
+      return MATCH_ERROR;
+    }
+
   switch (sym->attr.flavor)
     {
     case FL_VARIABLE:
@@ -3309,11 +3433,13 @@ match_variable (gfc_expr **result, int equiv_flag, int host_flag)
 	implicit_ns = gfc_current_ns;
       else
 	implicit_ns = sym->ns;
-
-      if (gfc_peek_ascii_char () == '%'
+	
+      old_loc = gfc_current_locus;
+      if (gfc_match_member_sep (sym) == MATCH_YES
 	  && sym->ts.type == BT_UNKNOWN
 	  && gfc_get_default_type (sym->name, implicit_ns)->type == BT_DERIVED)
 	gfc_set_default_type (sym, 0, implicit_ns);
+      gfc_current_locus = old_loc;
     }
 
   expr = gfc_get_expr ();

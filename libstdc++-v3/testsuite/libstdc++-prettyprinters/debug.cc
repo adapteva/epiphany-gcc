@@ -1,7 +1,7 @@
 // { dg-do run }
 // { dg-options "-g -O0 -std=gnu++98" }
 
-// Copyright (C) 2011-2015 Free Software Foundation, Inc.
+// Copyright (C) 2011-2016 Free Software Foundation, Inc.
 //
 // This file is part of the GNU ISO C++ Library.  This library is free
 // software; you can redistribute it and/or modify it under the
@@ -93,6 +93,7 @@ main()
   __gnu_cxx::slist<int>::iterator slliter = sll.begin();
 // { dg-final { note-test slliter {47} } }
 
+  std::cout << "\n";
   return 0;			// Mark SPOT
 }
 

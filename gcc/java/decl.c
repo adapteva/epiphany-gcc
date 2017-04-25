@@ -1,6 +1,6 @@
 /* Process declarations and variables for the GNU compiler for the
    Java(TM) language.
-   Copyright (C) 1996-2015 Free Software Foundation, Inc.
+   Copyright (C) 1996-2016 Free Software Foundation, Inc.
 
 This file is part of GCC.
 
@@ -27,39 +27,18 @@ The Free Software Foundation is independent of Sun Microsystems, Inc.  */
 #include "config.h"
 #include "system.h"
 #include "coretypes.h"
-#include "hash-set.h"
-#include "machmode.h"
-#include "vec.h"
-#include "double-int.h"
-#include "input.h"
-#include "alias.h"
-#include "symtab.h"
-#include "options.h"
-#include "real.h"
-#include "wide-int.h"
-#include "inchash.h"
+#include "target.h"
+#include "function.h"
 #include "tree.h"
-#include "stor-layout.h"
 #include "stringpool.h"
-#include "varasm.h"
+#include "cgraph.h"
 #include "diagnostic-core.h"
+#include "stor-layout.h"
+#include "varasm.h"
 #include "toplev.h"
-#include "flags.h"
 #include "java-tree.h"
 #include "jcf.h"
 #include "java-except.h"
-#include "ggc.h"
-#include "hash-map.h"
-#include "is-a.h"
-#include "plugin-api.h"
-#include "tm.h"
-#include "hard-reg-set.h"
-#include "input.h"
-#include "function.h"
-#include "ipa-ref.h"
-#include "cgraph.h"
-#include "tree-inline.h"
-#include "target.h"
 #include "version.h"
 #include "tree-iterator.h"
 #include "langhooks.h"
@@ -554,10 +533,9 @@ parse_version (void)
   else /* C++ ABI */
     {
       /* Implicit in this computation is the idea that we won't break the
-	 old-style binary ABI in a sub-minor release (e.g., from 5.0.0 to
-	 5.1.0).  Freeze the ABI on the gcc-5-branch with the value of the
-	 GCC 5.3 release.*/
-      abi_version = 100000 * major + 1000 * 3;
+	 old-style binary ABI in a minor release (e.g., from 6.1.0 to
+	 6.2.0).  */
+      abi_version = 100000 * major;
     }
   if (flag_bootstrap_classes)
     abi_version |= FLAG_BOOTSTRAP_LOADER;
@@ -580,7 +558,7 @@ java_init_decl_processing (void)
   global_binding_level = current_binding_level;
 
   /* Build common tree nodes, Java has an unsigned char.  */
-  build_common_tree_nodes (false, false);
+  build_common_tree_nodes (false);
 
   /* ???  Now we continue and override some of the built types again
      with Java specific types.  As the above generated types are
@@ -1914,14 +1892,12 @@ java_mark_decl_local (tree decl)
 {
   DECL_EXTERNAL (decl) = 0;
 
-#ifdef ENABLE_CHECKING
   /* Double check that we didn't pass the function to the callgraph early.  */
-  if (TREE_CODE (decl) == FUNCTION_DECL)
+  if (flag_checking && TREE_CODE (decl) == FUNCTION_DECL)
     {
       struct cgraph_node *node = cgraph_node::get (decl);
       gcc_assert (!node || !node->definition);
     }
-#endif
   gcc_assert (!DECL_RTL_SET_P (decl));
 }
 
@@ -1965,11 +1941,7 @@ java_mark_class_local (tree klass)
 
   for (t = TYPE_FIELDS (klass); t ; t = DECL_CHAIN (t))
     if (FIELD_STATIC (t))
-      {
-	if (DECL_EXTERNAL (t))
-	  vec_safe_push (pending_static_fields, t);
-	java_mark_decl_local (t);
-      }
+      java_mark_decl_local (t);
 
   for (t = TYPE_METHODS (klass); t ; t = DECL_CHAIN (t))
     if (!METHOD_ABSTRACT (t))

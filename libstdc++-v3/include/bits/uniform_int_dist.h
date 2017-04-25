@@ -36,10 +36,10 @@
 
 namespace std _GLIBCXX_VISIBILITY(default)
 {
-_GLIBCXX_BEGIN_NAMESPACE_VERSION
 
   namespace __detail
   {
+_GLIBCXX_BEGIN_NAMESPACE_VERSION
     /* Determine whether number is a power of 2.  */
     template<typename _Tp>
       inline bool
@@ -47,15 +47,15 @@ _GLIBCXX_BEGIN_NAMESPACE_VERSION
       {
 	return ((__x - 1) & __x) == 0;
       };
+_GLIBCXX_END_NAMESPACE_VERSION
   }
+
+_GLIBCXX_BEGIN_NAMESPACE_VERSION
 
   /**
    * @brief Uniform discrete distribution for random numbers.
-   *
    * A discrete random distribution on the range @f$[min, max]@f$ with equal
    * probability throughout the range.
-   *
-   * @ingroup random_distributions_uniform
    */
   template<typename _IntType = int>
     class uniform_int_distribution
@@ -76,7 +76,7 @@ _GLIBCXX_BEGIN_NAMESPACE_VERSION
 		   _IntType __b = std::numeric_limits<_IntType>::max())
 	: _M_a(__a), _M_b(__b)
 	{
-	  _GLIBCXX_DEBUG_ASSERT(_M_a <= _M_b);
+	  __glibcxx_assert(_M_a <= _M_b);
 	}
 
 	result_type

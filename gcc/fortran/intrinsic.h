@@ -1,6 +1,6 @@
 /* Header file for intrinsics check, resolve and simplify function
    prototypes.
-   Copyright (C) 2000-2015 Free Software Foundation, Inc.
+   Copyright (C) 2000-2016 Free Software Foundation, Inc.
    Contributed by Andy Vaught & Katherine Holcomb
 
 This file is part of GCC.
@@ -191,6 +191,7 @@ bool gfc_check_system_clock (gfc_expr *, gfc_expr *, gfc_expr *);
 bool gfc_check_date_and_time (gfc_expr *, gfc_expr *, gfc_expr *, gfc_expr *);
 bool gfc_check_exit (gfc_expr *);
 bool gfc_check_fdate_sub (gfc_expr *);
+bool gfc_check_fe_runtime_error (gfc_actual_arglist *);
 bool gfc_check_flush (gfc_expr *);
 bool gfc_check_free (gfc_expr *);
 bool gfc_check_fstat_sub (gfc_expr *, gfc_expr *, gfc_expr *);
@@ -271,6 +272,7 @@ gfc_expr *gfc_simplify_conjg (gfc_expr *);
 gfc_expr *gfc_simplify_cos (gfc_expr *);
 gfc_expr *gfc_simplify_cosh (gfc_expr *);
 gfc_expr *gfc_simplify_count (gfc_expr *, gfc_expr *, gfc_expr *);
+gfc_expr *gfc_simplify_cshift (gfc_expr *, gfc_expr *, gfc_expr *);
 gfc_expr *gfc_simplify_dcmplx (gfc_expr *, gfc_expr *);
 gfc_expr *gfc_simplify_dble (gfc_expr *);
 gfc_expr *gfc_simplify_digits (gfc_expr *);
@@ -345,8 +347,6 @@ gfc_expr *gfc_simplify_maxexponent (gfc_expr *);
 gfc_expr *gfc_simplify_minexponent (gfc_expr *);
 gfc_expr *gfc_simplify_mod (gfc_expr *, gfc_expr *);
 gfc_expr *gfc_simplify_modulo (gfc_expr *, gfc_expr *);
-gfc_expr *gfc_simplify_mvbits (gfc_expr *, gfc_expr *, gfc_expr *, gfc_expr *,
-			       gfc_expr *);
 gfc_expr *gfc_simplify_nearest (gfc_expr *, gfc_expr *);
 gfc_expr *gfc_simplify_new_line (gfc_expr *);
 gfc_expr *gfc_simplify_nint (gfc_expr *, gfc_expr *);
@@ -523,7 +523,6 @@ void gfc_resolve_log (gfc_expr *, gfc_expr *);
 void gfc_resolve_log10 (gfc_expr *, gfc_expr *);
 void gfc_resolve_logical (gfc_expr *, gfc_expr *, gfc_expr *);
 void gfc_resolve_lstat (gfc_expr *, gfc_expr *, gfc_expr *);
-void gfc_resolve_malloc (gfc_expr *, gfc_expr *);
 void gfc_resolve_matmul (gfc_expr *, gfc_expr *, gfc_expr *);
 void gfc_resolve_max (gfc_expr *, gfc_actual_arglist *);
 void gfc_resolve_maxloc (gfc_expr *, gfc_expr *, gfc_expr *, gfc_expr *);
@@ -604,8 +603,8 @@ void gfc_resolve_ctime_sub (gfc_code *);
 void gfc_resolve_execute_command_line (gfc_code *);
 void gfc_resolve_exit (gfc_code *);
 void gfc_resolve_fdate_sub (gfc_code *);
+void gfc_resolve_fe_runtime_error (gfc_code *);
 void gfc_resolve_flush (gfc_code *);
-void gfc_resolve_free (gfc_code *);
 void gfc_resolve_fseek_sub (gfc_code *);
 void gfc_resolve_fstat_sub (gfc_code *);
 void gfc_resolve_ftell_sub (gfc_code *);

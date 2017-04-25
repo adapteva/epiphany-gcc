@@ -296,8 +296,7 @@ package System.OS_Interface is
    --  These two functions are only needed to share s-taprop.adb with
    --  FSU threads.
 
-   function Get_Page_Size return size_t;
-   function Get_Page_Size return Address;
+   function Get_Page_Size return int;
    pragma Import (C, Get_Page_Size, "getpagesize");
    --  Returns the size of a page
 

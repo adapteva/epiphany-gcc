@@ -1,5 +1,5 @@
 /* Common declarations for all of libgfortran.
-   Copyright (C) 2002-2015 Free Software Foundation, Inc.
+   Copyright (C) 2002-2016 Free Software Foundation, Inc.
    Contributed by Paul Brook <paul@nowt.org>, and
    Andy Vaught <andy@xena.eas.asu.edu>
 
@@ -649,16 +649,11 @@ internal_proto(get_args);
 extern void store_exe_path (const char *);
 export_proto(store_exe_path);
 
-extern char * full_exe_path (void);
-internal_proto(full_exe_path);
-
-extern void find_addr2line (void);
-internal_proto(find_addr2line);
-
 /* backtrace.c */
 
-extern void backtrace (void);
-iexport_proto(backtrace);
+extern void show_backtrace (bool);
+internal_proto(show_backtrace);
+
 
 /* error.c */
 
@@ -679,6 +674,9 @@ iexport_proto(backtrace);
 
 extern _Noreturn void sys_abort (void);
 internal_proto(sys_abort);
+
+extern _Noreturn void exit_error (int);
+internal_proto(exit_error);
 
 extern ssize_t estr_write (const char *);
 internal_proto(estr_write);
@@ -795,14 +793,8 @@ internal_proto(xrealloc);
 
 /* environ.c */
 
-extern int check_buffered (int);
-internal_proto(check_buffered);
-
 extern void init_variables (void);
 internal_proto(init_variables);
-
-extern void show_variables (void);
-internal_proto(show_variables);
 
 unit_convert get_unformatted_convert (int);
 internal_proto(get_unformatted_convert);
@@ -848,6 +840,9 @@ internal_proto(fc_strdup);
 
 extern char *fc_strdup_notrim(const char *, gfc_charlen_type);
 internal_proto(fc_strdup_notrim);
+
+extern const char *gfc_itoa(GFC_INTEGER_LARGEST, char *, size_t);
+internal_proto(gfc_itoa);
 
 /* io/intrinsics.c */
 

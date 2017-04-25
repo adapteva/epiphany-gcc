@@ -1,4 +1,4 @@
-/* Copyright (C) 2007-2015 Free Software Foundation, Inc.
+/* Copyright (C) 2007-2016 Free Software Foundation, Inc.
    Contributed by Andy Vaught
    Write float code factoring to this file by Jerry DeLisle   
    F2003 I/O support contributed by Jerry DeLisle
@@ -526,11 +526,20 @@ output_float (st_parameter_dt *dtp, const fnode *f, char *buffer, size_t size,
 	  w = w == 1 ? 2 : w;
 	}
     }
-  
+
   /* Work out how much padding is needed.  */
   nblanks = w - (nbefore + nzero + nafter + edigits + 1);
   if (sign != S_NONE)
     nblanks--;
+
+  /* See if we have space for a zero before the decimal point.  */
+  if (nbefore == 0 && nblanks > 0)
+    {
+      leadzero = 1;
+      nblanks--;
+    }
+  else
+    leadzero = 0;
 
   if (dtp->u.p.g0_no_blanks)
     {
@@ -555,15 +564,6 @@ output_float (st_parameter_dt *dtp, const fnode *f, char *buffer, size_t size,
       star_fill (out, w);
       return false;
     }
-
-  /* See if we have space for a zero before the decimal point.  */
-  if (nbefore == 0 && nblanks > 0)
-    {
-      leadzero = 1;
-      nblanks--;
-    }
-  else
-    leadzero = 0;
 
   /* For internal character(kind=4) units, we duplicate the code used for
      regular output slightly modified.  This needs to be maintained
@@ -970,33 +970,6 @@ quadmath_snprintf (buffer, size, "%+-#.*Qf", \
 #endif
 
 
-#if defined(GFC_REAL_16_IS_FLOAT128)
-#define ISFINITE2Q(val) finiteq(val)
-#endif
-#define ISFINITE2(val) isfinite(val)
-#define ISFINITE2L(val) isfinite(val)
-
-#define ISFINITE(suff,val) TOKENPASTE(ISFINITE2,suff)(val)
-
-
-#if defined(GFC_REAL_16_IS_FLOAT128)
-#define SIGNBIT2Q(val) signbitq(val)
-#endif
-#define SIGNBIT2(val) signbit(val)
-#define SIGNBIT2L(val) signbit(val)
-
-#define SIGNBIT(suff,val) TOKENPASTE(SIGNBIT2,suff)(val)
-
-
-#if defined(GFC_REAL_16_IS_FLOAT128)
-#define ISNAN2Q(val) isnanq(val)
-#endif
-#define ISNAN2(val) isnan(val)
-#define ISNAN2L(val) isnan(val)
-
-#define ISNAN(suff,val) TOKENPASTE(ISNAN2,suff)(val)
-
-
 
 /* Generate corresponding I/O format for FMT_G and output.
    The rules to translate FMT_G to FMT_E or FMT_F from DEC fortran
@@ -1176,7 +1149,7 @@ OUTPUT_FLOAT_FMT_G(16,L)
 {\
     volatile GFC_REAL_ ## x tmp, one = 1.0;\
     tmp = * (GFC_REAL_ ## x *)source;\
-    if (ISFINITE (y,tmp))\
+    if (isfinite (tmp))\
       {\
 	nprinted = DTOA(y,0,tmp);\
 	int e = atoi (&buffer[4]);\
@@ -1247,10 +1220,10 @@ determine_en_precision (st_parameter_dt *dtp, const fnode *f,
 {\
 	GFC_REAL_ ## x tmp;\
 	tmp = * (GFC_REAL_ ## x *)source;\
-	sign_bit = SIGNBIT (y,tmp);\
-	if (!ISFINITE (y,tmp))\
+	sign_bit = signbit (tmp);\
+	if (!isfinite (tmp))\
 	  { \
-	    write_infnan (dtp, f, ISNAN (y,tmp), sign_bit);\
+	    write_infnan (dtp, f, isnan (tmp), sign_bit);\
 	    return;\
 	  }\
 	tmp = sign_bit ? -tmp : tmp;\

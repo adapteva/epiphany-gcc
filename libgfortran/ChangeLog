@@ -1,14 +1,50 @@
-2016-06-03  Release Manager
+2016-12-21  Release Manager
 
-	* GCC 5.4.0 released.
+	* GCC 6.3.0 released.
 
-2016-05-02  Jerry DeLisle  <jvdelisle@gcc.gnu.org>
+2016-10-31  Jerry DeLisle  <jvdelisle@gcc.gnu.org>
 
-	Backport from trunk.
+	Backport from trunk
+	PR libgfortran/78123
+	* io/transfer.c (formatted_transfer_scalar_read): Clear seen_eor
+	only if we have tabbed to left of current position.
+
+2016-09-29  Jerry DeLisle  <jvdelisle@gcc.gnu.org>
+
+	Backport from trunk
+	PR libgfortran/77707
+	io/transfer.c (next_record): Flush before calculating next_record.
+	Correctly calculate.
+
+2016-09-28  Steven G. Kargl  <kargl@gcc.gnu.org>
+
+	Backport from trunk
+	PR fortran/77507
+ 	* ieee/ieee_arithmetic.F90 (IEEE_VALUE_4,IEEE_VALUE_8,IEEE_VALULE_10,
+	IEEE_VALUE_16):  Use correct keyword.
+
+2016-08-22  Release Manager
+
+	* GCC 6.2.0 released.
+
+2016-08-11  Jerry DeLisle  <jvdelisle@gcc.gnu.org>
+
+	Backport from trunk
+	PR libgfortran/71123
+	PR libgfortran/73142
+	* io/list_read (eat_spaces): Eat '\r' as part of spaces.
+
+2016-04-27  Release Manager
+
+	* GCC 6.1.0 released.
+
+2016-04-23  Jerry DeLisle  <jvdelisle@gcc.gnu.org>
+
 	PR libgfortran/70684
 	* io/list_read (check_buffers): Add '\r' to check for end of line.
+	factor.
 
-2016-04-05  Jerry DeLisle  <jvdelisle@gcc.gnu.org>
+2016-03-30  Jerry DeLisle  <jvdelisle@gcc.gnu.org>
 	    Dominique d'Humieres  <dominiq@lps.ens.fr>
 
 	PR libgfortran/70235
@@ -17,10 +53,18 @@
 
 2016-03-28  Alessandro Fanfarillo  <fanfarillo.gcc@gmail.com>
 
-	Backport from trunk.
 	* caf/libcaf.h: caf_stop_numeric and caf_stop_str prototype.
 	* caf/single.c: _gfortran_caf_stop_numeric and
 	_gfortran_caf_stop_str implementation.
+
+2016-02-23  Jerry DeLisle  <jvdelisle@gcc.gnu.org>
+
+	PR libgfortran/69456
+	* io/list_read.c (read_real): If digit is missing from exponent issue
+	an error. (parse_real): Likewise and adjusted error message to clarify
+	it is part of a complex number.
+	(nml_read_obj): Bump item count and add comment that this is used to
+	identify which item in a namelist read has a problem.
 
 2016-02-17  Jerry DeLisle  <jvdelisle@gcc.gnu.org>
 
@@ -29,9 +73,7 @@
 
 2016-02-15  Jerry DeLisle  <jvdelisle@gcc.gnu.org>
 
-	Backport from trunk
 	PR libgfortran/69651
-	PR libgfortran/69668
 	* io/list_read.c: Entire file trailing spaces removed.
 	(CASE_SEPARATORS): Remove '!'.
 	(is_separator): Add namelist mode as condition with '!'.
@@ -40,184 +82,32 @@
 	(read_logical): If '!' bang encountered when not in namelist mode got
 	bad_logical to give an error. (read_integer): Likewise reject '!'.
 	(read_character): Remove condition testing c = '!' which is now inside
-	the is_separator macro. Remove code related to DELIM_NONE.
-	(parse_real): Reject '!' unless in namelist mode. (read_complex): Reject
-	'!' unless in namelist mode. (read_real): Likewise reject '!'.
+	the is_separator macro. (parse_real): Reject '!' unless in namelist mode.
+	(read_complex): Reject '!' unless in namelist mode. (read_real): Likewise
+	reject '!'. 
 
-2015-12-29  Jerry DeLisle  <jvdelisle@gcc.gnu.org>
+2016-02-12  Jerry DeLisle  <jvdelisle@gcc.gnu.org>
 
-	Backport from trunk
-	PR libfortran/68987
-	io/format.c (format_error): Remove unneeded memory cleanup.
+	PR libgfortran/69668
+	* io/list_read.c (read_character): Remove code related to DELIM_NONE.
 
-2015-12-05  Juoko Orava <jouko.orava@iki.fi>
+2016-01-23  John David Anglin  <danglin@gcc.gnu.org>
 
-	PR fortran/50201
-	* io/write_float.def: Avoid marking quadmath_snprintf as an untyped
-	weak reference, which fixing linking with -static.
+	PR libfortran/68744
+	* runtime/backtrace.c: Include gthr.h.
+	(show_backtrace): Use __gthread_active_p() to determine whether threads
+	are active.  Return if lbstate is NULL.
 
-2015-12-04  Release Manager
+2016-01-15  Jakub Jelinek  <jakub@redhat.com>
 
-	* GCC 5.3.0 released.
+	* intrinsics/execute_command_line.c (set_cmdstat): Use "%s", msg
+	instead of msg to avoid -Wformat-security warning.
 
-2015-11-07 Jerry DeLisle  <jvdelisle@gcc.gnu.org>
-
-	Backport from trunk
-	PR libgfortran/65089
-	* io/format.h (free_format): New function to free memory
-	allocated for building format error messages.
-	* io/format.c (format_error): Add checks before freeing memory
-	to avoid potential segfaults and free formatting data when
-	needed on error conditions. Always allocate and NULL terminate
-	the string.
-	* io/transfer.c (st_read_done, st_write_done): Use new
-	free_format function to clean up memory allocations when done.
-
-2015-09-02  Janne Blomqvist  <jb@gcc.gnu.org>
-
-	PR libfortran/67414
-	* runtime/error.c (gf_strerror): Handle newlocale() failure.
-
-2015-08-28  James Greenhalgh  <james.greenhalgh@arm.com>
-
-	* configure.ac: Define HAVE_FTRUNCATE for ARM/AArch64/SH newlib
-	builds.
-	* configure: Regenerate.
-
-2015-08-18  Francois-Xavier Coudert  <fxcoudert@gcc.gnu.org>
-
-	PR libfortran/66936
-	* io/unix.c (__MINGW32__): Undefine HAVE_UMASK.
-
-2015-07-29  Uros Bizjak  <ubizjak@gmail.com>
-
-	PR libgfortran/66650
-	* libgfortran.h (GFC_DTYPE_SIZE_MASK): Rewrite to avoid
-	"left shift of negative value" warning.
-
-2015-07-16  Release Manager
-
-	* GCC 5.2.0 released.
-
-2015-07-15  Janne Blomqvist  <jb@gcc.gnu.org>
-
-	PR libfortran/66861
-	* io/unix.c (compare_file_filename): Verify that u->filename is
-	non-NULL before strcmp.
-	(find_file0): Likewise.
-
-2015-04-22  Release Manager
-
-	* GCC 5.1.0 released.
-
-2015-03-28 Jerry DeLisle  <jvdelisle@gcc.gnu.org>
-
-	PR libgfortran/65596
-	* io/transfer.c (data_transfer_init): If in namelist mode and
-	delimiter is not specified, set it to DELIM_QUOTE, independent
-	of -std.
-	* io/unit.c (init_units): Set flags.delim to the correct
-	initial value of DELIM_UNSPECIFIED.
-
-2015-03-25 Jerry DeLisle  <jvdelisle@gcc.gnu.org>
-
-	PR libgfortran/65541
-	* io/write.c (nml_write_obj): Convert '+' to '%' before emitting
-	object names in namelists.
-
-2015-03-22 Jerry DeLisle  <jvdelisle@gcc.gnu.org>
-
-	PR libgfortran/59513
-	* io/transfer.c (data_transfer_init): Do not error for
-	-std=legacy.
-
-2015-03-16 Jerry DeLisle  <jvdelisle@gcc.gnu.org>
-
-	PR libgfortran/64432
-	* intrinsics/system_clock.c (system_clock4, system_clock8):
-	Cleanup some whitespace.
-
-2015-03-11  Thomas Schwinge  <thomas@codesourcery.com>
-
-	* caf/single.c (caf_runtime_error): Revert 2014-11-28 changes.
-	* runtime/minimal.c (STRERR_MAXSZ): Don't define.
-	(runtime_error_at, sys_abort): Bring more in line with the
-	non-LIBGFOR_MINIMAL code.
-	(runtime_warning_at, internal_error): New functions.
-
-2015-03-11  Janne Blomqvist  <jb@gcc.gnu.org>
-
-	PR libfortran/65200
-	* io/open.c (new_unit): Use gf_strerror rather than hardcoding
-	error messages for different errno values.
-	* io/unix.c (regular_file2): Handle EPERM in addition to EACCES.
-
-2015-03-10  Alessandro Fanfarillo  <fanfarillo.gcc@gmail.com>
-	    Tobias Burnus  <burnus@net-b.de>
-
-	* caf/libcaf.h (_gfortran_caf_sync_memory): New prototype.
-	* caf/single.c (_gfortran_caf_sync_memory): Implement.
-	(_gfortran_caf_sync_all, _gfortran_caf_sync_image): Add
-	__asm__ __volatile___ ("":::"memory").
-
-2015-02-10 Jerry DeLisle  <jvdelisle@gcc.gnu.org>
-
-	PR libgfortran/57822
-	* io/write_float.def (output_float): Apply fix of previous patch
-	to correctly calculate the exponent number of digits and take
-	care of wide character output.
-
-2015-02-09  Jerry DeLisle  <jvdelisle@gcc.gnu.org>
-
-	PR libgfortran/57822
-	* io/write_float.def (output_float): If doing g0 editing and
-	exponent is zero, do not emit exponent.
-
-2015-02-07  Jerry DeLisle  <jvdelisle@gcc.gnu.org>
-
-	PR libgfortran/60956
-	* io/fbuf.c (fbuf_flush_list): New function that only flushes
-	if current fbuf position exceeds a limit.
-	* io/fbuf.h: Declare the new function.
-	* io/io.h (enum unit_mode): Add two new modes.
-	* io/list_read.c (list_formatted_read_scalar): Call new function.
-	* io/write.c: Include fbuf.h. (list_formatted_write_scalar):
-	Call new function.
-
-2015-01-24  Janne Blomqvist  <jb@gcc.gnu.org>
-
-	PR libfortran/64770
-	* io/unit.c (filename_from_unit): Check that u->filename != NULL
-	before calling strdup.
-
-2015-01-22  Jerry DeLisle  <jvdelisle@gcc.gnu.org>
-
-	PR libgfortran/61933
-	* io/inquire.c (inquire_via_unit): Set existing to true for
-	any negative unit that is currently connected and any positive
-	units within range of KIND=4 value.  The unit value for any out
-	of range case that may occur if the user is using a KIND=8 will
-	have been set to -2 which is reserved and can never be opened,
-	and therefore the unit does not exist.
-
-2015-01-14  Jerry DeLisle  <jvdelisle@gcc.gnu.org>
-
-	PR libgfortran/61933
-	* io/inquire.c (inquire_via_unit): Set existing to true if a
-	gfc_unit stucture was found for the given unit number.
-	* runtime/error.c (translate_error): Add case for
-	LIBERROR_INQUIRE_INTERNAL_UNIT.
-
-2015-01-05  Jakub Jelinek  <jakub@redhat.com>
+2016-01-04  Jakub Jelinek  <jakub@redhat.com>
 
 	Update copyright years.
-
-2015-01-02  Tobias Burnus  <burnus@net-b.de>
-
-	* caf/single.c (_gfortran_caf_co_reduce): New function.
-	* caf/libcaf.h (_gfortran_caf_co_reduce): New prototype.
-^L
-Copyright (C) 2015 Free Software Foundation, Inc.
+
+Copyright (C) 2016 Free Software Foundation, Inc.
 
 Copying and distribution of this file, with or without modification,
 are permitted in any medium without royalty provided the copyright

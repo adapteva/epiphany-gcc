@@ -7,7 +7,7 @@
 --                                 S p e c                                  --
 --                         (Darwin/PPC64 Version)                           --
 --                                                                          --
---             Copyright (C) 2011-2012, Free Software Foundation, Inc.      --
+--             Copyright (C) 2011-2016, Free Software Foundation, Inc.      --
 --                                                                          --
 -- This specification is derived from the Ada Reference Manual for use with --
 -- GNAT. The copyright notice above, and the license provisions that follow --
@@ -138,7 +138,6 @@ private
    Stack_Check_Default       : constant Boolean := False;
    Stack_Check_Probes        : constant Boolean := False;
    Stack_Check_Limits        : constant Boolean := False;
-   Support_64_Bit_Divides    : constant Boolean := True;
    Support_Aggregates        : constant Boolean := True;
    Support_Atomic_Primitives : constant Boolean := True;
    Support_Composite_Assign  : constant Boolean := True;
@@ -147,6 +146,7 @@ private
    Always_Compatible_Rep     : constant Boolean := False;
    Suppress_Standard_Library : constant Boolean := False;
    Use_Ada_Main_Program_Name : constant Boolean := False;
+   Frontend_Exceptions       : constant Boolean := False;
    ZCX_By_Default            : constant Boolean := True;
 
 end System;

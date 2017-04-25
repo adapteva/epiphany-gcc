@@ -1,4 +1,4 @@
-// Copyright (C) 2014-2015 Free Software Foundation, Inc.
+// Copyright (C) 2014-2016 Free Software Foundation, Inc.
 //
 // This file is part of the GNU ISO C++ Library.  This library is free
 // software; you can redistribute it and/or modify it under the
@@ -76,10 +76,30 @@ test03()
   VERIFY( not_fn(&X::b)(x) );
 }
 
+void
+test04()
+{
+  struct abstract { virtual void f() = 0; };
+  struct derived : abstract { void f() { } };
+  struct F { bool operator()(abstract&) { return false; } };
+  F f;
+  derived d;
+  VERIFY( not_fn(f)(d) );
+}
+
+void
+test05()
+{
+  auto nf = std::experimental::not_fn([] { return false; });
+  auto copy(nf); // PR libstdc++/70564
+}
+
 int
 main()
 {
   test01();
   test02();
   test03();
+  test04();
+  test05();
 }

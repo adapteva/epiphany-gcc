@@ -686,10 +686,7 @@ extern void _Jv_RegisterBootstrapPackages ();
 					  loader.  */
 
 // These are used to find ABI versions we recognize.
-// GCC 5 changed the versioning schema; the __GNUC_MINOR__ is not anymore
-// a part of a GCC release series.  Freeze the ABI on the gcc-5-branch with
-// the value of the GCC 5.3 release.
-#define GCJ_CXX_ABI_VERSION (__GNUC__ * 100000 + 3 * 1000)
+#define GCJ_CXX_ABI_VERSION (__GNUC__ * 100000)
 
 // This is the old-style BC version ID used by GCJ 4.0.0.
 #define OLD_GCJ_40_BC_ABI_VERSION (4 * 10000 + 0 * 10 + 5)

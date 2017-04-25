@@ -1,4 +1,4 @@
-/* Copyright (C) 2002-2015 Free Software Foundation, Inc.
+/* Copyright (C) 2002-2016 Free Software Foundation, Inc.
    Contributed by Andy Vaught
    Namelist input contributed by Paul Thomas
    F2003 I/O support contributed by Jerry DeLisle
@@ -52,8 +52,8 @@ typedef unsigned char uchar;
 #define CASE_DIGITS   case '0': case '1': case '2': case '3': case '4': \
                       case '5': case '6': case '7': case '8': case '9'
 
-#define CASE_SEPARATORS  case ' ': case ',': case '/': case '\n': case '\t': \
-                         case '\r': case ';'
+#define CASE_SEPARATORS case ' ': case ',': case '/': case '\n': \
+			case '\t': case '\r': case ';'
 
 /* This macro assumes that we're operating on a variable.  */
 
@@ -418,7 +418,7 @@ eat_spaces (st_parameter_dt *dtp)
   /* Now skip spaces, EOF and EOL are handled in next_char.  */
   do
     c = next_char (dtp);
-  while (c != EOF && (c == ' ' || c == '\t'));
+  while (c != EOF && (c == ' ' || c == '\r' || c == '\t'));
 
   unget_char (dtp, c);
   return c;
@@ -522,6 +522,7 @@ eat_separator (st_parameter_dt *dtp)
 	  err = eat_line (dtp);
 	  if (err)
 	    return err;
+
 	  break;
 	}
 
@@ -1373,7 +1374,7 @@ parse_real (st_parameter_dt *dtp, void *buffer, int length)
 
  exp2:
   if (!isdigit (c))
-    goto bad;
+    goto bad_exponent;
 
   push_char (dtp, c);
 
@@ -1471,6 +1472,8 @@ parse_real (st_parameter_dt *dtp, void *buffer, int length)
   if (nml_bad_return (dtp, c))
     return 0;
 
+ bad_exponent:
+
   free_saved (dtp);
   if (c == EOF)
     {
@@ -1481,8 +1484,8 @@ parse_real (st_parameter_dt *dtp, void *buffer, int length)
   else if (c != '\n')
     eat_line (dtp);
 
-  snprintf (message, MSGLEN, "Bad floating point number for item %d",
-	      dtp->u.p.item_count);
+  snprintf (message, MSGLEN, "Bad complex floating point "
+	    "number for item %d", dtp->u.p.item_count);
   free_line (dtp);
   generate_error (&dtp->common, LIBERROR_READ_VALUE, message);
 
@@ -1813,7 +1816,8 @@ read_real (st_parameter_dt *dtp, void * dest, int length)
 
  exp2:
   if (!isdigit (c))
-    goto bad_real;
+    goto bad_exponent;
+
   push_char (dtp, c);
 
   for (;;)
@@ -1981,6 +1985,8 @@ read_real (st_parameter_dt *dtp, void * dest, int length)
 
   if (nml_bad_return (dtp, c))
     return;
+
+ bad_exponent:
 
   free_saved (dtp);
   if (c == EOF)
@@ -2809,6 +2815,7 @@ nml_read_obj (st_parameter_dt *dtp, namelist_info * nl, index_type offset,
   if (dtp->u.p.nml_read_error || !nl->touched)
     return true;
 
+  dtp->u.p.item_count++;  /* Used in error messages.  */
   dtp->u.p.repeat_count = 0;
   eat_spaces (dtp);
 

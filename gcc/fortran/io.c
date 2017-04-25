@@ -1,5 +1,5 @@
 /* Deal with I/O statements & related stuff.
-   Copyright (C) 2000-2015 Free Software Foundation, Inc.
+   Copyright (C) 2000-2016 Free Software Foundation, Inc.
    Contributed by Andy Vaught
 
 This file is part of GCC.
@@ -21,14 +21,14 @@ along with GCC; see the file COPYING3.  If not see
 #include "config.h"
 #include "system.h"
 #include "coretypes.h"
-#include "flags.h"
+#include "options.h"
 #include "gfortran.h"
 #include "match.h"
 #include "parse.h"
 
 gfc_st_label
 format_asterisk = {0, NULL, NULL, -1, ST_LABEL_FORMAT, ST_LABEL_FORMAT, NULL,
-		   0, {NULL, NULL}};
+		   0, {NULL, NULL}, NULL};
 
 typedef struct
 {
@@ -106,7 +106,7 @@ static gfc_dt *current_dt;
 /**************** Fortran 95 FORMAT parser  *****************/
 
 /* FORMAT tokens returned by format_lex().  */
-typedef enum
+enum format_token
 {
   FMT_NONE, FMT_UNKNOWN, FMT_SIGNED_INT, FMT_ZERO, FMT_POSINT, FMT_PERIOD,
   FMT_COMMA, FMT_COLON, FMT_SLASH, FMT_DOLLAR, FMT_LPAREN,
@@ -114,8 +114,7 @@ typedef enum
   FMT_E, FMT_EN, FMT_ES, FMT_G, FMT_L, FMT_A, FMT_D, FMT_H, FMT_END,
   FMT_ERROR, FMT_DC, FMT_DP, FMT_T, FMT_TR, FMT_TL, FMT_STAR, FMT_RC,
   FMT_RD, FMT_RN, FMT_RP, FMT_RU, FMT_RZ
-}
-format_token;
+};
 
 /* Local variables for checking format strings.  The saved_token is
    used to back up by a single format token during the parsing
@@ -192,23 +191,14 @@ unget_char (void)
 /* Eat up the spaces and return a character.  */
 
 static char
-next_char_not_space (bool *error)
+next_char_not_space ()
 {
   char c;
   do
     {
       error_element = c = next_char (NONSTRING);
       if (c == '\t')
-	{
-	  if (gfc_option.allow_std & GFC_STD_GNU)
-	    gfc_warning (0, "Extension: Tab character in format at %C");
-	  else
-	    {
-	      gfc_error ("Extension: Tab character in format at %C");
-	      *error = true;
-	      return c;
-	    }
-	}
+	gfc_warning (OPT_Wtabs, "Nonconforming tab character in format at %C");
     }
   while (gfc_is_whitespace (c));
   return c;
@@ -226,7 +216,6 @@ format_lex (void)
   char c, delim;
   int zflag;
   int negative_flag;
-  bool error = false;
 
   if (saved_token != FMT_NONE)
     {
@@ -235,7 +224,7 @@ format_lex (void)
       return token;
     }
 
-  c = next_char_not_space (&error);
+  c = next_char_not_space ();
   
   negative_flag = 0;
   switch (c)
@@ -245,7 +234,7 @@ format_lex (void)
       /* Falls through.  */
 
     case '+':
-      c = next_char_not_space (&error);
+      c = next_char_not_space ();
       if (!ISDIGIT (c))
 	{
 	  token = FMT_UNKNOWN;
@@ -256,7 +245,7 @@ format_lex (void)
 
       do
 	{
-	  c = next_char_not_space (&error);
+	  c = next_char_not_space ();
 	  if (ISDIGIT (c))
 	    value = 10 * value + c - '0';
 	}
@@ -286,7 +275,7 @@ format_lex (void)
 
       do
 	{
-	  c = next_char_not_space (&error);
+	  c = next_char_not_space ();
 	  if (ISDIGIT (c))
 	    {
 	      value = 10 * value + c - '0';
@@ -321,7 +310,7 @@ format_lex (void)
       break;
 
     case 'T':
-      c = next_char_not_space (&error);
+      c = next_char_not_space ();
       switch (c)
 	{
 	case 'L':
@@ -349,7 +338,7 @@ format_lex (void)
       break;
 
     case 'S':
-      c = next_char_not_space (&error);
+      c = next_char_not_space ();
       if (c != 'P' && c != 'S')
 	unget_char ();
 
@@ -357,7 +346,7 @@ format_lex (void)
       break;
 
     case 'B':
-      c = next_char_not_space (&error);
+      c = next_char_not_space ();
       if (c == 'N' || c == 'Z')
 	token = FMT_BLANK;
       else
@@ -419,7 +408,7 @@ format_lex (void)
       break;
 
     case 'E':
-      c = next_char_not_space (&error);
+      c = next_char_not_space ();
       if (c == 'N' )
 	token = FMT_EN;
       else if (c == 'S')
@@ -449,7 +438,7 @@ format_lex (void)
       break;
 
     case 'D':
-      c = next_char_not_space (&error);
+      c = next_char_not_space ();
       if (c == 'P')
 	{
 	  if (!gfc_notify_std (GFC_STD_F2003, "DP format "
@@ -472,7 +461,7 @@ format_lex (void)
       break;
 
     case 'R':
-      c = next_char_not_space (&error);
+      c = next_char_not_space ();
       switch (c)
 	{
 	case 'C':
@@ -513,9 +502,6 @@ format_lex (void)
       break;
     }
 
-  if (error)
-    return FMT_ERROR;
-
   return token;
 }
 
@@ -550,7 +536,7 @@ check_format (bool is_input)
 {
   const char *posint_required	  = _("Positive width required");
   const char *nonneg_required	  = _("Nonnegative width required");
-  const char *unexpected_element  = _("Unexpected element %<%c%> in format "
+  const char *unexpected_element  = _("Unexpected element %qc in format "
 				      "string at %L");
   const char *unexpected_end	  = _("Unexpected end of format string");
   const char *zero_width	  = _("Zero width in format descriptor");
@@ -1891,13 +1877,16 @@ gfc_match_open (void)
 	  goto cleanup;
 	}
 
-      if (!(open->file || (open->status
-          && gfc_wide_strncasecmp (open->status->value.character.string,
-				   "scratch", 7) == 0)))
-	{
-	  gfc_error ("NEWUNIT specifier must have FILE= "
-		     "or STATUS='scratch' at %C");
-	  goto cleanup;
+      if (!open->file && open->status)
+        {
+	  if (open->status->expr_type == EXPR_CONSTANT
+	     && gfc_wide_strncasecmp (open->status->value.character.string,
+				       "scratch", 7) != 0)
+	   {
+	     gfc_error ("NEWUNIT specifier must have FILE= "
+			"or STATUS='scratch' at %C");
+	     goto cleanup;
+	   }
 	}
     }
   else if (!open->unit)
@@ -2007,8 +1996,8 @@ gfc_match_open (void)
 	{
 	  static const char *delim[] = { "APOSTROPHE", "QUOTE", "NONE", NULL };
 
-	if (!is_char_type ("DELIM", open->delim))
-	  goto cleanup;
+	  if (!is_char_type ("DELIM", open->delim))
+	    goto cleanup;
 
 	  if (!compare_to_allowed_values ("DELIM", delim, NULL, NULL,
 					  open->delim->value.character.string,
@@ -3005,7 +2994,7 @@ gfc_resolve_dt (gfc_dt *dt, locus *loc)
     }
 
   if (dt->extra_comma
-      && !gfc_notify_std (GFC_STD_GNU, "Comma before i/o item list at %L", 
+      && !gfc_notify_std (GFC_STD_LEGACY, "Comma before i/o item list at %L", 
 			  &dt->extra_comma->where))
     return false;
 
@@ -3050,7 +3039,7 @@ gfc_resolve_dt (gfc_dt *dt, locus *loc)
       && dt->format_label->defined == ST_LABEL_UNKNOWN)
     {
       gfc_error ("FORMAT label %d at %L not defined", dt->format_label->value,
-		 &dt->format_label->where);
+		 loc);
       return false;
     }
 

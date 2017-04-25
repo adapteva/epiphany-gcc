@@ -8,5 +8,5 @@ unsigned d = 0x76543210;
 void
 foo (void)
 {
-  c = d >> ~(a || ~b);	/* { dg-warning "shift count is negative" "" { xfail *-*-* } } */
+  c = d >> ~(a || ~b);	/* { dg-warning "shift count is negative" } */
 }
