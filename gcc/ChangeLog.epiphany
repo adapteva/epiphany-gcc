@@ -1,3 +1,10 @@
+2017-05-01  Ola Jeppsson  <ola@adapteva.com>
+
+	* config/epiphany/epiphany.opt (-mno-sched-prolog): Rename ...
+	(-msched-prolog): ... to this. Remove RejectNegative
+	constraint. Default is still -msched-prolog.
+	* doc/invoke.texi (Epiphany Options): Add -msched-prolog.
+
 2017-04-22  Ola Jeppsson  <ola@adapteva.com>
 
 	* config/epiphany/epiphany.h [IN_TARGET_LIBS]

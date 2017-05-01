@@ -151,6 +151,6 @@ fsoftware-cache
 Target Mask(SOFT_CACHE)
 Use software cache
 
-mno-sched-prolog
-Target RejectNegative Report Mask(NO_SCHED_PROLOG)
-Disallow scheduling of a function's prologue sequence.
+msched-prolog
+Target Report InverseMask(NO_SCHED_PROLOG)
+Permit scheduling of a function's prologue sequence.
