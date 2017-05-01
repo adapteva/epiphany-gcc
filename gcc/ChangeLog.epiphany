@@ -1,5 +1,13 @@
 2017-05-01  Ola Jeppsson  <ola@adapteva.com>
 
+	* config/epiphany/epiphany.c (epiphany_lra_p): New function.
+	(TARGET_LRA_P): Define to epiphany_lra_p.
+	* config/epiphany/epiphany-protos.h (epiphany_lra_p): Declare.
+	* config/epiphany/epiphany.opt (-mlra): New option.
+	* doc/invoke.texi (Epiphany Options): Add -mlra.
+
+2017-05-01  Ola Jeppsson  <ola@adapteva.com>
+
 	* config/epiphany/epiphany.opt (-mno-sched-prolog): Rename ...
 	(-msched-prolog): ... to this. Remove RejectNegative
 	constraint. Default is still -msched-prolog.

@@ -197,6 +197,9 @@ static rtx_insn *frame_insn (rtx);
 
 #define TARGET_CAN_ELIMINATE epiphany_can_eliminate
 
+#undef TARGET_LRA_P
+#define TARGET_LRA_P epiphany_lra_p
+
 #include "target-def.h"
 
 #undef TARGET_ASM_ALIGNED_HI_OP
@@ -3220,6 +3223,13 @@ epiphany_can_eliminate (const int from, const int to)
     return (!flag_pic || crtl->is_leaf
 	    || !MACHINE_FUNCTION (cfun)->expanded_non_sibcall);
   return true;
+}
+
+/* Return true if we use LRA instead of reload pass.  */
+bool
+epiphany_lra_p (void)
+{
+  return TARGET_LRA;
 }
 
 bool

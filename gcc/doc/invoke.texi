@@ -520,7 +520,7 @@ Objective-C and Objective-C++ Dialects}.
 -msplit-lohi -mpost-inc -mpost-modify -mstack-offset=@var{num} @gol
 -mround-nearest -mlong-calls -mshort-calls -msmall16 @gol
 -mfp-mode=@var{mode} -mvect-double -max-vect-align=@var{num} @gol
--msplit-vecmove-early -m1reg-@var{reg} -mno-sched-prolog}
+-msplit-vecmove-early -m1reg-@var{reg} -mlra -mno-sched-prolog}
 
 @emph{ARC Options}
 @gccoptlist{-mbarrel-shifter @gol
@@ -12568,6 +12568,11 @@ Allowable values for @var{reg} are @samp{r43} and @samp{r63},
 which specify use of that register as a fixed register,
 and @samp{none}, which means that no register is used for this
 purpose.  The default is @option{-m1reg-none}.
+
+@item -mlra
+@opindex mlra
+Enable Local Register Allocation. This is still experimental for Epiphany, so
+by default the compiler uses standard reload. The default is @option{-mno-lra}.
 
 @item -mno-sched-prolog
 @opindex mno-sched-prolog
