@@ -724,9 +724,24 @@ gen_compare_reg (machine_mode cmode, enum rtx_code code,
 static unsigned int
 epiphany_function_arg_boundary (machine_mode mode, const_tree type)
 {
-  if ((type ? TYPE_ALIGN (type) : GET_MODE_BITSIZE (mode)) <= PARM_BOUNDARY)
-    return PARM_BOUNDARY;
-  return 2 * PARM_BOUNDARY;
+  unsigned int align;
+
+  if (type)
+    {
+      /* Since the main variant type is used for call, we convert it to
+	 the main variant type.  */
+      type = TYPE_MAIN_VARIANT (type);
+      align = TYPE_ALIGN (type);
+    }
+  else
+    align = GET_MODE_ALIGNMENT (mode);
+
+  if (align <= PARM_BOUNDARY)
+    align = PARM_BOUNDARY;
+  else
+    align = 2 * PARM_BOUNDARY;
+
+  return align;
 }
 
 /* Do any needed setup for a variadic function.  For the EPIPHANY, we
