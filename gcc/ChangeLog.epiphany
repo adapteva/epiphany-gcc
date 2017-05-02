@@ -1,3 +1,8 @@
+2017-05-02  Ola Jeppsson  <ola@adapteva.com>
+
+	* config/epiphany/epiphany.h (ENDFILE_SPEC): Add
+	cachemanager.o when -fPIC is used.
+
 2017-05-01  Ola Jeppsson  <ola@adapteva.com>
 
 	* config/epiphany/epiphany.c (epiphany_lra_p): New function.
