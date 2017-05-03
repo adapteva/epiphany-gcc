@@ -1,3 +1,9 @@
+2017-05-03  Ola Jeppsson  <ola@adapteva.com>
+
+	* config/epiphany/epiphany.md (divsi3_1, modsi3_1, udivsi3_1,
+	umodsi3_1): Don't match if operands[2] is in r0.
+	* testsuite/gcc.target/epiphany/divmodsi-1.c: New test.
+
 2017-05-02  Ola Jeppsson  <ola@adapteva.com>
 
 	* config/epiphany/epiphany.c (epiphany_function_arg_boundary):
