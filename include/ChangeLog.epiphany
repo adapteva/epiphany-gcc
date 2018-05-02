@@ -1,0 +1,15 @@
+2019-03-13  Ola Jeppsson  <ola@adapteva.com>
+
+	Backport d9f58ac8ddd3e0ad35a3d40b191d5d84ee641d46
+	from upstream/master
+	2018-05-02  Alan Modra  <amodra@gmail.com>
+
+		* ansidecl.h (ATTRIBUTE_NONSTRING): Define.
+
+
+Local Variables:
+mode: change-log
+left-margin: 8
+fill-column: 76
+version-control: never
+End:
