@@ -1,3 +1,15 @@
+2019-03-15  Ola Jeppsson  <ola@adapteva.com>
+
+    Backported from mainline
+    commit: 5ab17bfb03d37980bc43c002e6456aba37cb9d5e
+    Author: hubicka <hubicka@138bc75d-0d04-0410-961f-82ee72b054a4>
+    Date:   Wed May 30 16:36:55 2018 +0000
+
+	* lto-wrapper.c (debug_objcopy): Add rename parameter; pass
+	it down to simple_object_copy_lto_debug_sections.
+	(run_gcc): Determine incremental LTO link time and configure
+	lto1 into non-wpa mode, disable renaming of debug sections.
+
 2017-10-18  Ola Jeppsson  <ola@adapteva.com>
 
     Backported from mainline
