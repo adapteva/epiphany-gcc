@@ -2539,6 +2539,28 @@
   ""
   "rti"
   [(set_attr "type" "uncond_branch")])
+;
+;(define_insn "simple_return"
+;  [(simple_return)]
+;  "reload_completed"
+;{
+;  if (epiphany_is_interrupt_p (current_function_decl))
+;    return "rti";
+;  else
+;    return "rts";
+;}
+;  [(set_attr "type" "uncond_branch")])
+;
+;(define_insn "return"
+;  [(return)]
+;  "reload_completed"
+;{
+;  if (epiphany_is_interrupt_p (current_function_decl))
+;    return "rti";
+;  else
+;    return "rts";
+;}
+;  [(set_attr "type" "uncond_branch")])
 
 (define_insn "stack_adjust_add"
   [(set (reg:SI GPR_SP)

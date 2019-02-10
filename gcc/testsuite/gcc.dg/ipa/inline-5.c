@@ -34,6 +34,6 @@ accessreference (struct a *a)
     /* Will be eliminated by inlining */
 }
 
-/* { dg-final { scan-ipa-dump-times "Will be eliminated" 4 "inline" { xfail { { hppa*-*-* } && { ! lp64 } } } } } */
+/* { dg-final { scan-ipa-dump-times "Will be eliminated" 4 "inline" { xfail { { { hppa*-*-* } && { ! lp64 } } || { epiphany-*-* } } } } } */
 /* { dg-final { scan-ipa-dump-times "50. will be eliminated" 1 "inline"  } } */
 /* { dg-final { cleanup-ipa-dump "inline" } } */

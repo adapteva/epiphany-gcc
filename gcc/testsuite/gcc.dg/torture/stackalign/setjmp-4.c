@@ -1,5 +1,6 @@
 /* { dg-do run } */
 /* { dg-require-effective-target indirect_jumps } */
+/* { dg-skip-if "setjmp/-fpic not supported by toolchain yet" { epiphany*-*-* } { "-fpic" } { "" } } */
 
 #include <setjmp.h>
 

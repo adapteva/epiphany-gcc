@@ -1,5 +1,6 @@
 /* { dg-do run } */
 /* { dg-options "-O2" } */
+/* { dg-skip-if "packed attribute missing for struct A" { "epiphany-*-*" } { "*" } { "" } } */
 
 extern void abort (void);
 

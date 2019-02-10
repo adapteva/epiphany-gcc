@@ -200,6 +200,9 @@ static rtx_insn *frame_insn (rtx);
 #undef TARGET_LRA_P
 #define TARGET_LRA_P epiphany_lra_p
 
+#undef  TARGET_MACHINE_DEPENDENT_REORG
+#define TARGET_MACHINE_DEPENDENT_REORG epiphany_reorg
+
 #include "target-def.h"
 
 #undef TARGET_ASM_ALIGNED_HI_OP
@@ -722,9 +725,20 @@ gen_compare_reg (machine_mode cmode, enum rtx_code code,
    : (CUM))
 
 static unsigned int
+epiphany_orig_function_arg_boundary (machine_mode mode, const_tree type)
+{
+  if ((type ? TYPE_ALIGN (type) : GET_MODE_BITSIZE (mode)) <= PARM_BOUNDARY)
+    return PARM_BOUNDARY;
+  return 2 * PARM_BOUNDARY;
+}
+
+static unsigned int
 epiphany_function_arg_boundary (machine_mode mode, const_tree type)
 {
-  unsigned int align;
+  unsigned int align, old_align;
+  static bool warned = false;
+
+  old_align = epiphany_orig_function_arg_boundary (mode, type);
 
   if (type)
     {
@@ -741,6 +755,16 @@ epiphany_function_arg_boundary (machine_mode mode, const_tree type)
   else
     align = 2 * PARM_BOUNDARY;
 
+  if (!warned && align != old_align)
+    {
+      inform (input_location,
+	  "the ABI of passing types with %u-bits alignment"
+	  " has changed to %u-bits alignment.",
+	  old_align, align);
+      warned = true;
+    }
+
+  //return old_align;
   return align;
 }
 
@@ -3251,6 +3275,47 @@ bool
 epiphany_need_fp (void)
 {
   return current_frame_info.need_fp;
+}
+
+static void
+epiphany_reorg_emit_missing_return_insn (void)
+{
+  int interrupt_p, need_rts_p;
+  rtx_insn *insn;
+
+  interrupt_p = epiphany_is_interrupt_p (current_function_decl);
+
+  need_rts_p = 1;
+  for (insn = get_last_insn (); insn; insn = PREV_INSN (insn))
+    {
+      enum insn_code return_code = interrupt_p ?
+	CODE_FOR_return_internal_interrupt : CODE_FOR_return_i;
+
+      // if (GET_CODE (insn) == JUMP_INSN && recog_memoized (insn) == return_code)
+      if (active_insn_p (insn))
+	{
+	  need_rts_p = 0;
+	  break;
+	}
+    }
+
+  if (need_rts_p)
+    {
+      inform (input_location, "inserting missing return in reorg.");
+
+      /* if (return type is not void) */
+	emit_move_insn (gen_rtx_REG (SImode, GPR_0), const0_rtx);
+      if (interrupt_p)
+	emit_jump_insn (gen_return_internal_interrupt ());
+      else
+	emit_jump_insn (gen_return_i ());
+    }
+}
+
+static void
+epiphany_reorg (void)
+{
+  epiphany_reorg_emit_missing_return_insn ();
 }
 
 struct gcc_target targetm = TARGET_INITIALIZER;

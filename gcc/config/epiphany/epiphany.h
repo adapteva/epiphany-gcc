@@ -29,6 +29,7 @@ along with GCC; see the file COPYING3.  If not see
 #undef WCHAR_TYPE
 #undef WCHAR_TYPE_SIZE
 
+
 /* Names to predefine in the preprocessor for this target machine.  */
 #define TARGET_CPU_CPP_BUILTINS()		\
   do						\
