@@ -8,7 +8,7 @@
 @c man end
 
 @c man begin COPYRIGHT
-Copyright @copyright{} 1988-2016 Free Software Foundation, Inc.
+Copyright @copyright{} 1988-2017 Free Software Foundation, Inc.
 
 Permission is granted to copy, distribute and/or modify this document
 under the terms of the GNU Free Documentation License, Version 1.3 or
@@ -256,7 +256,7 @@ Objective-C and Objective-C++ Dialects}.
 -Wno-attributes -Wbool-compare -Wno-builtin-macro-redefined @gol
 -Wc90-c99-compat -Wc99-c11-compat @gol
 -Wc++-compat -Wc++11-compat -Wc++14-compat -Wcast-align  -Wcast-qual  @gol
--Wchar-subscripts -Wclobbered  -Wcomment -Wconditionally-supported  @gol
+-Wchar-subscripts -Wchkp -Wclobbered  -Wcomment -Wconditionally-supported  @gol
 -Wconversion -Wcoverage-mismatch -Wno-cpp -Wdate-time -Wdelete-incomplete @gol
 -Wno-deprecated -Wno-deprecated-declarations -Wno-designated-init @gol
 -Wdisabled-optimization @gol
@@ -637,7 +637,8 @@ Objective-C and Objective-C++ Dialects}.
 @emph{AVR Options}
 @gccoptlist{-mmcu=@var{mcu} -maccumulate-args -mbranch-cost=@var{cost} @gol
 -mcall-prologues -mint8 -mn_flash=@var{size} -mno-interrupts @gol
--mrelax -mrmw -mstrict-X -mtiny-stack -nodevicelib -Waddr-space-convert}
+-mrelax -mrmw -mstrict-X -mtiny-stack -nodevicelib -Waddr-space-convert @gol
+-Wmisspelled-isr}
 
 @emph{Blackfin Options}
 @gccoptlist{-mcpu=@var{cpu}@r{[}-@var{sirevision}@r{]} @gol
@@ -741,7 +742,7 @@ Objective-C and Objective-C++ Dialects}.
 
 @emph{HPPA Options}
 @gccoptlist{-march=@var{architecture-type} @gol
--mdisable-fpregs  -mdisable-indexing @gol
+-mcaller-copies  -mdisable-fpregs  -mdisable-indexing @gol
 -mfast-indirect-calls  -mgas  -mgnu-ld   -mhp-ld @gol
 -mfixed-range=@var{register-range} @gol
 -mjump-in-delay -mlinker-opt -mlong-calls @gol
@@ -989,7 +990,7 @@ See RS/6000 and PowerPC Options.
 -mfloat-gprs=yes  -mfloat-gprs=no -mfloat-gprs=single -mfloat-gprs=double @gol
 -mprototype  -mno-prototype @gol
 -msim  -mmvme  -mads  -myellowknife  -memb  -msdata @gol
--msdata=@var{opt}  -mvxworks  -G @var{num}  -pthread @gol
+-msdata=@var{opt}  -mreadonly-in-sdata  -mvxworks  -G @var{num}  -pthread @gol
 -mrecip -mrecip=@var{opt} -mno-recip -mrecip-precision @gol
 -mno-recip-precision @gol
 -mveclibabi=@var{type} -mfriz -mno-friz @gol
@@ -1001,10 +1002,9 @@ See RS/6000 and PowerPC Options.
 -mquad-memory-atomic -mno-quad-memory-atomic @gol
 -mcompat-align-parm -mno-compat-align-parm @gol
 -mupper-regs-df -mno-upper-regs-df -mupper-regs-sf -mno-upper-regs-sf @gol
--mupper-regs -mno-upper-regs -mmodulo -mno-modulo @gol
+-mupper-regs -mno-upper-regs @gol
 -mfloat128 -mno-float128 -mfloat128-hardware -mno-float128-hardware @gol
--mpower9-fusion -mno-mpower9-fusion -mpower9-vector -mno-power9-vector @gol
--mpower9-dform -mno-power9-dform -mlra -mno-lra}
+-mlra -mno-lra}
 
 @emph{RX Options}
 @gccoptlist{-m64bit-doubles  -m32bit-doubles  -fpu  -nofpu@gol
@@ -1169,7 +1169,8 @@ See RS/6000 and PowerPC Options.
 -msse2avx -mfentry -mrecord-mcount -mnop-mcount -m8bit-idiv @gol
 -mavx256-split-unaligned-load -mavx256-split-unaligned-store @gol
 -malign-data=@var{type} -mstack-protector-guard=@var{guard} @gol
--mmitigate-rop}
+-mmitigate-rop -mindirect-branch=@var{choice} @gol
+-mfunction-return=@var{choice} -mindirect-branch-register}
 
 @emph{x86 Windows Options}
 @gccoptlist{-mconsole -mcygwin -mno-cygwin -mdll @gol
@@ -3650,6 +3651,11 @@ This warning is enabled by @option{-Wall}.
 Warn whenever a comment-start sequence @samp{/*} appears in a @samp{/*}
 comment, or whenever a Backslash-Newline appears in a @samp{//} comment.
 This warning is enabled by @option{-Wall}.
+
+@item -Wchkp
+@opindex Wchkp
+Warn about an invalid memory access that is found by Pointer Bounds Checker
+(@option{-fcheck-pointer-bounds}).
 
 @item -Wno-coverage-mismatch
 @opindex Wno-coverage-mismatch
@@ -7273,7 +7279,7 @@ This flag is enabled by default at @option{-O2} and higher and depends on
 
 @item -fisolate-erroneous-paths-attribute
 @opindex fisolate-erroneous-paths-attribute
-Detect paths that trigger erroneous or undefined behavior due a null value
+Detect paths that trigger erroneous or undefined behavior due to a null value
 being used in a way forbidden by a @code{returns_nonnull} or @code{nonnull}
 attribute.  Isolate those paths from the main control flow and turn the
 statement with erroneous or undefined behavior into a trap.  This is not
@@ -7817,6 +7823,7 @@ Some assemblers only support this flag when @var{n} is a power of two;
 in that case, it is rounded up.
 
 If @var{n} is not specified or is zero, use a machine-dependent default.
+The maximum allowed @var{n} option value is 65536.
 
 Enabled at levels @option{-O2}, @option{-O3}.
 
@@ -7836,6 +7843,7 @@ are greater than this value, then their values are used instead.
 
 If @var{n} is not specified or is zero, use a machine-dependent default
 which is very likely to be @samp{1}, meaning no alignment.
+The maximum allowed @var{n} option value is 65536.
 
 Enabled at levels @option{-O2}, @option{-O3}.
 
@@ -7849,6 +7857,7 @@ operations.
 
 @option{-fno-align-loops} and @option{-falign-loops=1} are
 equivalent and mean that loops are not aligned.
+The maximum allowed @var{n} option value is 65536.
 
 If @var{n} is not specified or is zero, use a machine-dependent default.
 
@@ -7866,6 +7875,7 @@ need be executed.
 equivalent and mean that loops are not aligned.
 
 If @var{n} is not specified or is zero, use a machine-dependent default.
+The maximum allowed @var{n} option value is 65536.
 
 Enabled at levels @option{-O2}, @option{-O3}.
 
@@ -9691,9 +9701,9 @@ Link your object files with @option{-lgcov} or @option{-fprofile-arcs}
 Run the program on a representative workload to generate the arc profile
 information.  This may be repeated any number of times.  You can run
 concurrent instances of your program, and provided that the file system
-supports locking, the data files will be correctly updated.  Also
-@code{fork} calls are detected and correctly handled (double counting
-will not happen).
+supports locking, the data files will be correctly updated.  Unless
+a strict ISO C dialect option is in effect, @code{fork} calls are
+detected and correctly handled without double counting.
 
 @item
 For profile-directed optimizations, compile the source files again with
@@ -14460,12 +14470,17 @@ Only change the lower 8@tie{}bits of the stack pointer.
 
 @item -nodevicelib
 @opindex nodevicelib
-Don't link against AVR-LibC's device specific library @code{libdev.a}.
+Don't link against AVR-LibC's device specific library @code{lib<mcu>.a}.
 
 @item -Waddr-space-convert
 @opindex Waddr-space-convert
 Warn about conversions between address spaces in the case where the
 resulting address space is not contained in the incoming address space.
+ 
+@item -Wmisspelled-isr
+@opindex Wmisspelled-isr
+Warn if the ISR is misspelled, i.e. without @code{__vector} prefix.
+Enabled by default.
 @end table
 
 @subsubsection @code{EIND} and Devices with More Than 128 Ki Bytes of Flash
@@ -16296,6 +16311,14 @@ other way around.
 @opindex mpa-risc-1-1
 @opindex mpa-risc-2-0
 Synonyms for @option{-march=1.0}, @option{-march=1.1}, and @option{-march=2.0} respectively.
+
+@item -mcaller-copies
+@opindex mcaller-copies
+The caller copies function arguments passed by hidden reference.  This
+option should be used with care as it is not compatible with the default
+32-bit runtime.  However, only aggregates larger than eight bytes are
+passed by hidden reference and the option provides better compatibility
+with OpenMP.
 
 @item -mjump-in-delay
 @opindex mjump-in-delay
@@ -19895,8 +19918,7 @@ following options:
 -mpowerpc-gpopt  -mpowerpc-gfxopt  -msingle-float -mdouble-float @gol
 -msimple-fpu -mstring  -mmulhw  -mdlmzb  -mmfpgpr -mvsx @gol
 -mcrypto -mdirect-move -mhtm -mpower8-fusion -mpower8-vector @gol
--mquad-memory -mquad-memory-atomic -mmodulo -mfloat128 -mfloat128-hardware @gol
--mpower9-fusion -mpower9-vector -mpower9-dform}
+-mquad-memory -mquad-memory-atomic -mfloat128 -mfloat128-hardware}
 
 The particular options set for any particular CPU varies between
 compiler versions, depending on what setting seems to produce optimal
@@ -20128,8 +20150,8 @@ Generate code that uses (does not use) the scalar single precision
 instructions that target all 64 registers in the vector/scalar
 floating point register set that were added in version 2.07 of the
 PowerPC ISA.  @option{-mupper-regs-sf} is turned on by default if you
-use either of the @option{-mcpu=power8} or @option{-mpower8-vector}
-options.
+use either of the @option{-mcpu=power8}, @option{-mpower8-vector}, or
+@option{-mcpu=power9} options.
 
 @item -mupper-regs
 @itemx -mno-upper-regs
@@ -20173,40 +20195,6 @@ If you use @option{-mfloat128-hardware}, it will enable the option
 If you select ISA 3.0 instructions with @option{-mcpu=power9}, but do
 not use either @option{-mfloat128} or @option{-mfloat128-hardware},
 the IEEE 128-bit floating point support will not be enabled.
-
-@item -mmodulo
-@itemx -mno-modulo
-@opindex mmodulo
-@opindex mno-module
-Generate code that uses (does not use) the ISA 3.0 integer modulo
-instructions.  The @option{-mmodulo} option is enabled by default
-with the @option{-mcpu=power9} option.
-
-@item -mpower9-fusion
-@itemx -mno-power9-fusion
-@opindex mpower9-fusion
-@opindex mno-power9-fusion
-Generate code that keeps (does not keeps) some operations adjacent so
-that the instructions can be fused together on power9 and later
-processors.
-
-@item -mpower9-vector
-@itemx -mno-power9-vector
-@opindex mpower9-vector
-@opindex mno-power9-vector
-Generate code that uses (does not use) the vector and scalar
-instructions that were added in version 3.0 of the PowerPC ISA.  Also
-enable the use of built-in functions that allow more direct access to
-the vector instructions.
-
-@item -mpower9-dform
-@itemx -mno-power9-dform
-@opindex mpower9-dform
-@opindex mno-power9-dform
-Enable (disable) scalar d-form (register + offset) memory instructions
-to load/store traditional Altivec registers. If the @var{LRA} register
-allocator is enabled, also enable (disable) vector d-form memory
-instructions.
 
 @item -mfloat-gprs=@var{yes/single/double/no}
 @itemx -mfloat-gprs
@@ -20773,6 +20761,13 @@ other @option{-msdata} options are used.
 On embedded PowerPC systems, put all initialized global and static data
 in the @code{.data} section, and all uninitialized data in the
 @code{.bss} section.
+
+@item -mreadonly-in-sdata
+@itemx -mreadonly-in-sdata
+@opindex mreadonly-in-sdata
+@opindex mno-readonly-in-sdata
+Put read-only objects in the @code{.sdata} section as well.  This is the
+default.
 
 @item -mblock-move-inline-limit=@var{num}
 @opindex mblock-move-inline-limit
@@ -23669,8 +23664,8 @@ preferred alignment to @option{-mpreferred-stack-boundary=2}.
 @itemx -mpclmul
 @opindex mpclmul
 @need 200
-@itemx -mclfushopt
-@opindex mclfushopt
+@itemx -mclflushopt
+@opindex mclflushopt
 @need 200
 @itemx -mfsgsbase
 @opindex mfsgsbase
@@ -24257,6 +24252,43 @@ Try to avoid generating code sequences that contain unintended return
 opcodes, to mitigate against certain forms of attack. At the moment,
 this option is limited in what it can do and should not be relied
 on to provide serious protection.
+
+@item -mindirect-branch=@var{choice}
+@opindex -mindirect-branch
+Convert indirect call and jump with @var{choice}.  The default is
+@samp{keep}, which keeps indirect call and jump unmodified.
+@samp{thunk} converts indirect call and jump to call and return thunk.
+@samp{thunk-inline} converts indirect call and jump to inlined call
+and return thunk.  @samp{thunk-extern} converts indirect call and jump
+to external call and return thunk provided in a separate object file.
+You can control this behavior for a specific function by using the
+function attribute @code{indirect_branch}.  @xref{Function Attributes}.
+
+Note that @option{-mcmodel=large} is incompatible with
+@option{-mindirect-branch=thunk} nor
+@option{-mindirect-branch=thunk-extern} since the thunk function may
+not be reachable in large code model.
+
+@item -mfunction-return=@var{choice}
+@opindex -mfunction-return
+Convert function return with @var{choice}.  The default is @samp{keep},
+which keeps function return unmodified.  @samp{thunk} converts function
+return to call and return thunk.  @samp{thunk-inline} converts function
+return to inlined call and return thunk.  @samp{thunk-extern} converts
+function return to external call and return thunk provided in a separate
+object file.  You can control this behavior for a specific function by
+using the function attribute @code{function_return}.
+@xref{Function Attributes}.
+
+Note that @option{-mcmodel=large} is incompatible with
+@option{-mfunction-return=thunk} nor
+@option{-mfunction-return=thunk-extern} since the thunk function may
+not be reachable in large code model.
+
+
+@item -mindirect-branch-register
+@opindex -mindirect-branch-register
+Force indirect call and jump via register.
 
 @end table
 

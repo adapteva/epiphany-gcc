@@ -2036,6 +2036,18 @@ compare_base_decls (tree base1, tree base2)
   if (base1 == base2)
     return 1;
 
+  /* If we have two register decls with register specification we
+     cannot decide unless their assembler name is the same.  */
+  if (DECL_REGISTER (base1)
+      && DECL_REGISTER (base2)
+      && DECL_ASSEMBLER_NAME_SET_P (base1)
+      && DECL_ASSEMBLER_NAME_SET_P (base2))
+    {
+      if (DECL_ASSEMBLER_NAME (base1) == DECL_ASSEMBLER_NAME (base2))
+	return 1;
+      return -1;
+    }
+
   /* Declarations of non-automatic variables may have aliases.  All other
      decls are unique.  */
   if (!decl_in_symtab_p (base1)
@@ -2978,7 +2990,8 @@ write_dependence_p (const_rtx mem,
   int ret;
 
   gcc_checking_assert (x_canonicalized
-		       ? (x_addr != NULL_RTX && x_mode != VOIDmode)
+		       ? (x_addr != NULL_RTX
+			  && (x_mode != VOIDmode || GET_MODE (x) == VOIDmode))
 		       : (x_addr == NULL_RTX && x_mode == VOIDmode));
 
   if (MEM_VOLATILE_P (x) && MEM_VOLATILE_P (mem))

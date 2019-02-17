@@ -1,3 +1,16 @@
+2018-10-26  Release Manager
+
+	* GCC 6.5.0 released.
+
+2017-07-04  Release Manager
+
+	* GCC 6.4.0 released.
+
+2017-01-24  Uros Bizjak  <ubizjak@gmail.com>
+
+	PR target/78478
+	* ax_check_define.m4: New file.
+
 2016-12-21  Release Manager
 
 	* GCC 6.3.0 released.

@@ -404,15 +404,22 @@ less_than_bitsize2 (const char *arg1, gfc_expr *expr1, const char *arg2,
 /* Make sure two expressions have the same type.  */
 
 static bool
-same_type_check (gfc_expr *e, int n, gfc_expr *f, int m)
+same_type_check (gfc_expr *e, int n, gfc_expr *f, int m, bool assoc = false)
 {
   gfc_typespec *ets = &e->ts;
   gfc_typespec *fts = &f->ts;
 
-  if (e->ts.type == BT_PROCEDURE && e->symtree->n.sym)
-    ets = &e->symtree->n.sym->ts;
-  if (f->ts.type == BT_PROCEDURE && f->symtree->n.sym)
-    fts = &f->symtree->n.sym->ts;
+  if (assoc)
+    {
+      /* Procedure pointer component expressions have the type of the interface
+	 procedure. If they are being tested for association with a procedure
+	 pointer (ie. not a component), the type of the procedure must be
+	 determined.  */
+      if (e->ts.type == BT_PROCEDURE && e->symtree->n.sym)
+	ets = &e->symtree->n.sym->ts;
+      if (f->ts.type == BT_PROCEDURE && f->symtree->n.sym)
+	fts = &f->symtree->n.sym->ts;
+    }
 
   if (gfc_compare_types (ets, fts))
     return true;
@@ -968,7 +975,7 @@ gfc_check_associated (gfc_expr *pointer, gfc_expr *target)
     }
 
   t = true;
-  if (!same_type_check (pointer, 0, target, 1))
+  if (!same_type_check (pointer, 0, target, 1, true))
     t = false;
   if (!rank_check (target, 0, pointer->rank))
     t = false;
@@ -3629,8 +3636,11 @@ gfc_check_rank (gfc_expr *a ATTRIBUTE_UNUSED)
 		  ? a->value.function.esym->result->attr.pointer
 		  : a->symtree->n.sym->result->attr.pointer;
 
-  if (a->expr_type == EXPR_OP || a->expr_type == EXPR_NULL
-      || a->expr_type == EXPR_COMPCALL|| a->expr_type == EXPR_PPC
+  if (a->expr_type == EXPR_OP
+      || a->expr_type == EXPR_NULL
+      || a->expr_type == EXPR_COMPCALL
+      || a->expr_type == EXPR_PPC
+      || a->ts.type == BT_PROCEDURE
       || !is_variable)
     {
       gfc_error ("The argument of the RANK intrinsic at %L must be a data "
@@ -5021,7 +5031,7 @@ gfc_check_num_images (gfc_expr *distance, gfc_expr *failed)
 	return false;
 
       if (!gfc_notify_std (GFC_STD_F2008_TS, "FAILED= argument to "
-			   "NUM_IMAGES at %L", &distance->where))
+			   "NUM_IMAGES at %L", &failed->where))
 	return false;
     }
 

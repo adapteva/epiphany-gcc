@@ -142,9 +142,6 @@ cat > sysinfo.c <<EOF
 #if defined(HAVE_SYS_SYSINFO_H)
 #include <sys/sysinfo.h>
 #endif
-#if defined(HAVE_USTAT_H)
-#include <ustat.h>
-#endif
 #if defined(HAVE_UTIME_H)
 #include <utime.h>
 #endif
@@ -1350,20 +1347,6 @@ grep '^type _sysinfo ' gen-sysinfo.go | \
       -e 's/mem_unit/Unit/' \
     >> ${OUT}
 
-# The ustat struct.
-grep '^type _ustat ' gen-sysinfo.go | \
-    sed -e 's/_ustat/Ustat_t/' \
-      -e 's/f_tfree/Tfree/' \
-      -e 's/f_tinode/Tinoe/' \
-      -e 's/f_fname/Fname/' \
-      -e 's/f_fpack/Fpack/' \
-    >> ${OUT}
-# Force it to be defined, as on some older GNU/Linux systems the
-# header file fails when using with <linux/filter.h>.
-if ! grep 'type _ustat ' gen-sysinfo.go >/dev/null 2>&1; then
-  echo 'type Ustat_t struct { Tfree int32; Tinoe uint64; Fname [5+1]int8; Fpack [5+1]int8; }' >> ${OUT}
-fi
-
 # The utimbuf struct.
 grep '^type _utimbuf ' gen-sysinfo.go | \
     sed -e 's/_utimbuf/Utimbuf/' \
@@ -1503,22 +1486,22 @@ grep '^type _zone_net_addr_t ' gen-sysinfo.go | \
     sed -e 's/_in6_addr/[16]byte/' \
     >> ${OUT}
 
-# The Solaris 12 _flow_arp_desc_t struct.
+# The Solaris 11.4 _flow_arp_desc_t struct.
 grep '^type _flow_arp_desc_t ' gen-sysinfo.go | \
     sed -e 's/_in6_addr_t/[16]byte/g' \
     >> ${OUT}
 
-# The Solaris 12 _flow_l3_desc_t struct.
+# The Solaris 11.4 _flow_l3_desc_t struct.
 grep '^type _flow_l3_desc_t ' gen-sysinfo.go | \
     sed -e 's/_in6_addr_t/[16]byte/g' \
     >> ${OUT}
 
-# The Solaris 12 _mac_ipaddr_t struct.
+# The Solaris 11.3 _mac_ipaddr_t struct.
 grep '^type _mac_ipaddr_t ' gen-sysinfo.go | \
     sed -e 's/_in6_addr_t/[16]byte/g' \
     >> ${OUT}
 
-# The Solaris 12 _mactun_info_t struct.
+# The Solaris 11.3 _mactun_info_t struct.
 grep '^type _mactun_info_t ' gen-sysinfo.go | \
     sed -e 's/_in6_addr_t/[16]byte/g' \
     >> ${OUT}

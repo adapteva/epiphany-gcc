@@ -218,11 +218,17 @@ warn_function_const (tree decl, bool known_finite)
 static void
 warn_function_noreturn (tree decl)
 {
+  tree original_decl = decl;
+
+  cgraph_node *node = cgraph_node::get (decl);
+  if (node->instrumentation_clone)
+    decl = node->instrumented_version->decl;
+
   static hash_set<tree> *warned_about;
   if (!lang_hooks.missing_noreturn_ok_p (decl)
       && targetm.warn_func_return (decl))
     warned_about 
-      = suggest_attribute (OPT_Wsuggest_attribute_noreturn, decl,
+      = suggest_attribute (OPT_Wsuggest_attribute_noreturn, original_decl,
 			   true, warned_about, "noreturn");
 }
 
@@ -1160,7 +1166,8 @@ static bool
 cdtor_p (cgraph_node *n, void *)
 {
   if (DECL_STATIC_CONSTRUCTOR (n->decl) || DECL_STATIC_DESTRUCTOR (n->decl))
-    return !TREE_READONLY (n->decl) && !DECL_PURE_P (n->decl);
+    return ((!TREE_READONLY (n->decl) && !DECL_PURE_P (n->decl))
+	    || DECL_LOOPING_CONST_OR_PURE_P (n->decl));
   return false;
 }
 

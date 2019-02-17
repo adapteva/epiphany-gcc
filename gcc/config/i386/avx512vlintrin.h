@@ -9159,6 +9159,582 @@ _mm256_mask_permutexvar_epi32 (__m256i __W, __mmask8 __M, __m256i __X,
 						     __M);
 }
 
+extern __inline __mmask8
+  __attribute__ ((__gnu_inline__, __always_inline__, __artificial__))
+_mm256_mask_cmpneq_epu32_mask (__mmask8 __M, __m256i __X, __m256i __Y)
+{
+  return (__mmask8) __builtin_ia32_ucmpd256_mask ((__v8si) __X,
+						  (__v8si) __Y, 4,
+						  (__mmask8) __M);
+}
+
+extern __inline __mmask8
+  __attribute__ ((__gnu_inline__, __always_inline__, __artificial__))
+_mm256_cmpneq_epu32_mask (__m256i __X, __m256i __Y)
+{
+  return (__mmask8) __builtin_ia32_ucmpd256_mask ((__v8si) __X,
+						  (__v8si) __Y, 4,
+						  (__mmask8) -1);
+}
+
+extern __inline __mmask8
+  __attribute__ ((__gnu_inline__, __always_inline__, __artificial__))
+_mm256_mask_cmplt_epu32_mask (__mmask8 __M, __m256i __X, __m256i __Y)
+{
+  return (__mmask8) __builtin_ia32_ucmpd256_mask ((__v8si) __X,
+						  (__v8si) __Y, 1,
+						  (__mmask8) __M);
+}
+
+extern __inline __mmask8
+  __attribute__ ((__gnu_inline__, __always_inline__, __artificial__))
+_mm256_cmplt_epu32_mask (__m256i __X, __m256i __Y)
+{
+  return (__mmask8) __builtin_ia32_ucmpd256_mask ((__v8si) __X,
+						  (__v8si) __Y, 1,
+						  (__mmask8) -1);
+}
+
+extern __inline __mmask8
+  __attribute__ ((__gnu_inline__, __always_inline__, __artificial__))
+_mm256_mask_cmpge_epu32_mask (__mmask8 __M, __m256i __X, __m256i __Y)
+{
+  return (__mmask8) __builtin_ia32_ucmpd256_mask ((__v8si) __X,
+						  (__v8si) __Y, 5,
+						  (__mmask8) __M);
+}
+
+extern __inline __mmask8
+  __attribute__ ((__gnu_inline__, __always_inline__, __artificial__))
+_mm256_cmpge_epu32_mask (__m256i __X, __m256i __Y)
+{
+  return (__mmask8) __builtin_ia32_ucmpd256_mask ((__v8si) __X,
+						  (__v8si) __Y, 5,
+						  (__mmask8) -1);
+}
+
+extern __inline __mmask8
+  __attribute__ ((__gnu_inline__, __always_inline__, __artificial__))
+_mm256_mask_cmple_epu32_mask (__mmask8 __M, __m256i __X, __m256i __Y)
+{
+  return (__mmask8) __builtin_ia32_ucmpd256_mask ((__v8si) __X,
+						  (__v8si) __Y, 2,
+						  (__mmask8) __M);
+}
+
+extern __inline __mmask8
+  __attribute__ ((__gnu_inline__, __always_inline__, __artificial__))
+_mm256_cmple_epu32_mask (__m256i __X, __m256i __Y)
+{
+  return (__mmask8) __builtin_ia32_ucmpd256_mask ((__v8si) __X,
+						  (__v8si) __Y, 2,
+						  (__mmask8) -1);
+}
+
+extern __inline __mmask8
+  __attribute__ ((__gnu_inline__, __always_inline__, __artificial__))
+_mm256_mask_cmpneq_epu64_mask (__mmask8 __M, __m256i __X, __m256i __Y)
+{
+  return (__mmask8) __builtin_ia32_ucmpq256_mask ((__v4di) __X,
+						  (__v4di) __Y, 4,
+						  (__mmask8) __M);
+}
+
+extern __inline __mmask8
+  __attribute__ ((__gnu_inline__, __always_inline__, __artificial__))
+_mm256_cmpneq_epu64_mask (__m256i __X, __m256i __Y)
+{
+  return (__mmask8) __builtin_ia32_ucmpq256_mask ((__v4di) __X,
+						  (__v4di) __Y, 4,
+						  (__mmask8) -1);
+}
+
+extern __inline __mmask8
+  __attribute__ ((__gnu_inline__, __always_inline__, __artificial__))
+_mm256_mask_cmplt_epu64_mask (__mmask8 __M, __m256i __X, __m256i __Y)
+{
+  return (__mmask8) __builtin_ia32_ucmpq256_mask ((__v4di) __X,
+						  (__v4di) __Y, 1,
+						  (__mmask8) __M);
+}
+
+extern __inline __mmask8
+  __attribute__ ((__gnu_inline__, __always_inline__, __artificial__))
+_mm256_cmplt_epu64_mask (__m256i __X, __m256i __Y)
+{
+  return (__mmask8) __builtin_ia32_ucmpq256_mask ((__v4di) __X,
+						  (__v4di) __Y, 1,
+						  (__mmask8) -1);
+}
+
+extern __inline __mmask8
+  __attribute__ ((__gnu_inline__, __always_inline__, __artificial__))
+_mm256_mask_cmpge_epu64_mask (__mmask8 __M, __m256i __X, __m256i __Y)
+{
+  return (__mmask8) __builtin_ia32_ucmpq256_mask ((__v4di) __X,
+						  (__v4di) __Y, 5,
+						  (__mmask8) __M);
+}
+
+extern __inline __mmask8
+  __attribute__ ((__gnu_inline__, __always_inline__, __artificial__))
+_mm256_cmpge_epu64_mask (__m256i __X, __m256i __Y)
+{
+  return (__mmask8) __builtin_ia32_ucmpq256_mask ((__v4di) __X,
+						  (__v4di) __Y, 5,
+						  (__mmask8) -1);
+}
+
+extern __inline __mmask8
+  __attribute__ ((__gnu_inline__, __always_inline__, __artificial__))
+_mm256_mask_cmple_epu64_mask (__mmask8 __M, __m256i __X, __m256i __Y)
+{
+  return (__mmask8) __builtin_ia32_ucmpq256_mask ((__v4di) __X,
+						  (__v4di) __Y, 2,
+						  (__mmask8) __M);
+}
+
+extern __inline __mmask8
+  __attribute__ ((__gnu_inline__, __always_inline__, __artificial__))
+_mm256_cmple_epu64_mask (__m256i __X, __m256i __Y)
+{
+  return (__mmask8) __builtin_ia32_ucmpq256_mask ((__v4di) __X,
+						  (__v4di) __Y, 2,
+						  (__mmask8) -1);
+}
+
+extern __inline __mmask8
+  __attribute__ ((__gnu_inline__, __always_inline__, __artificial__))
+_mm256_mask_cmpneq_epi32_mask (__mmask8 __M, __m256i __X, __m256i __Y)
+{
+  return (__mmask8) __builtin_ia32_cmpd256_mask ((__v8si) __X,
+						 (__v8si) __Y, 4,
+						 (__mmask8) __M);
+}
+
+extern __inline __mmask8
+  __attribute__ ((__gnu_inline__, __always_inline__, __artificial__))
+_mm256_cmpneq_epi32_mask (__m256i __X, __m256i __Y)
+{
+  return (__mmask8) __builtin_ia32_cmpd256_mask ((__v8si) __X,
+						 (__v8si) __Y, 4,
+						 (__mmask8) -1);
+}
+
+extern __inline __mmask8
+  __attribute__ ((__gnu_inline__, __always_inline__, __artificial__))
+_mm256_mask_cmplt_epi32_mask (__mmask8 __M, __m256i __X, __m256i __Y)
+{
+  return (__mmask8) __builtin_ia32_cmpd256_mask ((__v8si) __X,
+						 (__v8si) __Y, 1,
+						 (__mmask8) __M);
+}
+
+extern __inline __mmask8
+  __attribute__ ((__gnu_inline__, __always_inline__, __artificial__))
+_mm256_cmplt_epi32_mask (__m256i __X, __m256i __Y)
+{
+  return (__mmask8) __builtin_ia32_cmpd256_mask ((__v8si) __X,
+						 (__v8si) __Y, 1,
+						 (__mmask8) -1);
+}
+
+extern __inline __mmask8
+  __attribute__ ((__gnu_inline__, __always_inline__, __artificial__))
+_mm256_mask_cmpge_epi32_mask (__mmask8 __M, __m256i __X, __m256i __Y)
+{
+  return (__mmask8) __builtin_ia32_cmpd256_mask ((__v8si) __X,
+						 (__v8si) __Y, 5,
+						 (__mmask8) __M);
+}
+
+extern __inline __mmask8
+  __attribute__ ((__gnu_inline__, __always_inline__, __artificial__))
+_mm256_cmpge_epi32_mask (__m256i __X, __m256i __Y)
+{
+  return (__mmask8) __builtin_ia32_cmpd256_mask ((__v8si) __X,
+						 (__v8si) __Y, 5,
+						 (__mmask8) -1);
+}
+
+extern __inline __mmask8
+  __attribute__ ((__gnu_inline__, __always_inline__, __artificial__))
+_mm256_mask_cmple_epi32_mask (__mmask8 __M, __m256i __X, __m256i __Y)
+{
+  return (__mmask8) __builtin_ia32_cmpd256_mask ((__v8si) __X,
+						 (__v8si) __Y, 2,
+						 (__mmask8) __M);
+}
+
+extern __inline __mmask8
+  __attribute__ ((__gnu_inline__, __always_inline__, __artificial__))
+_mm256_cmple_epi32_mask (__m256i __X, __m256i __Y)
+{
+  return (__mmask8) __builtin_ia32_cmpd256_mask ((__v8si) __X,
+						 (__v8si) __Y, 2,
+						 (__mmask8) -1);
+}
+
+extern __inline __mmask8
+  __attribute__ ((__gnu_inline__, __always_inline__, __artificial__))
+_mm256_mask_cmpneq_epi64_mask (__mmask8 __M, __m256i __X, __m256i __Y)
+{
+  return (__mmask8) __builtin_ia32_cmpq256_mask ((__v4di) __X,
+						 (__v4di) __Y, 4,
+						 (__mmask8) __M);
+}
+
+extern __inline __mmask8
+  __attribute__ ((__gnu_inline__, __always_inline__, __artificial__))
+_mm256_cmpneq_epi64_mask (__m256i __X, __m256i __Y)
+{
+  return (__mmask8) __builtin_ia32_cmpq256_mask ((__v4di) __X,
+						 (__v4di) __Y, 4,
+						 (__mmask8) -1);
+}
+
+extern __inline __mmask8
+  __attribute__ ((__gnu_inline__, __always_inline__, __artificial__))
+_mm256_mask_cmplt_epi64_mask (__mmask8 __M, __m256i __X, __m256i __Y)
+{
+  return (__mmask8) __builtin_ia32_cmpq256_mask ((__v4di) __X,
+						 (__v4di) __Y, 1,
+						 (__mmask8) __M);
+}
+
+extern __inline __mmask8
+  __attribute__ ((__gnu_inline__, __always_inline__, __artificial__))
+_mm256_cmplt_epi64_mask (__m256i __X, __m256i __Y)
+{
+  return (__mmask8) __builtin_ia32_cmpq256_mask ((__v4di) __X,
+						 (__v4di) __Y, 1,
+						 (__mmask8) -1);
+}
+
+extern __inline __mmask8
+  __attribute__ ((__gnu_inline__, __always_inline__, __artificial__))
+_mm256_mask_cmpge_epi64_mask (__mmask8 __M, __m256i __X, __m256i __Y)
+{
+  return (__mmask8) __builtin_ia32_cmpq256_mask ((__v4di) __X,
+						 (__v4di) __Y, 5,
+						 (__mmask8) __M);
+}
+
+extern __inline __mmask8
+  __attribute__ ((__gnu_inline__, __always_inline__, __artificial__))
+_mm256_cmpge_epi64_mask (__m256i __X, __m256i __Y)
+{
+  return (__mmask8) __builtin_ia32_cmpq256_mask ((__v4di) __X,
+						 (__v4di) __Y, 5,
+						 (__mmask8) -1);
+}
+
+extern __inline __mmask8
+  __attribute__ ((__gnu_inline__, __always_inline__, __artificial__))
+_mm256_mask_cmple_epi64_mask (__mmask8 __M, __m256i __X, __m256i __Y)
+{
+  return (__mmask8) __builtin_ia32_cmpq256_mask ((__v4di) __X,
+						 (__v4di) __Y, 2,
+						 (__mmask8) __M);
+}
+
+extern __inline __mmask8
+  __attribute__ ((__gnu_inline__, __always_inline__, __artificial__))
+_mm256_cmple_epi64_mask (__m256i __X, __m256i __Y)
+{
+  return (__mmask8) __builtin_ia32_cmpq256_mask ((__v4di) __X,
+						 (__v4di) __Y, 2,
+						 (__mmask8) -1);
+}
+
+extern __inline __mmask8
+  __attribute__ ((__gnu_inline__, __always_inline__, __artificial__))
+_mm_mask_cmpneq_epu32_mask (__mmask8 __M, __m128i __X, __m128i __Y)
+{
+  return (__mmask8) __builtin_ia32_ucmpd128_mask ((__v4si) __X,
+						  (__v4si) __Y, 4,
+						  (__mmask8) __M);
+}
+
+extern __inline __mmask8
+  __attribute__ ((__gnu_inline__, __always_inline__, __artificial__))
+_mm_cmpneq_epu32_mask (__m128i __X, __m128i __Y)
+{
+  return (__mmask8) __builtin_ia32_ucmpd128_mask ((__v4si) __X,
+						  (__v4si) __Y, 4,
+						  (__mmask8) -1);
+}
+
+extern __inline __mmask8
+  __attribute__ ((__gnu_inline__, __always_inline__, __artificial__))
+_mm_mask_cmplt_epu32_mask (__mmask8 __M, __m128i __X, __m128i __Y)
+{
+  return (__mmask8) __builtin_ia32_ucmpd128_mask ((__v4si) __X,
+						  (__v4si) __Y, 1,
+						  (__mmask8) __M);
+}
+
+extern __inline __mmask8
+  __attribute__ ((__gnu_inline__, __always_inline__, __artificial__))
+_mm_cmplt_epu32_mask (__m128i __X, __m128i __Y)
+{
+  return (__mmask8) __builtin_ia32_ucmpd128_mask ((__v4si) __X,
+						  (__v4si) __Y, 1,
+						  (__mmask8) -1);
+}
+
+extern __inline __mmask8
+  __attribute__ ((__gnu_inline__, __always_inline__, __artificial__))
+_mm_mask_cmpge_epu32_mask (__mmask8 __M, __m128i __X, __m128i __Y)
+{
+  return (__mmask8) __builtin_ia32_ucmpd128_mask ((__v4si) __X,
+						  (__v4si) __Y, 5,
+						  (__mmask8) __M);
+}
+
+extern __inline __mmask8
+  __attribute__ ((__gnu_inline__, __always_inline__, __artificial__))
+_mm_cmpge_epu32_mask (__m128i __X, __m128i __Y)
+{
+  return (__mmask8) __builtin_ia32_ucmpd128_mask ((__v4si) __X,
+						  (__v4si) __Y, 5,
+						  (__mmask8) -1);
+}
+
+extern __inline __mmask8
+  __attribute__ ((__gnu_inline__, __always_inline__, __artificial__))
+_mm_mask_cmple_epu32_mask (__mmask8 __M, __m128i __X, __m128i __Y)
+{
+  return (__mmask8) __builtin_ia32_ucmpd128_mask ((__v4si) __X,
+						  (__v4si) __Y, 2,
+						  (__mmask8) __M);
+}
+
+extern __inline __mmask8
+  __attribute__ ((__gnu_inline__, __always_inline__, __artificial__))
+_mm_cmple_epu32_mask (__m128i __X, __m128i __Y)
+{
+  return (__mmask8) __builtin_ia32_ucmpd128_mask ((__v4si) __X,
+						  (__v4si) __Y, 2,
+						  (__mmask8) -1);
+}
+
+extern __inline __mmask8
+  __attribute__ ((__gnu_inline__, __always_inline__, __artificial__))
+_mm_mask_cmpneq_epu64_mask (__mmask8 __M, __m128i __X, __m128i __Y)
+{
+  return (__mmask8) __builtin_ia32_ucmpq128_mask ((__v2di) __X,
+						  (__v2di) __Y, 4,
+						  (__mmask8) __M);
+}
+
+extern __inline __mmask8
+  __attribute__ ((__gnu_inline__, __always_inline__, __artificial__))
+_mm_cmpneq_epu64_mask (__m128i __X, __m128i __Y)
+{
+  return (__mmask8) __builtin_ia32_ucmpq128_mask ((__v2di) __X,
+						  (__v2di) __Y, 4,
+						  (__mmask8) -1);
+}
+
+extern __inline __mmask8
+  __attribute__ ((__gnu_inline__, __always_inline__, __artificial__))
+_mm_mask_cmplt_epu64_mask (__mmask8 __M, __m128i __X, __m128i __Y)
+{
+  return (__mmask8) __builtin_ia32_ucmpq128_mask ((__v2di) __X,
+						  (__v2di) __Y, 1,
+						  (__mmask8) __M);
+}
+
+extern __inline __mmask8
+  __attribute__ ((__gnu_inline__, __always_inline__, __artificial__))
+_mm_cmplt_epu64_mask (__m128i __X, __m128i __Y)
+{
+  return (__mmask8) __builtin_ia32_ucmpq128_mask ((__v2di) __X,
+						  (__v2di) __Y, 1,
+						  (__mmask8) -1);
+}
+
+extern __inline __mmask8
+  __attribute__ ((__gnu_inline__, __always_inline__, __artificial__))
+_mm_mask_cmpge_epu64_mask (__mmask8 __M, __m128i __X, __m128i __Y)
+{
+  return (__mmask8) __builtin_ia32_ucmpq128_mask ((__v2di) __X,
+						  (__v2di) __Y, 5,
+						  (__mmask8) __M);
+}
+
+extern __inline __mmask8
+  __attribute__ ((__gnu_inline__, __always_inline__, __artificial__))
+_mm_cmpge_epu64_mask (__m128i __X, __m128i __Y)
+{
+  return (__mmask8) __builtin_ia32_ucmpq128_mask ((__v2di) __X,
+						  (__v2di) __Y, 5,
+						  (__mmask8) -1);
+}
+
+extern __inline __mmask8
+  __attribute__ ((__gnu_inline__, __always_inline__, __artificial__))
+_mm_mask_cmple_epu64_mask (__mmask8 __M, __m128i __X, __m128i __Y)
+{
+  return (__mmask8) __builtin_ia32_ucmpq128_mask ((__v2di) __X,
+						  (__v2di) __Y, 2,
+						  (__mmask8) __M);
+}
+
+extern __inline __mmask8
+  __attribute__ ((__gnu_inline__, __always_inline__, __artificial__))
+_mm_cmple_epu64_mask (__m128i __X, __m128i __Y)
+{
+  return (__mmask8) __builtin_ia32_ucmpq128_mask ((__v2di) __X,
+						  (__v2di) __Y, 2,
+						  (__mmask8) -1);
+}
+
+extern __inline __mmask8
+  __attribute__ ((__gnu_inline__, __always_inline__, __artificial__))
+_mm_mask_cmpneq_epi32_mask (__mmask8 __M, __m128i __X, __m128i __Y)
+{
+  return (__mmask8) __builtin_ia32_cmpd128_mask ((__v4si) __X,
+						 (__v4si) __Y, 4,
+						 (__mmask8) __M);
+}
+
+extern __inline __mmask8
+  __attribute__ ((__gnu_inline__, __always_inline__, __artificial__))
+_mm_cmpneq_epi32_mask (__m128i __X, __m128i __Y)
+{
+  return (__mmask8) __builtin_ia32_cmpd128_mask ((__v4si) __X,
+						 (__v4si) __Y, 4,
+						 (__mmask8) -1);
+}
+
+extern __inline __mmask8
+  __attribute__ ((__gnu_inline__, __always_inline__, __artificial__))
+_mm_mask_cmplt_epi32_mask (__mmask8 __M, __m128i __X, __m128i __Y)
+{
+  return (__mmask8) __builtin_ia32_cmpd128_mask ((__v4si) __X,
+						 (__v4si) __Y, 1,
+						 (__mmask8) __M);
+}
+
+extern __inline __mmask8
+  __attribute__ ((__gnu_inline__, __always_inline__, __artificial__))
+_mm_cmplt_epi32_mask (__m128i __X, __m128i __Y)
+{
+  return (__mmask8) __builtin_ia32_cmpd128_mask ((__v4si) __X,
+						 (__v4si) __Y, 1,
+						 (__mmask8) -1);
+}
+
+extern __inline __mmask8
+  __attribute__ ((__gnu_inline__, __always_inline__, __artificial__))
+_mm_mask_cmpge_epi32_mask (__mmask8 __M, __m128i __X, __m128i __Y)
+{
+  return (__mmask8) __builtin_ia32_cmpd128_mask ((__v4si) __X,
+						 (__v4si) __Y, 5,
+						 (__mmask8) __M);
+}
+
+extern __inline __mmask8
+  __attribute__ ((__gnu_inline__, __always_inline__, __artificial__))
+_mm_cmpge_epi32_mask (__m128i __X, __m128i __Y)
+{
+  return (__mmask8) __builtin_ia32_cmpd128_mask ((__v4si) __X,
+						 (__v4si) __Y, 5,
+						 (__mmask8) -1);
+}
+
+extern __inline __mmask8
+  __attribute__ ((__gnu_inline__, __always_inline__, __artificial__))
+_mm_mask_cmple_epi32_mask (__mmask8 __M, __m128i __X, __m128i __Y)
+{
+  return (__mmask8) __builtin_ia32_cmpd128_mask ((__v4si) __X,
+						 (__v4si) __Y, 2,
+						 (__mmask8) __M);
+}
+
+extern __inline __mmask8
+  __attribute__ ((__gnu_inline__, __always_inline__, __artificial__))
+_mm_cmple_epi32_mask (__m128i __X, __m128i __Y)
+{
+  return (__mmask8) __builtin_ia32_cmpd128_mask ((__v4si) __X,
+						 (__v4si) __Y, 2,
+						 (__mmask8) -1);
+}
+
+extern __inline __mmask8
+  __attribute__ ((__gnu_inline__, __always_inline__, __artificial__))
+_mm_mask_cmpneq_epi64_mask (__mmask8 __M, __m128i __X, __m128i __Y)
+{
+  return (__mmask8) __builtin_ia32_cmpq128_mask ((__v2di) __X,
+						 (__v2di) __Y, 4,
+						 (__mmask8) __M);
+}
+
+extern __inline __mmask8
+  __attribute__ ((__gnu_inline__, __always_inline__, __artificial__))
+_mm_cmpneq_epi64_mask (__m128i __X, __m128i __Y)
+{
+  return (__mmask8) __builtin_ia32_cmpq128_mask ((__v2di) __X,
+						 (__v2di) __Y, 4,
+						 (__mmask8) -1);
+}
+
+extern __inline __mmask8
+  __attribute__ ((__gnu_inline__, __always_inline__, __artificial__))
+_mm_mask_cmplt_epi64_mask (__mmask8 __M, __m128i __X, __m128i __Y)
+{
+  return (__mmask8) __builtin_ia32_cmpq128_mask ((__v2di) __X,
+						 (__v2di) __Y, 1,
+						 (__mmask8) __M);
+}
+
+extern __inline __mmask8
+  __attribute__ ((__gnu_inline__, __always_inline__, __artificial__))
+_mm_cmplt_epi64_mask (__m128i __X, __m128i __Y)
+{
+  return (__mmask8) __builtin_ia32_cmpq128_mask ((__v2di) __X,
+						 (__v2di) __Y, 1,
+						 (__mmask8) -1);
+}
+
+extern __inline __mmask8
+  __attribute__ ((__gnu_inline__, __always_inline__, __artificial__))
+_mm_mask_cmpge_epi64_mask (__mmask8 __M, __m128i __X, __m128i __Y)
+{
+  return (__mmask8) __builtin_ia32_cmpq128_mask ((__v2di) __X,
+						 (__v2di) __Y, 5,
+						 (__mmask8) __M);
+}
+
+extern __inline __mmask8
+  __attribute__ ((__gnu_inline__, __always_inline__, __artificial__))
+_mm_cmpge_epi64_mask (__m128i __X, __m128i __Y)
+{
+  return (__mmask8) __builtin_ia32_cmpq128_mask ((__v2di) __X,
+						 (__v2di) __Y, 5,
+						 (__mmask8) -1);
+}
+
+extern __inline __mmask8
+  __attribute__ ((__gnu_inline__, __always_inline__, __artificial__))
+_mm_mask_cmple_epi64_mask (__mmask8 __M, __m128i __X, __m128i __Y)
+{
+  return (__mmask8) __builtin_ia32_cmpq128_mask ((__v2di) __X,
+						 (__v2di) __Y, 2,
+						 (__mmask8) __M);
+}
+
+extern __inline __mmask8
+  __attribute__ ((__gnu_inline__, __always_inline__, __artificial__))
+_mm_cmple_epi64_mask (__m128i __X, __m128i __Y)
+{
+  return (__mmask8) __builtin_ia32_cmpq128_mask ((__v2di) __X,
+						 (__v2di) __Y, 2,
+						 (__mmask8) -1);
+}
+
 #ifdef __OPTIMIZE__
 extern __inline __m256i
 __attribute__ ((__gnu_inline__, __always_inline__, __artificial__))
@@ -9796,11 +10372,11 @@ _mm_maskz_srli_epi64 (__mmask8 __U, __m128i __A, const int __imm)
 extern __inline __m256i
 __attribute__ ((__gnu_inline__, __always_inline__, __artificial__))
 _mm256_ternarylogic_epi64 (__m256i __A, __m256i __B, __m256i __C,
-			   const int imm)
+			   const int __imm)
 {
   return (__m256i) __builtin_ia32_pternlogq256_mask ((__v4di) __A,
 						     (__v4di) __B,
-						     (__v4di) __C, imm,
+						     (__v4di) __C, __imm,
 						     (__mmask8) -1);
 }
 
@@ -9808,11 +10384,11 @@ extern __inline __m256i
 __attribute__ ((__gnu_inline__, __always_inline__, __artificial__))
 _mm256_mask_ternarylogic_epi64 (__m256i __A, __mmask8 __U,
 				__m256i __B, __m256i __C,
-				const int imm)
+				const int __imm)
 {
   return (__m256i) __builtin_ia32_pternlogq256_mask ((__v4di) __A,
 						     (__v4di) __B,
-						     (__v4di) __C, imm,
+						     (__v4di) __C, __imm,
 						     (__mmask8) __U);
 }
 
@@ -9820,23 +10396,23 @@ extern __inline __m256i
 __attribute__ ((__gnu_inline__, __always_inline__, __artificial__))
 _mm256_maskz_ternarylogic_epi64 (__mmask8 __U, __m256i __A,
 				 __m256i __B, __m256i __C,
-				 const int imm)
+				 const int __imm)
 {
   return (__m256i) __builtin_ia32_pternlogq256_maskz ((__v4di) __A,
 						      (__v4di) __B,
 						      (__v4di) __C,
-						      imm,
+						      __imm,
 						      (__mmask8) __U);
 }
 
 extern __inline __m256i
 __attribute__ ((__gnu_inline__, __always_inline__, __artificial__))
 _mm256_ternarylogic_epi32 (__m256i __A, __m256i __B, __m256i __C,
-			   const int imm)
+			   const int __imm)
 {
   return (__m256i) __builtin_ia32_pternlogd256_mask ((__v8si) __A,
 						     (__v8si) __B,
-						     (__v8si) __C, imm,
+						     (__v8si) __C, __imm,
 						     (__mmask8) -1);
 }
 
@@ -9844,11 +10420,11 @@ extern __inline __m256i
 __attribute__ ((__gnu_inline__, __always_inline__, __artificial__))
 _mm256_mask_ternarylogic_epi32 (__m256i __A, __mmask8 __U,
 				__m256i __B, __m256i __C,
-				const int imm)
+				const int __imm)
 {
   return (__m256i) __builtin_ia32_pternlogd256_mask ((__v8si) __A,
 						     (__v8si) __B,
-						     (__v8si) __C, imm,
+						     (__v8si) __C, __imm,
 						     (__mmask8) __U);
 }
 
@@ -9856,80 +10432,80 @@ extern __inline __m256i
 __attribute__ ((__gnu_inline__, __always_inline__, __artificial__))
 _mm256_maskz_ternarylogic_epi32 (__mmask8 __U, __m256i __A,
 				 __m256i __B, __m256i __C,
-				 const int imm)
+				 const int __imm)
 {
   return (__m256i) __builtin_ia32_pternlogd256_maskz ((__v8si) __A,
 						      (__v8si) __B,
 						      (__v8si) __C,
-						      imm,
+						      __imm,
 						      (__mmask8) __U);
 }
 
 extern __inline __m128i
 __attribute__ ((__gnu_inline__, __always_inline__, __artificial__))
 _mm_ternarylogic_epi64 (__m128i __A, __m128i __B, __m128i __C,
-			const int imm)
+			const int __imm)
 {
   return (__m128i) __builtin_ia32_pternlogq128_mask ((__v2di) __A,
 						     (__v2di) __B,
-						     (__v2di) __C, imm,
+						     (__v2di) __C, __imm,
 						     (__mmask8) -1);
 }
 
 extern __inline __m128i
 __attribute__ ((__gnu_inline__, __always_inline__, __artificial__))
 _mm_mask_ternarylogic_epi64 (__m128i __A, __mmask8 __U,
-			     __m128i __B, __m128i __C, const int imm)
+			     __m128i __B, __m128i __C, const int __imm)
 {
   return (__m128i) __builtin_ia32_pternlogq128_mask ((__v2di) __A,
 						     (__v2di) __B,
-						     (__v2di) __C, imm,
+						     (__v2di) __C, __imm,
 						     (__mmask8) __U);
 }
 
 extern __inline __m128i
 __attribute__ ((__gnu_inline__, __always_inline__, __artificial__))
 _mm_maskz_ternarylogic_epi64 (__mmask8 __U, __m128i __A,
-			      __m128i __B, __m128i __C, const int imm)
+			      __m128i __B, __m128i __C, const int __imm)
 {
   return (__m128i) __builtin_ia32_pternlogq128_maskz ((__v2di) __A,
 						      (__v2di) __B,
 						      (__v2di) __C,
-						      imm,
+						      __imm,
 						      (__mmask8) __U);
 }
 
 extern __inline __m128i
 __attribute__ ((__gnu_inline__, __always_inline__, __artificial__))
 _mm_ternarylogic_epi32 (__m128i __A, __m128i __B, __m128i __C,
-			const int imm)
+			const int __imm)
 {
   return (__m128i) __builtin_ia32_pternlogd128_mask ((__v4si) __A,
 						     (__v4si) __B,
-						     (__v4si) __C, imm,
+						     (__v4si) __C, __imm,
 						     (__mmask8) -1);
 }
 
 extern __inline __m128i
 __attribute__ ((__gnu_inline__, __always_inline__, __artificial__))
 _mm_mask_ternarylogic_epi32 (__m128i __A, __mmask8 __U,
-			     __m128i __B, __m128i __C, const int imm)
+			     __m128i __B, __m128i __C, const int __imm)
 {
   return (__m128i) __builtin_ia32_pternlogd128_mask ((__v4si) __A,
 						     (__v4si) __B,
-						     (__v4si) __C, imm,
+						     (__v4si) __C, __imm,
 						     (__mmask8) __U);
 }
 
 extern __inline __m128i
 __attribute__ ((__gnu_inline__, __always_inline__, __artificial__))
 _mm_maskz_ternarylogic_epi32 (__mmask8 __U, __m128i __A,
-			      __m128i __B, __m128i __C, const int imm)
+			      __m128i __B, __m128i __C, const int __imm)
 {
   return (__m128i) __builtin_ia32_pternlogd128_maskz ((__v4si) __A,
 						      (__v4si) __B,
 						      (__v4si) __C,
-						      imm,
+						      __imm,
 						      (__mmask8) __U);
 }
 
@@ -10216,7 +10792,7 @@ _mm_maskz_getmant_pd (__mmask8 __U, __m128d __A,
 extern __inline __m256
 __attribute__ ((__gnu_inline__, __always_inline__, __artificial__))
 _mm256_mmask_i32gather_ps (__m256 __v1_old, __mmask8 __mask,
-			   __m256i __index, float const *__addr,
+			   __m256i __index, void const *__addr,
 			   int __scale)
 {
   return (__m256) __builtin_ia32_gather3siv8sf ((__v8sf) __v1_old,
@@ -10228,7 +10804,7 @@ _mm256_mmask_i32gather_ps (__m256 __v1_old, __mmask8 __mask,
 extern __inline __m128
 __attribute__ ((__gnu_inline__, __always_inline__, __artificial__))
 _mm_mmask_i32gather_ps (__m128 __v1_old, __mmask8 __mask,
-			__m128i __index, float const *__addr,
+			__m128i __index, void const *__addr,
 			int __scale)
 {
   return (__m128) __builtin_ia32_gather3siv4sf ((__v4sf) __v1_old,
@@ -10240,7 +10816,7 @@ _mm_mmask_i32gather_ps (__m128 __v1_old, __mmask8 __mask,
 extern __inline __m256d
 __attribute__ ((__gnu_inline__, __always_inline__, __artificial__))
 _mm256_mmask_i32gather_pd (__m256d __v1_old, __mmask8 __mask,
-			   __m128i __index, double const *__addr,
+			   __m128i __index, void const *__addr,
 			   int __scale)
 {
   return (__m256d) __builtin_ia32_gather3siv4df ((__v4df) __v1_old,
@@ -10252,7 +10828,7 @@ _mm256_mmask_i32gather_pd (__m256d __v1_old, __mmask8 __mask,
 extern __inline __m128d
 __attribute__ ((__gnu_inline__, __always_inline__, __artificial__))
 _mm_mmask_i32gather_pd (__m128d __v1_old, __mmask8 __mask,
-			__m128i __index, double const *__addr,
+			__m128i __index, void const *__addr,
 			int __scale)
 {
   return (__m128d) __builtin_ia32_gather3siv2df ((__v2df) __v1_old,
@@ -10264,7 +10840,7 @@ _mm_mmask_i32gather_pd (__m128d __v1_old, __mmask8 __mask,
 extern __inline __m128
 __attribute__ ((__gnu_inline__, __always_inline__, __artificial__))
 _mm256_mmask_i64gather_ps (__m128 __v1_old, __mmask8 __mask,
-			   __m256i __index, float const *__addr,
+			   __m256i __index, void const *__addr,
 			   int __scale)
 {
   return (__m128) __builtin_ia32_gather3div8sf ((__v4sf) __v1_old,
@@ -10276,7 +10852,7 @@ _mm256_mmask_i64gather_ps (__m128 __v1_old, __mmask8 __mask,
 extern __inline __m128
 __attribute__ ((__gnu_inline__, __always_inline__, __artificial__))
 _mm_mmask_i64gather_ps (__m128 __v1_old, __mmask8 __mask,
-			__m128i __index, float const *__addr,
+			__m128i __index, void const *__addr,
 			int __scale)
 {
   return (__m128) __builtin_ia32_gather3div4sf ((__v4sf) __v1_old,
@@ -10288,7 +10864,7 @@ _mm_mmask_i64gather_ps (__m128 __v1_old, __mmask8 __mask,
 extern __inline __m256d
 __attribute__ ((__gnu_inline__, __always_inline__, __artificial__))
 _mm256_mmask_i64gather_pd (__m256d __v1_old, __mmask8 __mask,
-			   __m256i __index, double const *__addr,
+			   __m256i __index, void const *__addr,
 			   int __scale)
 {
   return (__m256d) __builtin_ia32_gather3div4df ((__v4df) __v1_old,
@@ -10300,7 +10876,7 @@ _mm256_mmask_i64gather_pd (__m256d __v1_old, __mmask8 __mask,
 extern __inline __m128d
 __attribute__ ((__gnu_inline__, __always_inline__, __artificial__))
 _mm_mmask_i64gather_pd (__m128d __v1_old, __mmask8 __mask,
-			__m128i __index, double const *__addr,
+			__m128i __index, void const *__addr,
 			int __scale)
 {
   return (__m128d) __builtin_ia32_gather3div2df ((__v2df) __v1_old,
@@ -10312,7 +10888,7 @@ _mm_mmask_i64gather_pd (__m128d __v1_old, __mmask8 __mask,
 extern __inline __m256i
 __attribute__ ((__gnu_inline__, __always_inline__, __artificial__))
 _mm256_mmask_i32gather_epi32 (__m256i __v1_old, __mmask8 __mask,
-			      __m256i __index, int const *__addr,
+			      __m256i __index, void const *__addr,
 			      int __scale)
 {
   return (__m256i) __builtin_ia32_gather3siv8si ((__v8si) __v1_old,
@@ -10324,7 +10900,7 @@ _mm256_mmask_i32gather_epi32 (__m256i __v1_old, __mmask8 __mask,
 extern __inline __m128i
 __attribute__ ((__gnu_inline__, __always_inline__, __artificial__))
 _mm_mmask_i32gather_epi32 (__m128i __v1_old, __mmask8 __mask,
-			   __m128i __index, int const *__addr,
+			   __m128i __index, void const *__addr,
 			   int __scale)
 {
   return (__m128i) __builtin_ia32_gather3siv4si ((__v4si) __v1_old,
@@ -10336,7 +10912,7 @@ _mm_mmask_i32gather_epi32 (__m128i __v1_old, __mmask8 __mask,
 extern __inline __m256i
 __attribute__ ((__gnu_inline__, __always_inline__, __artificial__))
 _mm256_mmask_i32gather_epi64 (__m256i __v1_old, __mmask8 __mask,
-			      __m128i __index, long long const *__addr,
+			      __m128i __index, void const *__addr,
 			      int __scale)
 {
   return (__m256i) __builtin_ia32_gather3siv4di ((__v4di) __v1_old,
@@ -10348,7 +10924,7 @@ _mm256_mmask_i32gather_epi64 (__m256i __v1_old, __mmask8 __mask,
 extern __inline __m128i
 __attribute__ ((__gnu_inline__, __always_inline__, __artificial__))
 _mm_mmask_i32gather_epi64 (__m128i __v1_old, __mmask8 __mask,
-			   __m128i __index, long long const *__addr,
+			   __m128i __index, void const *__addr,
 			   int __scale)
 {
   return (__m128i) __builtin_ia32_gather3siv2di ((__v2di) __v1_old,
@@ -10360,7 +10936,7 @@ _mm_mmask_i32gather_epi64 (__m128i __v1_old, __mmask8 __mask,
 extern __inline __m128i
 __attribute__ ((__gnu_inline__, __always_inline__, __artificial__))
 _mm256_mmask_i64gather_epi32 (__m128i __v1_old, __mmask8 __mask,
-			      __m256i __index, int const *__addr,
+			      __m256i __index, void const *__addr,
 			      int __scale)
 {
   return (__m128i) __builtin_ia32_gather3div8si ((__v4si) __v1_old,
@@ -10372,7 +10948,7 @@ _mm256_mmask_i64gather_epi32 (__m128i __v1_old, __mmask8 __mask,
 extern __inline __m128i
 __attribute__ ((__gnu_inline__, __always_inline__, __artificial__))
 _mm_mmask_i64gather_epi32 (__m128i __v1_old, __mmask8 __mask,
-			   __m128i __index, int const *__addr,
+			   __m128i __index, void const *__addr,
 			   int __scale)
 {
   return (__m128i) __builtin_ia32_gather3div4si ((__v4si) __v1_old,
@@ -10384,7 +10960,7 @@ _mm_mmask_i64gather_epi32 (__m128i __v1_old, __mmask8 __mask,
 extern __inline __m256i
 __attribute__ ((__gnu_inline__, __always_inline__, __artificial__))
 _mm256_mmask_i64gather_epi64 (__m256i __v1_old, __mmask8 __mask,
-			      __m256i __index, long long const *__addr,
+			      __m256i __index, void const *__addr,
 			      int __scale)
 {
   return (__m256i) __builtin_ia32_gather3div4di ((__v4di) __v1_old,
@@ -10396,7 +10972,7 @@ _mm256_mmask_i64gather_epi64 (__m256i __v1_old, __mmask8 __mask,
 extern __inline __m128i
 __attribute__ ((__gnu_inline__, __always_inline__, __artificial__))
 _mm_mmask_i64gather_epi64 (__m128i __v1_old, __mmask8 __mask,
-			   __m128i __index, long long const *__addr,
+			   __m128i __index, void const *__addr,
 			   int __scale)
 {
   return (__m128i) __builtin_ia32_gather3div2di ((__v2di) __v1_old,
@@ -10407,7 +10983,7 @@ _mm_mmask_i64gather_epi64 (__m128i __v1_old, __mmask8 __mask,
 
 extern __inline void
 __attribute__ ((__gnu_inline__, __always_inline__, __artificial__))
-_mm256_i32scatter_ps (float *__addr, __m256i __index,
+_mm256_i32scatter_ps (void *__addr, __m256i __index,
 		      __m256 __v1, const int __scale)
 {
   __builtin_ia32_scattersiv8sf (__addr, (__mmask8) 0xFF,
@@ -10417,7 +10993,7 @@ _mm256_i32scatter_ps (float *__addr, __m256i __index,
 
 extern __inline void
 __attribute__ ((__gnu_inline__, __always_inline__, __artificial__))
-_mm256_mask_i32scatter_ps (float *__addr, __mmask8 __mask,
+_mm256_mask_i32scatter_ps (void *__addr, __mmask8 __mask,
 			   __m256i __index, __m256 __v1,
 			   const int __scale)
 {
@@ -10427,7 +11003,7 @@ _mm256_mask_i32scatter_ps (float *__addr, __mmask8 __mask,
 
 extern __inline void
 __attribute__ ((__gnu_inline__, __always_inline__, __artificial__))
-_mm_i32scatter_ps (float *__addr, __m128i __index, __m128 __v1,
+_mm_i32scatter_ps (void *__addr, __m128i __index, __m128 __v1,
 		   const int __scale)
 {
   __builtin_ia32_scattersiv4sf (__addr, (__mmask8) 0xFF,
@@ -10437,7 +11013,7 @@ _mm_i32scatter_ps (float *__addr, __m128i __index, __m128 __v1,
 
 extern __inline void
 __attribute__ ((__gnu_inline__, __always_inline__, __artificial__))
-_mm_mask_i32scatter_ps (float *__addr, __mmask8 __mask,
+_mm_mask_i32scatter_ps (void *__addr, __mmask8 __mask,
 			__m128i __index, __m128 __v1,
 			const int __scale)
 {
@@ -10447,7 +11023,7 @@ _mm_mask_i32scatter_ps (float *__addr, __mmask8 __mask,
 
 extern __inline void
 __attribute__ ((__gnu_inline__, __always_inline__, __artificial__))
-_mm256_i32scatter_pd (double *__addr, __m128i __index,
+_mm256_i32scatter_pd (void *__addr, __m128i __index,
 		      __m256d __v1, const int __scale)
 {
   __builtin_ia32_scattersiv4df (__addr, (__mmask8) 0xFF,
@@ -10457,7 +11033,7 @@ _mm256_i32scatter_pd (double *__addr, __m128i __index,
 
 extern __inline void
 __attribute__ ((__gnu_inline__, __always_inline__, __artificial__))
-_mm256_mask_i32scatter_pd (double *__addr, __mmask8 __mask,
+_mm256_mask_i32scatter_pd (void *__addr, __mmask8 __mask,
 			   __m128i __index, __m256d __v1,
 			   const int __scale)
 {
@@ -10467,7 +11043,7 @@ _mm256_mask_i32scatter_pd (double *__addr, __mmask8 __mask,
 
 extern __inline void
 __attribute__ ((__gnu_inline__, __always_inline__, __artificial__))
-_mm_i32scatter_pd (double *__addr, __m128i __index,
+_mm_i32scatter_pd (void *__addr, __m128i __index,
 		   __m128d __v1, const int __scale)
 {
   __builtin_ia32_scattersiv2df (__addr, (__mmask8) 0xFF,
@@ -10477,7 +11053,7 @@ _mm_i32scatter_pd (double *__addr, __m128i __index,
 
 extern __inline void
 __attribute__ ((__gnu_inline__, __always_inline__, __artificial__))
-_mm_mask_i32scatter_pd (double *__addr, __mmask8 __mask,
+_mm_mask_i32scatter_pd (void *__addr, __mmask8 __mask,
 			__m128i __index, __m128d __v1,
 			const int __scale)
 {
@@ -10487,7 +11063,7 @@ _mm_mask_i32scatter_pd (double *__addr, __mmask8 __mask,
 
 extern __inline void
 __attribute__ ((__gnu_inline__, __always_inline__, __artificial__))
-_mm256_i64scatter_ps (float *__addr, __m256i __index,
+_mm256_i64scatter_ps (void *__addr, __m256i __index,
 		      __m128 __v1, const int __scale)
 {
   __builtin_ia32_scatterdiv8sf (__addr, (__mmask8) 0xFF,
@@ -10497,7 +11073,7 @@ _mm256_i64scatter_ps (float *__addr, __m256i __index,
 
 extern __inline void
 __attribute__ ((__gnu_inline__, __always_inline__, __artificial__))
-_mm256_mask_i64scatter_ps (float *__addr, __mmask8 __mask,
+_mm256_mask_i64scatter_ps (void *__addr, __mmask8 __mask,
 			   __m256i __index, __m128 __v1,
 			   const int __scale)
 {
@@ -10507,7 +11083,7 @@ _mm256_mask_i64scatter_ps (float *__addr, __mmask8 __mask,
 
 extern __inline void
 __attribute__ ((__gnu_inline__, __always_inline__, __artificial__))
-_mm_i64scatter_ps (float *__addr, __m128i __index, __m128 __v1,
+_mm_i64scatter_ps (void *__addr, __m128i __index, __m128 __v1,
 		   const int __scale)
 {
   __builtin_ia32_scatterdiv4sf (__addr, (__mmask8) 0xFF,
@@ -10517,7 +11093,7 @@ _mm_i64scatter_ps (float *__addr, __m128i __index, __m128 __v1,
 
 extern __inline void
 __attribute__ ((__gnu_inline__, __always_inline__, __artificial__))
-_mm_mask_i64scatter_ps (float *__addr, __mmask8 __mask,
+_mm_mask_i64scatter_ps (void *__addr, __mmask8 __mask,
 			__m128i __index, __m128 __v1,
 			const int __scale)
 {
@@ -10527,7 +11103,7 @@ _mm_mask_i64scatter_ps (float *__addr, __mmask8 __mask,
 
 extern __inline void
 __attribute__ ((__gnu_inline__, __always_inline__, __artificial__))
-_mm256_i64scatter_pd (double *__addr, __m256i __index,
+_mm256_i64scatter_pd (void *__addr, __m256i __index,
 		      __m256d __v1, const int __scale)
 {
   __builtin_ia32_scatterdiv4df (__addr, (__mmask8) 0xFF,
@@ -10537,7 +11113,7 @@ _mm256_i64scatter_pd (double *__addr, __m256i __index,
 
 extern __inline void
 __attribute__ ((__gnu_inline__, __always_inline__, __artificial__))
-_mm256_mask_i64scatter_pd (double *__addr, __mmask8 __mask,
+_mm256_mask_i64scatter_pd (void *__addr, __mmask8 __mask,
 			   __m256i __index, __m256d __v1,
 			   const int __scale)
 {
@@ -10547,7 +11123,7 @@ _mm256_mask_i64scatter_pd (double *__addr, __mmask8 __mask,
 
 extern __inline void
 __attribute__ ((__gnu_inline__, __always_inline__, __artificial__))
-_mm_i64scatter_pd (double *__addr, __m128i __index,
+_mm_i64scatter_pd (void *__addr, __m128i __index,
 		   __m128d __v1, const int __scale)
 {
   __builtin_ia32_scatterdiv2df (__addr, (__mmask8) 0xFF,
@@ -10557,7 +11133,7 @@ _mm_i64scatter_pd (double *__addr, __m128i __index,
 
 extern __inline void
 __attribute__ ((__gnu_inline__, __always_inline__, __artificial__))
-_mm_mask_i64scatter_pd (double *__addr, __mmask8 __mask,
+_mm_mask_i64scatter_pd (void *__addr, __mmask8 __mask,
 			__m128i __index, __m128d __v1,
 			const int __scale)
 {
@@ -10567,7 +11143,7 @@ _mm_mask_i64scatter_pd (double *__addr, __mmask8 __mask,
 
 extern __inline void
 __attribute__ ((__gnu_inline__, __always_inline__, __artificial__))
-_mm256_i32scatter_epi32 (int *__addr, __m256i __index,
+_mm256_i32scatter_epi32 (void *__addr, __m256i __index,
 			 __m256i __v1, const int __scale)
 {
   __builtin_ia32_scattersiv8si (__addr, (__mmask8) 0xFF,
@@ -10577,7 +11153,7 @@ _mm256_i32scatter_epi32 (int *__addr, __m256i __index,
 
 extern __inline void
 __attribute__ ((__gnu_inline__, __always_inline__, __artificial__))
-_mm256_mask_i32scatter_epi32 (int *__addr, __mmask8 __mask,
+_mm256_mask_i32scatter_epi32 (void *__addr, __mmask8 __mask,
 			      __m256i __index, __m256i __v1,
 			      const int __scale)
 {
@@ -10587,7 +11163,7 @@ _mm256_mask_i32scatter_epi32 (int *__addr, __mmask8 __mask,
 
 extern __inline void
 __attribute__ ((__gnu_inline__, __always_inline__, __artificial__))
-_mm_i32scatter_epi32 (int *__addr, __m128i __index,
+_mm_i32scatter_epi32 (void *__addr, __m128i __index,
 		      __m128i __v1, const int __scale)
 {
   __builtin_ia32_scattersiv4si (__addr, (__mmask8) 0xFF,
@@ -10597,7 +11173,7 @@ _mm_i32scatter_epi32 (int *__addr, __m128i __index,
 
 extern __inline void
 __attribute__ ((__gnu_inline__, __always_inline__, __artificial__))
-_mm_mask_i32scatter_epi32 (int *__addr, __mmask8 __mask,
+_mm_mask_i32scatter_epi32 (void *__addr, __mmask8 __mask,
 			   __m128i __index, __m128i __v1,
 			   const int __scale)
 {
@@ -10607,7 +11183,7 @@ _mm_mask_i32scatter_epi32 (int *__addr, __mmask8 __mask,
 
 extern __inline void
 __attribute__ ((__gnu_inline__, __always_inline__, __artificial__))
-_mm256_i32scatter_epi64 (long long *__addr, __m128i __index,
+_mm256_i32scatter_epi64 (void *__addr, __m128i __index,
 			 __m256i __v1, const int __scale)
 {
   __builtin_ia32_scattersiv4di (__addr, (__mmask8) 0xFF,
@@ -10617,7 +11193,7 @@ _mm256_i32scatter_epi64 (long long *__addr, __m128i __index,
 
 extern __inline void
 __attribute__ ((__gnu_inline__, __always_inline__, __artificial__))
-_mm256_mask_i32scatter_epi64 (long long *__addr, __mmask8 __mask,
+_mm256_mask_i32scatter_epi64 (void *__addr, __mmask8 __mask,
 			      __m128i __index, __m256i __v1,
 			      const int __scale)
 {
@@ -10627,7 +11203,7 @@ _mm256_mask_i32scatter_epi64 (long long *__addr, __mmask8 __mask,
 
 extern __inline void
 __attribute__ ((__gnu_inline__, __always_inline__, __artificial__))
-_mm_i32scatter_epi64 (long long *__addr, __m128i __index,
+_mm_i32scatter_epi64 (void *__addr, __m128i __index,
 		      __m128i __v1, const int __scale)
 {
   __builtin_ia32_scattersiv2di (__addr, (__mmask8) 0xFF,
@@ -10637,7 +11213,7 @@ _mm_i32scatter_epi64 (long long *__addr, __m128i __index,
 
 extern __inline void
 __attribute__ ((__gnu_inline__, __always_inline__, __artificial__))
-_mm_mask_i32scatter_epi64 (long long *__addr, __mmask8 __mask,
+_mm_mask_i32scatter_epi64 (void *__addr, __mmask8 __mask,
 			   __m128i __index, __m128i __v1,
 			   const int __scale)
 {
@@ -10647,7 +11223,7 @@ _mm_mask_i32scatter_epi64 (long long *__addr, __mmask8 __mask,
 
 extern __inline void
 __attribute__ ((__gnu_inline__, __always_inline__, __artificial__))
-_mm256_i64scatter_epi32 (int *__addr, __m256i __index,
+_mm256_i64scatter_epi32 (void *__addr, __m256i __index,
 			 __m128i __v1, const int __scale)
 {
   __builtin_ia32_scatterdiv8si (__addr, (__mmask8) 0xFF,
@@ -10657,7 +11233,7 @@ _mm256_i64scatter_epi32 (int *__addr, __m256i __index,
 
 extern __inline void
 __attribute__ ((__gnu_inline__, __always_inline__, __artificial__))
-_mm256_mask_i64scatter_epi32 (int *__addr, __mmask8 __mask,
+_mm256_mask_i64scatter_epi32 (void *__addr, __mmask8 __mask,
 			      __m256i __index, __m128i __v1,
 			      const int __scale)
 {
@@ -10667,7 +11243,7 @@ _mm256_mask_i64scatter_epi32 (int *__addr, __mmask8 __mask,
 
 extern __inline void
 __attribute__ ((__gnu_inline__, __always_inline__, __artificial__))
-_mm_i64scatter_epi32 (int *__addr, __m128i __index,
+_mm_i64scatter_epi32 (void *__addr, __m128i __index,
 		      __m128i __v1, const int __scale)
 {
   __builtin_ia32_scatterdiv4si (__addr, (__mmask8) 0xFF,
@@ -10677,7 +11253,7 @@ _mm_i64scatter_epi32 (int *__addr, __m128i __index,
 
 extern __inline void
 __attribute__ ((__gnu_inline__, __always_inline__, __artificial__))
-_mm_mask_i64scatter_epi32 (int *__addr, __mmask8 __mask,
+_mm_mask_i64scatter_epi32 (void *__addr, __mmask8 __mask,
 			   __m128i __index, __m128i __v1,
 			   const int __scale)
 {
@@ -10687,7 +11263,7 @@ _mm_mask_i64scatter_epi32 (int *__addr, __mmask8 __mask,
 
 extern __inline void
 __attribute__ ((__gnu_inline__, __always_inline__, __artificial__))
-_mm256_i64scatter_epi64 (long long *__addr, __m256i __index,
+_mm256_i64scatter_epi64 (void *__addr, __m256i __index,
 			 __m256i __v1, const int __scale)
 {
   __builtin_ia32_scatterdiv4di (__addr, (__mmask8) 0xFF,
@@ -10697,7 +11273,7 @@ _mm256_i64scatter_epi64 (long long *__addr, __m256i __index,
 
 extern __inline void
 __attribute__ ((__gnu_inline__, __always_inline__, __artificial__))
-_mm256_mask_i64scatter_epi64 (long long *__addr, __mmask8 __mask,
+_mm256_mask_i64scatter_epi64 (void *__addr, __mmask8 __mask,
 			      __m256i __index, __m256i __v1,
 			      const int __scale)
 {
@@ -10707,7 +11283,7 @@ _mm256_mask_i64scatter_epi64 (long long *__addr, __mmask8 __mask,
 
 extern __inline void
 __attribute__ ((__gnu_inline__, __always_inline__, __artificial__))
-_mm_i64scatter_epi64 (long long *__addr, __m128i __index,
+_mm_i64scatter_epi64 (void *__addr, __m128i __index,
 		      __m128i __v1, const int __scale)
 {
   __builtin_ia32_scatterdiv2di (__addr, (__mmask8) 0xFF,
@@ -10717,7 +11293,7 @@ _mm_i64scatter_epi64 (long long *__addr, __m128i __index,
 
 extern __inline void
 __attribute__ ((__gnu_inline__, __always_inline__, __artificial__))
-_mm_mask_i64scatter_epi64 (long long *__addr, __mmask8 __mask,
+_mm_mask_i64scatter_epi64 (void *__addr, __mmask8 __mask,
 			   __m128i __index, __m128i __v1,
 			   const int __scale)
 {
@@ -11771,582 +12347,6 @@ _mm256_permutex_pd (__m256d __X, const int __M)
 						  (__mmask8) -1);
 }
 
-extern __inline __mmask8
-  __attribute__ ((__gnu_inline__, __always_inline__, __artificial__))
-_mm256_mask_cmpneq_epu32_mask (__mmask8 __M, __m256i __X, __m256i __Y)
-{
-  return (__mmask8) __builtin_ia32_ucmpd256_mask ((__v8si) __X,
-						  (__v8si) __Y, 4,
-						  (__mmask8) __M);
-}
-
-extern __inline __mmask8
-  __attribute__ ((__gnu_inline__, __always_inline__, __artificial__))
-_mm256_cmpneq_epu32_mask (__m256i __X, __m256i __Y)
-{
-  return (__mmask8) __builtin_ia32_ucmpd256_mask ((__v8si) __X,
-						  (__v8si) __Y, 4,
-						  (__mmask8) -1);
-}
-
-extern __inline __mmask8
-  __attribute__ ((__gnu_inline__, __always_inline__, __artificial__))
-_mm256_mask_cmplt_epu32_mask (__mmask8 __M, __m256i __X, __m256i __Y)
-{
-  return (__mmask8) __builtin_ia32_ucmpd256_mask ((__v8si) __X,
-						  (__v8si) __Y, 1,
-						  (__mmask8) __M);
-}
-
-extern __inline __mmask8
-  __attribute__ ((__gnu_inline__, __always_inline__, __artificial__))
-_mm256_cmplt_epu32_mask (__m256i __X, __m256i __Y)
-{
-  return (__mmask8) __builtin_ia32_ucmpd256_mask ((__v8si) __X,
-						  (__v8si) __Y, 1,
-						  (__mmask8) -1);
-}
-
-extern __inline __mmask8
-  __attribute__ ((__gnu_inline__, __always_inline__, __artificial__))
-_mm256_mask_cmpge_epu32_mask (__mmask8 __M, __m256i __X, __m256i __Y)
-{
-  return (__mmask8) __builtin_ia32_ucmpd256_mask ((__v8si) __X,
-						  (__v8si) __Y, 5,
-						  (__mmask8) __M);
-}
-
-extern __inline __mmask8
-  __attribute__ ((__gnu_inline__, __always_inline__, __artificial__))
-_mm256_cmpge_epu32_mask (__m256i __X, __m256i __Y)
-{
-  return (__mmask8) __builtin_ia32_ucmpd256_mask ((__v8si) __X,
-						  (__v8si) __Y, 5,
-						  (__mmask8) -1);
-}
-
-extern __inline __mmask8
-  __attribute__ ((__gnu_inline__, __always_inline__, __artificial__))
-_mm256_mask_cmple_epu32_mask (__mmask8 __M, __m256i __X, __m256i __Y)
-{
-  return (__mmask8) __builtin_ia32_ucmpd256_mask ((__v8si) __X,
-						  (__v8si) __Y, 2,
-						  (__mmask8) __M);
-}
-
-extern __inline __mmask8
-  __attribute__ ((__gnu_inline__, __always_inline__, __artificial__))
-_mm256_cmple_epu32_mask (__m256i __X, __m256i __Y)
-{
-  return (__mmask8) __builtin_ia32_ucmpd256_mask ((__v8si) __X,
-						  (__v8si) __Y, 2,
-						  (__mmask8) -1);
-}
-
-extern __inline __mmask8
-  __attribute__ ((__gnu_inline__, __always_inline__, __artificial__))
-_mm256_mask_cmpneq_epu64_mask (__mmask8 __M, __m256i __X, __m256i __Y)
-{
-  return (__mmask8) __builtin_ia32_ucmpq256_mask ((__v4di) __X,
-						  (__v4di) __Y, 4,
-						  (__mmask8) __M);
-}
-
-extern __inline __mmask8
-  __attribute__ ((__gnu_inline__, __always_inline__, __artificial__))
-_mm256_cmpneq_epu64_mask (__m256i __X, __m256i __Y)
-{
-  return (__mmask8) __builtin_ia32_ucmpq256_mask ((__v4di) __X,
-						  (__v4di) __Y, 4,
-						  (__mmask8) -1);
-}
-
-extern __inline __mmask8
-  __attribute__ ((__gnu_inline__, __always_inline__, __artificial__))
-_mm256_mask_cmplt_epu64_mask (__mmask8 __M, __m256i __X, __m256i __Y)
-{
-  return (__mmask8) __builtin_ia32_ucmpq256_mask ((__v4di) __X,
-						  (__v4di) __Y, 1,
-						  (__mmask8) __M);
-}
-
-extern __inline __mmask8
-  __attribute__ ((__gnu_inline__, __always_inline__, __artificial__))
-_mm256_cmplt_epu64_mask (__m256i __X, __m256i __Y)
-{
-  return (__mmask8) __builtin_ia32_ucmpq256_mask ((__v4di) __X,
-						  (__v4di) __Y, 1,
-						  (__mmask8) -1);
-}
-
-extern __inline __mmask8
-  __attribute__ ((__gnu_inline__, __always_inline__, __artificial__))
-_mm256_mask_cmpge_epu64_mask (__mmask8 __M, __m256i __X, __m256i __Y)
-{
-  return (__mmask8) __builtin_ia32_ucmpq256_mask ((__v4di) __X,
-						  (__v4di) __Y, 5,
-						  (__mmask8) __M);
-}
-
-extern __inline __mmask8
-  __attribute__ ((__gnu_inline__, __always_inline__, __artificial__))
-_mm256_cmpge_epu64_mask (__m256i __X, __m256i __Y)
-{
-  return (__mmask8) __builtin_ia32_ucmpq256_mask ((__v4di) __X,
-						  (__v4di) __Y, 5,
-						  (__mmask8) -1);
-}
-
-extern __inline __mmask8
-  __attribute__ ((__gnu_inline__, __always_inline__, __artificial__))
-_mm256_mask_cmple_epu64_mask (__mmask8 __M, __m256i __X, __m256i __Y)
-{
-  return (__mmask8) __builtin_ia32_ucmpq256_mask ((__v4di) __X,
-						  (__v4di) __Y, 2,
-						  (__mmask8) __M);
-}
-
-extern __inline __mmask8
-  __attribute__ ((__gnu_inline__, __always_inline__, __artificial__))
-_mm256_cmple_epu64_mask (__m256i __X, __m256i __Y)
-{
-  return (__mmask8) __builtin_ia32_ucmpq256_mask ((__v4di) __X,
-						  (__v4di) __Y, 2,
-						  (__mmask8) -1);
-}
-
-extern __inline __mmask8
-  __attribute__ ((__gnu_inline__, __always_inline__, __artificial__))
-_mm256_mask_cmpneq_epi32_mask (__mmask8 __M, __m256i __X, __m256i __Y)
-{
-  return (__mmask8) __builtin_ia32_cmpd256_mask ((__v8si) __X,
-						 (__v8si) __Y, 4,
-						 (__mmask8) __M);
-}
-
-extern __inline __mmask8
-  __attribute__ ((__gnu_inline__, __always_inline__, __artificial__))
-_mm256_cmpneq_epi32_mask (__m256i __X, __m256i __Y)
-{
-  return (__mmask8) __builtin_ia32_cmpd256_mask ((__v8si) __X,
-						 (__v8si) __Y, 4,
-						 (__mmask8) -1);
-}
-
-extern __inline __mmask8
-  __attribute__ ((__gnu_inline__, __always_inline__, __artificial__))
-_mm256_mask_cmplt_epi32_mask (__mmask8 __M, __m256i __X, __m256i __Y)
-{
-  return (__mmask8) __builtin_ia32_cmpd256_mask ((__v8si) __X,
-						 (__v8si) __Y, 1,
-						 (__mmask8) __M);
-}
-
-extern __inline __mmask8
-  __attribute__ ((__gnu_inline__, __always_inline__, __artificial__))
-_mm256_cmplt_epi32_mask (__m256i __X, __m256i __Y)
-{
-  return (__mmask8) __builtin_ia32_cmpd256_mask ((__v8si) __X,
-						 (__v8si) __Y, 1,
-						 (__mmask8) -1);
-}
-
-extern __inline __mmask8
-  __attribute__ ((__gnu_inline__, __always_inline__, __artificial__))
-_mm256_mask_cmpge_epi32_mask (__mmask8 __M, __m256i __X, __m256i __Y)
-{
-  return (__mmask8) __builtin_ia32_cmpd256_mask ((__v8si) __X,
-						 (__v8si) __Y, 5,
-						 (__mmask8) __M);
-}
-
-extern __inline __mmask8
-  __attribute__ ((__gnu_inline__, __always_inline__, __artificial__))
-_mm256_cmpge_epi32_mask (__m256i __X, __m256i __Y)
-{
-  return (__mmask8) __builtin_ia32_cmpd256_mask ((__v8si) __X,
-						 (__v8si) __Y, 5,
-						 (__mmask8) -1);
-}
-
-extern __inline __mmask8
-  __attribute__ ((__gnu_inline__, __always_inline__, __artificial__))
-_mm256_mask_cmple_epi32_mask (__mmask8 __M, __m256i __X, __m256i __Y)
-{
-  return (__mmask8) __builtin_ia32_cmpd256_mask ((__v8si) __X,
-						 (__v8si) __Y, 2,
-						 (__mmask8) __M);
-}
-
-extern __inline __mmask8
-  __attribute__ ((__gnu_inline__, __always_inline__, __artificial__))
-_mm256_cmple_epi32_mask (__m256i __X, __m256i __Y)
-{
-  return (__mmask8) __builtin_ia32_cmpd256_mask ((__v8si) __X,
-						 (__v8si) __Y, 2,
-						 (__mmask8) -1);
-}
-
-extern __inline __mmask8
-  __attribute__ ((__gnu_inline__, __always_inline__, __artificial__))
-_mm256_mask_cmpneq_epi64_mask (__mmask8 __M, __m256i __X, __m256i __Y)
-{
-  return (__mmask8) __builtin_ia32_cmpq256_mask ((__v4di) __X,
-						 (__v4di) __Y, 4,
-						 (__mmask8) __M);
-}
-
-extern __inline __mmask8
-  __attribute__ ((__gnu_inline__, __always_inline__, __artificial__))
-_mm256_cmpneq_epi64_mask (__m256i __X, __m256i __Y)
-{
-  return (__mmask8) __builtin_ia32_cmpq256_mask ((__v4di) __X,
-						 (__v4di) __Y, 4,
-						 (__mmask8) -1);
-}
-
-extern __inline __mmask8
-  __attribute__ ((__gnu_inline__, __always_inline__, __artificial__))
-_mm256_mask_cmplt_epi64_mask (__mmask8 __M, __m256i __X, __m256i __Y)
-{
-  return (__mmask8) __builtin_ia32_cmpq256_mask ((__v4di) __X,
-						 (__v4di) __Y, 1,
-						 (__mmask8) __M);
-}
-
-extern __inline __mmask8
-  __attribute__ ((__gnu_inline__, __always_inline__, __artificial__))
-_mm256_cmplt_epi64_mask (__m256i __X, __m256i __Y)
-{
-  return (__mmask8) __builtin_ia32_cmpq256_mask ((__v4di) __X,
-						 (__v4di) __Y, 1,
-						 (__mmask8) -1);
-}
-
-extern __inline __mmask8
-  __attribute__ ((__gnu_inline__, __always_inline__, __artificial__))
-_mm256_mask_cmpge_epi64_mask (__mmask8 __M, __m256i __X, __m256i __Y)
-{
-  return (__mmask8) __builtin_ia32_cmpq256_mask ((__v4di) __X,
-						 (__v4di) __Y, 5,
-						 (__mmask8) __M);
-}
-
-extern __inline __mmask8
-  __attribute__ ((__gnu_inline__, __always_inline__, __artificial__))
-_mm256_cmpge_epi64_mask (__m256i __X, __m256i __Y)
-{
-  return (__mmask8) __builtin_ia32_cmpq256_mask ((__v4di) __X,
-						 (__v4di) __Y, 5,
-						 (__mmask8) -1);
-}
-
-extern __inline __mmask8
-  __attribute__ ((__gnu_inline__, __always_inline__, __artificial__))
-_mm256_mask_cmple_epi64_mask (__mmask8 __M, __m256i __X, __m256i __Y)
-{
-  return (__mmask8) __builtin_ia32_cmpq256_mask ((__v4di) __X,
-						 (__v4di) __Y, 2,
-						 (__mmask8) __M);
-}
-
-extern __inline __mmask8
-  __attribute__ ((__gnu_inline__, __always_inline__, __artificial__))
-_mm256_cmple_epi64_mask (__m256i __X, __m256i __Y)
-{
-  return (__mmask8) __builtin_ia32_cmpq256_mask ((__v4di) __X,
-						 (__v4di) __Y, 2,
-						 (__mmask8) -1);
-}
-
-extern __inline __mmask8
-  __attribute__ ((__gnu_inline__, __always_inline__, __artificial__))
-_mm_mask_cmpneq_epu32_mask (__mmask8 __M, __m128i __X, __m128i __Y)
-{
-  return (__mmask8) __builtin_ia32_ucmpd128_mask ((__v4si) __X,
-						  (__v4si) __Y, 4,
-						  (__mmask8) __M);
-}
-
-extern __inline __mmask8
-  __attribute__ ((__gnu_inline__, __always_inline__, __artificial__))
-_mm_cmpneq_epu32_mask (__m128i __X, __m128i __Y)
-{
-  return (__mmask8) __builtin_ia32_ucmpd128_mask ((__v4si) __X,
-						  (__v4si) __Y, 4,
-						  (__mmask8) -1);
-}
-
-extern __inline __mmask8
-  __attribute__ ((__gnu_inline__, __always_inline__, __artificial__))
-_mm_mask_cmplt_epu32_mask (__mmask8 __M, __m128i __X, __m128i __Y)
-{
-  return (__mmask8) __builtin_ia32_ucmpd128_mask ((__v4si) __X,
-						  (__v4si) __Y, 1,
-						  (__mmask8) __M);
-}
-
-extern __inline __mmask8
-  __attribute__ ((__gnu_inline__, __always_inline__, __artificial__))
-_mm_cmplt_epu32_mask (__m128i __X, __m128i __Y)
-{
-  return (__mmask8) __builtin_ia32_ucmpd128_mask ((__v4si) __X,
-						  (__v4si) __Y, 1,
-						  (__mmask8) -1);
-}
-
-extern __inline __mmask8
-  __attribute__ ((__gnu_inline__, __always_inline__, __artificial__))
-_mm_mask_cmpge_epu32_mask (__mmask8 __M, __m128i __X, __m128i __Y)
-{
-  return (__mmask8) __builtin_ia32_ucmpd128_mask ((__v4si) __X,
-						  (__v4si) __Y, 5,
-						  (__mmask8) __M);
-}
-
-extern __inline __mmask8
-  __attribute__ ((__gnu_inline__, __always_inline__, __artificial__))
-_mm_cmpge_epu32_mask (__m128i __X, __m128i __Y)
-{
-  return (__mmask8) __builtin_ia32_ucmpd128_mask ((__v4si) __X,
-						  (__v4si) __Y, 5,
-						  (__mmask8) -1);
-}
-
-extern __inline __mmask8
-  __attribute__ ((__gnu_inline__, __always_inline__, __artificial__))
-_mm_mask_cmple_epu32_mask (__mmask8 __M, __m128i __X, __m128i __Y)
-{
-  return (__mmask8) __builtin_ia32_ucmpd128_mask ((__v4si) __X,
-						  (__v4si) __Y, 2,
-						  (__mmask8) __M);
-}
-
-extern __inline __mmask8
-  __attribute__ ((__gnu_inline__, __always_inline__, __artificial__))
-_mm_cmple_epu32_mask (__m128i __X, __m128i __Y)
-{
-  return (__mmask8) __builtin_ia32_ucmpd128_mask ((__v4si) __X,
-						  (__v4si) __Y, 2,
-						  (__mmask8) -1);
-}
-
-extern __inline __mmask8
-  __attribute__ ((__gnu_inline__, __always_inline__, __artificial__))
-_mm_mask_cmpneq_epu64_mask (__mmask8 __M, __m128i __X, __m128i __Y)
-{
-  return (__mmask8) __builtin_ia32_ucmpq128_mask ((__v2di) __X,
-						  (__v2di) __Y, 4,
-						  (__mmask8) __M);
-}
-
-extern __inline __mmask8
-  __attribute__ ((__gnu_inline__, __always_inline__, __artificial__))
-_mm_cmpneq_epu64_mask (__m128i __X, __m128i __Y)
-{
-  return (__mmask8) __builtin_ia32_ucmpq128_mask ((__v2di) __X,
-						  (__v2di) __Y, 4,
-						  (__mmask8) -1);
-}
-
-extern __inline __mmask8
-  __attribute__ ((__gnu_inline__, __always_inline__, __artificial__))
-_mm_mask_cmplt_epu64_mask (__mmask8 __M, __m128i __X, __m128i __Y)
-{
-  return (__mmask8) __builtin_ia32_ucmpq128_mask ((__v2di) __X,
-						  (__v2di) __Y, 1,
-						  (__mmask8) __M);
-}
-
-extern __inline __mmask8
-  __attribute__ ((__gnu_inline__, __always_inline__, __artificial__))
-_mm_cmplt_epu64_mask (__m128i __X, __m128i __Y)
-{
-  return (__mmask8) __builtin_ia32_ucmpq128_mask ((__v2di) __X,
-						  (__v2di) __Y, 1,
-						  (__mmask8) -1);
-}
-
-extern __inline __mmask8
-  __attribute__ ((__gnu_inline__, __always_inline__, __artificial__))
-_mm_mask_cmpge_epu64_mask (__mmask8 __M, __m128i __X, __m128i __Y)
-{
-  return (__mmask8) __builtin_ia32_ucmpq128_mask ((__v2di) __X,
-						  (__v2di) __Y, 5,
-						  (__mmask8) __M);
-}
-
-extern __inline __mmask8
-  __attribute__ ((__gnu_inline__, __always_inline__, __artificial__))
-_mm_cmpge_epu64_mask (__m128i __X, __m128i __Y)
-{
-  return (__mmask8) __builtin_ia32_ucmpq128_mask ((__v2di) __X,
-						  (__v2di) __Y, 5,
-						  (__mmask8) -1);
-}
-
-extern __inline __mmask8
-  __attribute__ ((__gnu_inline__, __always_inline__, __artificial__))
-_mm_mask_cmple_epu64_mask (__mmask8 __M, __m128i __X, __m128i __Y)
-{
-  return (__mmask8) __builtin_ia32_ucmpq128_mask ((__v2di) __X,
-						  (__v2di) __Y, 2,
-						  (__mmask8) __M);
-}
-
-extern __inline __mmask8
-  __attribute__ ((__gnu_inline__, __always_inline__, __artificial__))
-_mm_cmple_epu64_mask (__m128i __X, __m128i __Y)
-{
-  return (__mmask8) __builtin_ia32_ucmpq128_mask ((__v2di) __X,
-						  (__v2di) __Y, 2,
-						  (__mmask8) -1);
-}
-
-extern __inline __mmask8
-  __attribute__ ((__gnu_inline__, __always_inline__, __artificial__))
-_mm_mask_cmpneq_epi32_mask (__mmask8 __M, __m128i __X, __m128i __Y)
-{
-  return (__mmask8) __builtin_ia32_cmpd128_mask ((__v4si) __X,
-						 (__v4si) __Y, 4,
-						 (__mmask8) __M);
-}
-
-extern __inline __mmask8
-  __attribute__ ((__gnu_inline__, __always_inline__, __artificial__))
-_mm_cmpneq_epi32_mask (__m128i __X, __m128i __Y)
-{
-  return (__mmask8) __builtin_ia32_cmpd128_mask ((__v4si) __X,
-						 (__v4si) __Y, 4,
-						 (__mmask8) -1);
-}
-
-extern __inline __mmask8
-  __attribute__ ((__gnu_inline__, __always_inline__, __artificial__))
-_mm_mask_cmplt_epi32_mask (__mmask8 __M, __m128i __X, __m128i __Y)
-{
-  return (__mmask8) __builtin_ia32_cmpd128_mask ((__v4si) __X,
-						 (__v4si) __Y, 1,
-						 (__mmask8) __M);
-}
-
-extern __inline __mmask8
-  __attribute__ ((__gnu_inline__, __always_inline__, __artificial__))
-_mm_cmplt_epi32_mask (__m128i __X, __m128i __Y)
-{
-  return (__mmask8) __builtin_ia32_cmpd128_mask ((__v4si) __X,
-						 (__v4si) __Y, 1,
-						 (__mmask8) -1);
-}
-
-extern __inline __mmask8
-  __attribute__ ((__gnu_inline__, __always_inline__, __artificial__))
-_mm_mask_cmpge_epi32_mask (__mmask8 __M, __m128i __X, __m128i __Y)
-{
-  return (__mmask8) __builtin_ia32_cmpd128_mask ((__v4si) __X,
-						 (__v4si) __Y, 5,
-						 (__mmask8) __M);
-}
-
-extern __inline __mmask8
-  __attribute__ ((__gnu_inline__, __always_inline__, __artificial__))
-_mm_cmpge_epi32_mask (__m128i __X, __m128i __Y)
-{
-  return (__mmask8) __builtin_ia32_cmpd128_mask ((__v4si) __X,
-						 (__v4si) __Y, 5,
-						 (__mmask8) -1);
-}
-
-extern __inline __mmask8
-  __attribute__ ((__gnu_inline__, __always_inline__, __artificial__))
-_mm_mask_cmple_epi32_mask (__mmask8 __M, __m128i __X, __m128i __Y)
-{
-  return (__mmask8) __builtin_ia32_cmpd128_mask ((__v4si) __X,
-						 (__v4si) __Y, 2,
-						 (__mmask8) __M);
-}
-
-extern __inline __mmask8
-  __attribute__ ((__gnu_inline__, __always_inline__, __artificial__))
-_mm_cmple_epi32_mask (__m128i __X, __m128i __Y)
-{
-  return (__mmask8) __builtin_ia32_cmpd128_mask ((__v4si) __X,
-						 (__v4si) __Y, 2,
-						 (__mmask8) -1);
-}
-
-extern __inline __mmask8
-  __attribute__ ((__gnu_inline__, __always_inline__, __artificial__))
-_mm_mask_cmpneq_epi64_mask (__mmask8 __M, __m128i __X, __m128i __Y)
-{
-  return (__mmask8) __builtin_ia32_cmpq128_mask ((__v2di) __X,
-						 (__v2di) __Y, 4,
-						 (__mmask8) __M);
-}
-
-extern __inline __mmask8
-  __attribute__ ((__gnu_inline__, __always_inline__, __artificial__))
-_mm_cmpneq_epi64_mask (__m128i __X, __m128i __Y)
-{
-  return (__mmask8) __builtin_ia32_cmpq128_mask ((__v2di) __X,
-						 (__v2di) __Y, 4,
-						 (__mmask8) -1);
-}
-
-extern __inline __mmask8
-  __attribute__ ((__gnu_inline__, __always_inline__, __artificial__))
-_mm_mask_cmplt_epi64_mask (__mmask8 __M, __m128i __X, __m128i __Y)
-{
-  return (__mmask8) __builtin_ia32_cmpq128_mask ((__v2di) __X,
-						 (__v2di) __Y, 1,
-						 (__mmask8) __M);
-}
-
-extern __inline __mmask8
-  __attribute__ ((__gnu_inline__, __always_inline__, __artificial__))
-_mm_cmplt_epi64_mask (__m128i __X, __m128i __Y)
-{
-  return (__mmask8) __builtin_ia32_cmpq128_mask ((__v2di) __X,
-						 (__v2di) __Y, 1,
-						 (__mmask8) -1);
-}
-
-extern __inline __mmask8
-  __attribute__ ((__gnu_inline__, __always_inline__, __artificial__))
-_mm_mask_cmpge_epi64_mask (__mmask8 __M, __m128i __X, __m128i __Y)
-{
-  return (__mmask8) __builtin_ia32_cmpq128_mask ((__v2di) __X,
-						 (__v2di) __Y, 5,
-						 (__mmask8) __M);
-}
-
-extern __inline __mmask8
-  __attribute__ ((__gnu_inline__, __always_inline__, __artificial__))
-_mm_cmpge_epi64_mask (__m128i __X, __m128i __Y)
-{
-  return (__mmask8) __builtin_ia32_cmpq128_mask ((__v2di) __X,
-						 (__v2di) __Y, 5,
-						 (__mmask8) -1);
-}
-
-extern __inline __mmask8
-  __attribute__ ((__gnu_inline__, __always_inline__, __artificial__))
-_mm_mask_cmple_epi64_mask (__mmask8 __M, __m128i __X, __m128i __Y)
-{
-  return (__mmask8) __builtin_ia32_cmpq128_mask ((__v2di) __X,
-						 (__v2di) __Y, 2,
-						 (__mmask8) __M);
-}
-
-extern __inline __mmask8
-  __attribute__ ((__gnu_inline__, __always_inline__, __artificial__))
-_mm_cmple_epi64_mask (__m128i __X, __m128i __Y)
-{
-  return (__mmask8) __builtin_ia32_cmpq128_mask ((__v2di) __X,
-						 (__v2di) __Y, 2,
-						 (__mmask8) -1);
-}
-
 #else
 #define _mm256_permutex_pd(X, M)						\
   ((__m256d) __builtin_ia32_permdf256_mask ((__v4df)(__m256d)(X), (int)(M),	\
@@ -12868,257 +12868,257 @@ _mm_cmple_epi64_mask (__m128i __X, __m128i __Y)
 
 #define _mm256_mmask_i32gather_ps(V1OLD, MASK, INDEX, ADDR, SCALE)	\
   (__m256) __builtin_ia32_gather3siv8sf ((__v8sf)(__m256)V1OLD,		\
-					 (float const *)ADDR,		\
+					 (void const *)ADDR,		\
 					 (__v8si)(__m256i)INDEX,	\
 					 (__mmask8)MASK, (int)SCALE)
 
 #define _mm_mmask_i32gather_ps(V1OLD, MASK, INDEX, ADDR, SCALE)		\
   (__m128) __builtin_ia32_gather3siv4sf ((__v4sf)(__m128)V1OLD,		\
-					 (float const *)ADDR,		\
+					 (void const *)ADDR,		\
 					 (__v4si)(__m128i)INDEX,	\
 					 (__mmask8)MASK, (int)SCALE)
 
 #define _mm256_mmask_i32gather_pd(V1OLD, MASK, INDEX, ADDR, SCALE)	\
   (__m256d) __builtin_ia32_gather3siv4df ((__v4df)(__m256d)V1OLD,	\
-					  (double const *)ADDR,		\
+					  (void const *)ADDR,		\
 					  (__v4si)(__m128i)INDEX,	\
 					  (__mmask8)MASK, (int)SCALE)
 
 #define _mm_mmask_i32gather_pd(V1OLD, MASK, INDEX, ADDR, SCALE)		\
   (__m128d) __builtin_ia32_gather3siv2df ((__v2df)(__m128d)V1OLD,	\
-					  (double const *)ADDR,		\
+					  (void const *)ADDR,		\
 					  (__v4si)(__m128i)INDEX,	\
 					  (__mmask8)MASK, (int)SCALE)
 
 #define _mm256_mmask_i64gather_ps(V1OLD, MASK, INDEX, ADDR, SCALE)	\
   (__m128) __builtin_ia32_gather3div8sf ((__v4sf)(__m128)V1OLD,		\
-					 (float const *)ADDR,		\
+					 (void const *)ADDR,		\
 					 (__v4di)(__m256i)INDEX,	\
 					 (__mmask8)MASK, (int)SCALE)
 
 #define _mm_mmask_i64gather_ps(V1OLD, MASK, INDEX, ADDR, SCALE)		\
   (__m128) __builtin_ia32_gather3div4sf ((__v4sf)(__m128)V1OLD,		\
-					 (float const *)ADDR,		\
+					 (void const *)ADDR,		\
 					 (__v2di)(__m128i)INDEX,	\
 					 (__mmask8)MASK, (int)SCALE)
 
 #define _mm256_mmask_i64gather_pd(V1OLD, MASK, INDEX, ADDR, SCALE)	\
   (__m256d) __builtin_ia32_gather3div4df ((__v4df)(__m256d)V1OLD,	\
-					  (double const *)ADDR,		\
+					  (void const *)ADDR,		\
 					  (__v4di)(__m256i)INDEX,	\
 					  (__mmask8)MASK, (int)SCALE)
 
 #define _mm_mmask_i64gather_pd(V1OLD, MASK, INDEX, ADDR, SCALE)		\
   (__m128d) __builtin_ia32_gather3div2df ((__v2df)(__m128d)V1OLD,	\
-					  (double const *)ADDR,		\
+					  (void const *)ADDR,		\
 					  (__v2di)(__m128i)INDEX,	\
 					  (__mmask8)MASK, (int)SCALE)
 
 #define _mm256_mmask_i32gather_epi32(V1OLD, MASK, INDEX, ADDR, SCALE)	\
   (__m256i) __builtin_ia32_gather3siv8si ((__v8si)(__m256i)V1OLD,	\
-					  (int const *)ADDR,		\
+					  (void const *)ADDR,		\
 					  (__v8si)(__m256i)INDEX,	\
 					  (__mmask8)MASK, (int)SCALE)
 
 #define _mm_mmask_i32gather_epi32(V1OLD, MASK, INDEX, ADDR, SCALE)	\
   (__m128i) __builtin_ia32_gather3siv4si ((__v4si)(__m128i)V1OLD,	\
-					  (int const *)ADDR,		\
+					  (void const *)ADDR,		\
 					  (__v4si)(__m128i)INDEX,	\
 					  (__mmask8)MASK, (int)SCALE)
 
 #define _mm256_mmask_i32gather_epi64(V1OLD, MASK, INDEX, ADDR, SCALE)	\
   (__m256i) __builtin_ia32_gather3siv4di ((__v4di)(__m256i)V1OLD,	\
-					  (long long const *)ADDR,	\
+					  (void const *)ADDR,		\
 					  (__v4si)(__m128i)INDEX,	\
 					  (__mmask8)MASK, (int)SCALE)
 
 #define _mm_mmask_i32gather_epi64(V1OLD, MASK, INDEX, ADDR, SCALE)	\
   (__m128i) __builtin_ia32_gather3siv2di ((__v2di)(__m128i)V1OLD,	\
-					  (long long const *)ADDR,	\
+					  (void const *)ADDR,		\
 					  (__v4si)(__m128i)INDEX,	\
 					  (__mmask8)MASK, (int)SCALE)
 
 #define _mm256_mmask_i64gather_epi32(V1OLD, MASK, INDEX, ADDR, SCALE)	\
   (__m128i) __builtin_ia32_gather3div8si ((__v4si)(__m128i)V1OLD,	\
-					  (int const *)ADDR,		\
+					  (void const *)ADDR,		\
 					  (__v4di)(__m256i)INDEX,	\
 					  (__mmask8)MASK, (int)SCALE)
 
 #define _mm_mmask_i64gather_epi32(V1OLD, MASK, INDEX, ADDR, SCALE)	\
   (__m128i) __builtin_ia32_gather3div4si ((__v4si)(__m128i)V1OLD,	\
-					  (int const *)ADDR,		\
+					  (void const *)ADDR,		\
 					  (__v2di)(__m128i)INDEX,	\
 					  (__mmask8)MASK, (int)SCALE)
 
 #define _mm256_mmask_i64gather_epi64(V1OLD, MASK, INDEX, ADDR, SCALE)	\
   (__m256i) __builtin_ia32_gather3div4di ((__v4di)(__m256i)V1OLD,	\
-					  (long long const *)ADDR,	\
+					  (void const *)ADDR,		\
 					  (__v4di)(__m256i)INDEX,	\
 					  (__mmask8)MASK, (int)SCALE)
 
 #define _mm_mmask_i64gather_epi64(V1OLD, MASK, INDEX, ADDR, SCALE)	\
   (__m128i) __builtin_ia32_gather3div2di ((__v2di)(__m128i)V1OLD,	\
-					  (long long const *)ADDR,	\
+					  (void const *)ADDR,		\
 					  (__v2di)(__m128i)INDEX,	\
 					  (__mmask8)MASK, (int)SCALE)
 
 #define _mm256_i32scatter_ps(ADDR, INDEX, V1, SCALE)			\
-  __builtin_ia32_scattersiv8sf ((float *)ADDR, (__mmask8)0xFF,		\
+  __builtin_ia32_scattersiv8sf ((void *)ADDR, (__mmask8)0xFF,		\
 				(__v8si)(__m256i)INDEX,			\
 				(__v8sf)(__m256)V1, (int)SCALE)
 
 #define _mm256_mask_i32scatter_ps(ADDR, MASK, INDEX, V1, SCALE)		\
-  __builtin_ia32_scattersiv8sf ((float *)ADDR, (__mmask8)MASK,		\
+  __builtin_ia32_scattersiv8sf ((void *)ADDR, (__mmask8)MASK,		\
 				(__v8si)(__m256i)INDEX,			\
 				(__v8sf)(__m256)V1, (int)SCALE)
 
 #define _mm_i32scatter_ps(ADDR, INDEX, V1, SCALE)			\
-  __builtin_ia32_scattersiv4sf ((float *)ADDR, (__mmask8)0xFF,		\
+  __builtin_ia32_scattersiv4sf ((void *)ADDR, (__mmask8)0xFF,		\
 				(__v4si)(__m128i)INDEX,			\
 				(__v4sf)(__m128)V1, (int)SCALE)
 
 #define _mm_mask_i32scatter_ps(ADDR, MASK, INDEX, V1, SCALE)		\
-  __builtin_ia32_scattersiv4sf ((float *)ADDR, (__mmask8)MASK,		\
+  __builtin_ia32_scattersiv4sf ((void *)ADDR, (__mmask8)MASK,		\
 				(__v4si)(__m128i)INDEX,			\
 				(__v4sf)(__m128)V1, (int)SCALE)
 
 #define _mm256_i32scatter_pd(ADDR, INDEX, V1, SCALE)			\
-  __builtin_ia32_scattersiv4df ((double *)ADDR, (__mmask8)0xFF,		\
+  __builtin_ia32_scattersiv4df ((void *)ADDR, (__mmask8)0xFF,		\
 				(__v4si)(__m128i)INDEX,			\
 				(__v4df)(__m256d)V1, (int)SCALE)
 
 #define _mm256_mask_i32scatter_pd(ADDR, MASK, INDEX, V1, SCALE)		\
-  __builtin_ia32_scattersiv4df ((double *)ADDR, (__mmask8)MASK,		\
+  __builtin_ia32_scattersiv4df ((void *)ADDR, (__mmask8)MASK,		\
 				(__v4si)(__m128i)INDEX,			\
 				(__v4df)(__m256d)V1, (int)SCALE)
 
 #define _mm_i32scatter_pd(ADDR, INDEX, V1, SCALE)			\
-  __builtin_ia32_scattersiv2df ((double *)ADDR, (__mmask8)0xFF,		\
+  __builtin_ia32_scattersiv2df ((void *)ADDR, (__mmask8)0xFF,		\
 				(__v4si)(__m128i)INDEX,			\
 				(__v2df)(__m128d)V1, (int)SCALE)
 
 #define _mm_mask_i32scatter_pd(ADDR, MASK, INDEX, V1, SCALE)		\
-  __builtin_ia32_scattersiv2df ((double *)ADDR, (__mmask8)MASK,		\
+  __builtin_ia32_scattersiv2df ((void *)ADDR, (__mmask8)MASK,		\
 				(__v4si)(__m128i)INDEX,			\
 				(__v2df)(__m128d)V1, (int)SCALE)
 
 #define _mm256_i64scatter_ps(ADDR, INDEX, V1, SCALE)			\
-  __builtin_ia32_scatterdiv8sf ((float *)ADDR, (__mmask8)0xFF,		\
+  __builtin_ia32_scatterdiv8sf ((void *)ADDR, (__mmask8)0xFF,		\
 				(__v4di)(__m256i)INDEX,			\
 				(__v4sf)(__m128)V1, (int)SCALE)
 
 #define _mm256_mask_i64scatter_ps(ADDR, MASK, INDEX, V1, SCALE)		\
-  __builtin_ia32_scatterdiv8sf ((float *)ADDR, (__mmask8)MASK,		\
+  __builtin_ia32_scatterdiv8sf ((void *)ADDR, (__mmask8)MASK,		\
 				(__v4di)(__m256i)INDEX,			\
 				(__v4sf)(__m128)V1, (int)SCALE)
 
 #define _mm_i64scatter_ps(ADDR, INDEX, V1, SCALE)			\
-  __builtin_ia32_scatterdiv4sf ((float *)ADDR, (__mmask8)0xFF,		\
+  __builtin_ia32_scatterdiv4sf ((void *)ADDR, (__mmask8)0xFF,		\
 				(__v2di)(__m128i)INDEX,			\
 				(__v4sf)(__m128)V1, (int)SCALE)
 
 #define _mm_mask_i64scatter_ps(ADDR, MASK, INDEX, V1, SCALE)		\
-  __builtin_ia32_scatterdiv4sf ((float *)ADDR, (__mmask8)MASK,		\
+  __builtin_ia32_scatterdiv4sf ((void *)ADDR, (__mmask8)MASK,		\
 				(__v2di)(__m128i)INDEX,			\
 				(__v4sf)(__m128)V1, (int)SCALE)
 
 #define _mm256_i64scatter_pd(ADDR, INDEX, V1, SCALE)			\
-  __builtin_ia32_scatterdiv4df ((double *)ADDR, (__mmask8)0xFF,		\
+  __builtin_ia32_scatterdiv4df ((void *)ADDR, (__mmask8)0xFF,		\
 				(__v4di)(__m256i)INDEX,			\
 				(__v4df)(__m256d)V1, (int)SCALE)
 
 #define _mm256_mask_i64scatter_pd(ADDR, MASK, INDEX, V1, SCALE)		\
-  __builtin_ia32_scatterdiv4df ((double *)ADDR, (__mmask8)MASK,		\
+  __builtin_ia32_scatterdiv4df ((void *)ADDR, (__mmask8)MASK,		\
 				(__v4di)(__m256i)INDEX,			\
 				(__v4df)(__m256d)V1, (int)SCALE)
 
 #define _mm_i64scatter_pd(ADDR, INDEX, V1, SCALE)			\
-  __builtin_ia32_scatterdiv2df ((double *)ADDR, (__mmask8)0xFF,		\
+  __builtin_ia32_scatterdiv2df ((void *)ADDR, (__mmask8)0xFF,		\
 				(__v2di)(__m128i)INDEX,			\
 				(__v2df)(__m128d)V1, (int)SCALE)
 
 #define _mm_mask_i64scatter_pd(ADDR, MASK, INDEX, V1, SCALE)		\
-  __builtin_ia32_scatterdiv2df ((double *)ADDR, (__mmask8)MASK,		\
+  __builtin_ia32_scatterdiv2df ((void *)ADDR, (__mmask8)MASK,		\
 				(__v2di)(__m128i)INDEX,			\
 				(__v2df)(__m128d)V1, (int)SCALE)
 
 #define _mm256_i32scatter_epi32(ADDR, INDEX, V1, SCALE)			\
-  __builtin_ia32_scattersiv8si ((int *)ADDR, (__mmask8)0xFF,		\
+  __builtin_ia32_scattersiv8si ((void *)ADDR, (__mmask8)0xFF,		\
 				(__v8si)(__m256i)INDEX,			\
 				(__v8si)(__m256i)V1, (int)SCALE)
 
 #define _mm256_mask_i32scatter_epi32(ADDR, MASK, INDEX, V1, SCALE)	\
-  __builtin_ia32_scattersiv8si ((int *)ADDR, (__mmask8)MASK,		\
+  __builtin_ia32_scattersiv8si ((void *)ADDR, (__mmask8)MASK,		\
 				(__v8si)(__m256i)INDEX,			\
 				(__v8si)(__m256i)V1, (int)SCALE)
 
 #define _mm_i32scatter_epi32(ADDR, INDEX, V1, SCALE)			\
-  __builtin_ia32_scattersiv4si ((int *)ADDR, (__mmask8)0xFF,		\
+  __builtin_ia32_scattersiv4si ((void *)ADDR, (__mmask8)0xFF,		\
 				(__v4si)(__m128i)INDEX,			\
 				(__v4si)(__m128i)V1, (int)SCALE)
 
 #define _mm_mask_i32scatter_epi32(ADDR, MASK, INDEX, V1, SCALE)		\
-  __builtin_ia32_scattersiv4si ((int *)ADDR, (__mmask8)MASK,		\
+  __builtin_ia32_scattersiv4si ((void *)ADDR, (__mmask8)MASK,		\
 				(__v4si)(__m128i)INDEX,			\
 				(__v4si)(__m128i)V1, (int)SCALE)
 
 #define _mm256_i32scatter_epi64(ADDR, INDEX, V1, SCALE)			\
-  __builtin_ia32_scattersiv4di ((long long *)ADDR, (__mmask8)0xFF,	\
+  __builtin_ia32_scattersiv4di ((void *)ADDR, (__mmask8)0xFF,		\
 				(__v4si)(__m128i)INDEX,			\
 				(__v4di)(__m256i)V1, (int)SCALE)
 
 #define _mm256_mask_i32scatter_epi64(ADDR, MASK, INDEX, V1, SCALE)	\
-  __builtin_ia32_scattersiv4di ((long long *)ADDR, (__mmask8)MASK,	\
+  __builtin_ia32_scattersiv4di ((void *)ADDR, (__mmask8)MASK,		\
 				(__v4si)(__m128i)INDEX,			\
 				(__v4di)(__m256i)V1, (int)SCALE)
 
 #define _mm_i32scatter_epi64(ADDR, INDEX, V1, SCALE)			\
-  __builtin_ia32_scattersiv2di ((long long *)ADDR, (__mmask8)0xFF,	\
+  __builtin_ia32_scattersiv2di ((void *)ADDR, (__mmask8)0xFF,		\
 				(__v4si)(__m128i)INDEX,			\
 				(__v2di)(__m128i)V1, (int)SCALE)
 
 #define _mm_mask_i32scatter_epi64(ADDR, MASK, INDEX, V1, SCALE)		\
-  __builtin_ia32_scattersiv2di ((long long *)ADDR, (__mmask8)MASK,	\
+  __builtin_ia32_scattersiv2di ((void *)ADDR, (__mmask8)MASK,		\
 				(__v4si)(__m128i)INDEX,			\
 				(__v2di)(__m128i)V1, (int)SCALE)
 
 #define _mm256_i64scatter_epi32(ADDR, INDEX, V1, SCALE)			\
-  __builtin_ia32_scatterdiv8si ((int *)ADDR, (__mmask8)0xFF,		\
+  __builtin_ia32_scatterdiv8si ((void *)ADDR, (__mmask8)0xFF,		\
 				(__v4di)(__m256i)INDEX,			\
 				(__v4si)(__m128i)V1, (int)SCALE)
 
 #define _mm256_mask_i64scatter_epi32(ADDR, MASK, INDEX, V1, SCALE)	\
-  __builtin_ia32_scatterdiv8si ((int *)ADDR, (__mmask8)MASK,		\
+  __builtin_ia32_scatterdiv8si ((void *)ADDR, (__mmask8)MASK,		\
 				(__v4di)(__m256i)INDEX,			\
 				(__v4si)(__m128i)V1, (int)SCALE)
 
 #define _mm_i64scatter_epi32(ADDR, INDEX, V1, SCALE)			\
-  __builtin_ia32_scatterdiv4si ((int *)ADDR, (__mmask8)0xFF,		\
+  __builtin_ia32_scatterdiv4si ((void *)ADDR, (__mmask8)0xFF,		\
 				(__v2di)(__m128i)INDEX,			\
 				(__v4si)(__m128i)V1, (int)SCALE)
 
 #define _mm_mask_i64scatter_epi32(ADDR, MASK, INDEX, V1, SCALE)		\
-  __builtin_ia32_scatterdiv4si ((int *)ADDR, (__mmask8)MASK,		\
+  __builtin_ia32_scatterdiv4si ((void *)ADDR, (__mmask8)MASK,		\
 				(__v2di)(__m128i)INDEX,			\
 				(__v4si)(__m128i)V1, (int)SCALE)
 
 #define _mm256_i64scatter_epi64(ADDR, INDEX, V1, SCALE)			\
-  __builtin_ia32_scatterdiv4di ((long long *)ADDR, (__mmask8)0xFF,	\
+  __builtin_ia32_scatterdiv4di ((void *)ADDR, (__mmask8)0xFF,		\
 				(__v4di)(__m256i)INDEX,			\
 				(__v4di)(__m256i)V1, (int)SCALE)
 
 #define _mm256_mask_i64scatter_epi64(ADDR, MASK, INDEX, V1, SCALE)	\
-  __builtin_ia32_scatterdiv4di ((long long *)ADDR, (__mmask8)MASK,	\
+  __builtin_ia32_scatterdiv4di ((void *)ADDR, (__mmask8)MASK,		\
 				(__v4di)(__m256i)INDEX,			\
 				(__v4di)(__m256i)V1, (int)SCALE)
 
 #define _mm_i64scatter_epi64(ADDR, INDEX, V1, SCALE)			\
-  __builtin_ia32_scatterdiv2di ((long long *)ADDR, (__mmask8)0xFF,	\
+  __builtin_ia32_scatterdiv2di ((void *)ADDR, (__mmask8)0xFF,		\
 				(__v2di)(__m128i)INDEX,			\
 				(__v2di)(__m128i)V1, (int)SCALE)
 
 #define _mm_mask_i64scatter_epi64(ADDR, MASK, INDEX, V1, SCALE)		\
-  __builtin_ia32_scatterdiv2di ((long long *)ADDR, (__mmask8)MASK,	\
+  __builtin_ia32_scatterdiv2di ((void *)ADDR, (__mmask8)MASK,		\
 				(__v2di)(__m128i)INDEX,			\
 				(__v2di)(__m128i)V1, (int)SCALE)
 

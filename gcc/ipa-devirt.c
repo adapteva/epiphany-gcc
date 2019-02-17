@@ -1225,7 +1225,7 @@ warn_types_mismatch (tree t1, tree t2, location_t loc1, location_t loc2)
   if (types_odr_comparable (t1, t2, true)
       && types_same_for_odr (t1, t2, true))
     inform (loc_t1,
-	    "type %qT itself violate the C++ One Definition Rule", t1);
+	    "type %qT itself violates the C++ One Definition Rule", t1);
   /* Prevent pointless warnings like "struct aa" should match "struct aa".  */
   else if (TYPE_NAME (t1) == TYPE_NAME (t2)
 	   && TREE_CODE (t1) == TREE_CODE (t2) && !loc_t2_useful)
@@ -1572,12 +1572,19 @@ odr_types_equivalent_p (tree t1, tree t2, bool warn, bool *warned,
 		    if (DECL_ARTIFICIAL (f1))
 		      break;
 		    warn_odr (t1, t2, f1, f2, warn, warned,
-			      G_("fields has different layout "
+			      G_("fields have different layout "
 				 "in another translation unit"));
 		    return false;
 		  }
-		gcc_assert (DECL_NONADDRESSABLE_P (f1)
-			    == DECL_NONADDRESSABLE_P (f2));
+		if (DECL_BIT_FIELD (f1) != DECL_BIT_FIELD (f2))
+		  {
+		    warn_odr (t1, t2, f1, f2, warn, warned,
+			      G_("one field is bitfield while other is not"));
+		    return false;
+		  }
+		else
+		  gcc_assert (DECL_NONADDRESSABLE_P (f1)
+			      == DECL_NONADDRESSABLE_P (f2));
 	      }
 
 	    /* If one aggregate has more fields than the other, they
@@ -2462,10 +2469,19 @@ maybe_record_node (vec <cgraph_node *> &nodes,
 	  nodes.safe_push (target_node);
 	}
     }
-  else if (completep
-	   && (!type_in_anonymous_namespace_p
-		 (DECL_CONTEXT (target))
-	       || flag_ltrans))
+  else if (!completep)
+    ;
+  /* We have definition of __cxa_pure_virtual that is not accessible (it is
+     optimized out or partitioned to other unit) so we can not add it.  When
+     not sanitizing, there is nothing to do.
+     Otherwise declare the list incomplete.  */
+  else if (pure_virtual)
+    {
+      if (flag_sanitize & SANITIZE_UNREACHABLE)
+	*completep = false;
+    }
+  else if (flag_ltrans
+	   || !type_in_anonymous_namespace_p (DECL_CONTEXT (target)))
     *completep = false;
 }
 
@@ -3358,7 +3374,13 @@ dump_possible_polymorphic_call_targets (FILE *f,
       fprintf (f, "  Speculative targets:");
       dump_targets (f, targets);
     }
-  gcc_assert (targets.length () <= len);
+  /* Ugly: during callgraph construction the target cache may get populated
+     before all targets are found.  While this is harmless (because all local
+     types are discovered and only in those case we devirtualize fully and we
+     don't do speculative devirtualization before IPA stage) it triggers
+     assert here when dumping at that stage also populates the case with
+     speculative targets.  Quietly ignore this.  */
+  gcc_assert (symtab->state < IPA_SSA || targets.length () <= len);
   fprintf (f, "\n");
 }
 

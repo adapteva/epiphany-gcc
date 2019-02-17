@@ -1263,15 +1263,40 @@ process_options (void)
       if (targetm.chkp_bound_mode () == VOIDmode)
 	{
 	  error_at (UNKNOWN_LOCATION,
-		    "-fcheck-pointer-bounds is not supported for this target");
+		    "%<-fcheck-pointer-bounds%> is not supported for this "
+		    "target");
+	  flag_check_pointer_bounds = 0;
+	}
+
+      if (flag_sanitize & SANITIZE_BOUNDS_STRICT)
+	{
+	  error_at (UNKNOWN_LOCATION,
+		    "%<-fcheck-pointer-bounds%> is not supported with "
+		    "%<-fsanitize=bounds-strict%>");
+	  flag_check_pointer_bounds = 0;
+	}
+      else if (flag_sanitize & SANITIZE_BOUNDS)
+	{
+	  error_at (UNKNOWN_LOCATION,
+		    "%<-fcheck-pointer-bounds%> is not supported with "
+		    "%<-fsanitize=bounds%>");
 	  flag_check_pointer_bounds = 0;
 	}
 
       if (flag_sanitize & SANITIZE_ADDRESS)
 	{
 	  error_at (UNKNOWN_LOCATION,
-		    "-fcheck-pointer-bounds is not supported with "
+		    "%<-fcheck-pointer-bounds%> is not supported with "
 		    "Address Sanitizer");
+	  flag_check_pointer_bounds = 0;
+	}
+
+      if (flag_sanitize & SANITIZE_THREAD)
+	{
+	  error_at (UNKNOWN_LOCATION,
+		    "%<-fcheck-pointer-bounds%> is not supported with "
+		    "Thread Sanitizer");
+
 	  flag_check_pointer_bounds = 0;
 	}
     }
@@ -1901,6 +1926,9 @@ finalize (bool no_backend)
   if (stack_usage_file)
     fclose (stack_usage_file);
 
+  if (seen_error ())
+    coverage_remove_note_file ();
+
   if (!no_backend)
     {
       statistics_fini ();
@@ -2072,7 +2100,8 @@ toplev::main (int argc, char **argv)
      enough to default flags appropriately.  */
   decode_options (&global_options, &global_options_set,
 		  save_decoded_options, save_decoded_options_count,
-		  UNKNOWN_LOCATION, global_dc);
+		  UNKNOWN_LOCATION, global_dc,
+		  targetm.target_option.override);
 
   handle_common_deferred_options ();
 

@@ -1224,8 +1224,8 @@ vn_reference_maybe_forwprop_address (vec<vn_reference_op_s> *ops,
 	      && tem[tem.length () - 2].opcode == MEM_REF)
 	    {
 	      vn_reference_op_t new_mem_op = &tem[tem.length () - 2];
-	      new_mem_op->op0 = fold_convert (TREE_TYPE (mem_op->op0),
-					      new_mem_op->op0);
+	      new_mem_op->op0 = wide_int_to_tree (TREE_TYPE (mem_op->op0),
+						  new_mem_op->op0);
 	    }
 	  else
 	    gcc_assert (tem.last ().opcode == STRING_CST);
@@ -1814,17 +1814,35 @@ vn_reference_lookup_3 (ao_ref *ref, tree vuse, void *vr_,
 	  int len;
 
 	  len = native_encode_expr (gimple_assign_rhs1 (def_stmt),
-				    buffer, sizeof (buffer));
-	  if (len > 0)
+				    buffer, sizeof (buffer),
+				    (offset - offset2) / BITS_PER_UNIT);
+	  if (len > 0 && len * BITS_PER_UNIT >= ref->size)
 	    {
-	      tree val = native_interpret_expr (vr->type,
-						buffer
-						+ ((offset - offset2)
-						   / BITS_PER_UNIT),
+	      tree type = vr->type;
+	      /* Make sure to interpret in a type that has a range
+	         covering the whole access size.  */
+	      if (INTEGRAL_TYPE_P (vr->type)
+		  && ref->size != TYPE_PRECISION (vr->type))
+		type = build_nonstandard_integer_type (ref->size,
+						       TYPE_UNSIGNED (type));
+	      tree val = native_interpret_expr (type, buffer,
 						ref->size / BITS_PER_UNIT);
+	      /* If we chop off bits because the types precision doesn't
+		 match the memory access size this is ok when optimizing
+		 reads but not when called from the DSE code during
+		 elimination.  */
+	      if (val
+		  && type != vr->type)
+		{
+		  if (! int_fits_type_p (val, vr->type))
+		    val = NULL_TREE;
+		  else
+		    val = fold_convert (vr->type, val);
+		}
+
 	      if (val)
 		return vn_reference_lookup_or_insert_for_pieces
-		         (vuse, vr->set, vr->type, vr->operands, val);
+			 (vuse, vr->set, vr->type, vr->operands, val);
 	    }
 	}
     }
@@ -2149,7 +2167,7 @@ vn_reference_lookup_3 (ao_ref *ref, tree vuse, void *vr_,
       memset (&op, 0, sizeof (op));
       op.type = vr->type;
       op.opcode = MEM_REF;
-      op.op0 = build_int_cst (ptr_type_node, at - rhs_offset);
+      op.op0 = build_int_cst (ptr_type_node, at - lhs_offset + rhs_offset);
       op.off = at - lhs_offset + rhs_offset;
       vr->operands[0] = op;
       op.type = TREE_TYPE (rhs);
@@ -2749,14 +2767,11 @@ vn_phi_compute_hash (vn_phi_t vp1)
    the other.  */
 
 static bool
-cond_stmts_equal_p (gcond *cond1, gcond *cond2, bool *inverted_p)
+cond_stmts_equal_p (gcond *cond1, tree lhs1, tree rhs1,
+		    gcond *cond2, tree lhs2, tree rhs2, bool *inverted_p)
 {
   enum tree_code code1 = gimple_cond_code (cond1);
   enum tree_code code2 = gimple_cond_code (cond2);
-  tree lhs1 = gimple_cond_lhs (cond1);
-  tree lhs2 = gimple_cond_lhs (cond2);
-  tree rhs1 = gimple_cond_rhs (cond1);
-  tree rhs2 = gimple_cond_rhs (cond2);
 
   *inverted_p = false;
   if (code1 == code2)
@@ -2774,10 +2789,6 @@ cond_stmts_equal_p (gcond *cond1, gcond *cond2, bool *inverted_p)
   else
     return false;
 
-  lhs1 = vn_valueize (lhs1);
-  rhs1 = vn_valueize (rhs1);
-  lhs2 = vn_valueize (lhs2);
-  rhs2 = vn_valueize (rhs2);
   return ((expressions_equal_p (lhs1, lhs2)
 	   && expressions_equal_p (rhs1, rhs2))
 	  || (commutative_tree_code (code1)
@@ -2828,14 +2839,14 @@ vn_phi_eq (const_vn_phi_t const vp1, const_vn_phi_t const vp2)
 	      return false;
 
 	    /* Verify the controlling stmt is the same.  */
-	    gimple *last1 = last_stmt (idom1);
-	    gimple *last2 = last_stmt (idom2);
-	    if (gimple_code (last1) != GIMPLE_COND
-		|| gimple_code (last2) != GIMPLE_COND)
+	    gcond *last1 = safe_dyn_cast <gcond *> (last_stmt (idom1));
+	    gcond *last2 = safe_dyn_cast <gcond *> (last_stmt (idom2));
+	    if (! last1 || ! last2)
 	      return false;
 	    bool inverted_p;
-	    if (! cond_stmts_equal_p (as_a <gcond *> (last1),
-				      as_a <gcond *> (last2), &inverted_p))
+	    if (! cond_stmts_equal_p (last1, vp1->cclhs, vp1->ccrhs,
+				      last2, vp2->cclhs, vp2->ccrhs,
+				      &inverted_p))
 	      return false;
 
 	    /* Get at true/false controlled edges into the PHI.  */
@@ -2914,6 +2925,16 @@ vn_phi_lookup (gimple *phi)
   vp1.type = TREE_TYPE (gimple_phi_result (phi));
   vp1.phiargs = shared_lookup_phiargs;
   vp1.block = gimple_bb (phi);
+  /* Extract values of the controlling condition.  */
+  vp1.cclhs = NULL_TREE;
+  vp1.ccrhs = NULL_TREE;
+  basic_block idom1 = get_immediate_dominator (CDI_DOMINATORS, vp1.block);
+  if (EDGE_COUNT (idom1->succs) == 2)
+    if (gcond *last1 = safe_dyn_cast <gcond *> (last_stmt (idom1)))
+      {
+	vp1.cclhs = vn_valueize (gimple_cond_lhs (last1));
+	vp1.ccrhs = vn_valueize (gimple_cond_rhs (last1));
+      }
   vp1.hashcode = vn_phi_compute_hash (&vp1);
   slot = current_info->phis->find_slot_with_hash (&vp1, vp1.hashcode,
 						  NO_INSERT);
@@ -2950,6 +2971,16 @@ vn_phi_insert (gimple *phi, tree result)
   vp1->type = TREE_TYPE (gimple_phi_result (phi));
   vp1->phiargs = args;
   vp1->block = gimple_bb (phi);
+  /* Extract values of the controlling condition.  */
+  vp1->cclhs = NULL_TREE;
+  vp1->ccrhs = NULL_TREE;
+  basic_block idom1 = get_immediate_dominator (CDI_DOMINATORS, vp1->block);
+  if (EDGE_COUNT (idom1->succs) == 2)
+    if (gcond *last1 = safe_dyn_cast <gcond *> (last_stmt (idom1)))
+      {
+	vp1->cclhs = vn_valueize (gimple_cond_lhs (last1));
+	vp1->ccrhs = vn_valueize (gimple_cond_rhs (last1));
+      }
   vp1->result = result;
   vp1->hashcode = vn_phi_compute_hash (vp1);
 
@@ -4735,6 +4766,7 @@ run_scc_vn (vn_lookup_kind default_vn_walk_kind_)
   walker.walk (ENTRY_BLOCK_PTR_FOR_FN (cfun));
   if (walker.fail)
     {
+      scc_vn_restore_ssa_info ();
       free_scc_vn ();
       return false;
     }

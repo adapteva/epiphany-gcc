@@ -1,5 +1,5 @@
 /* Deal with interfaces.
-   Copyright (C) 2000-2016 Free Software Foundation, Inc.
+   Copyright (C) 2000-2016,2018 Free Software Foundation, Inc.
    Contributed by Andy Vaught
 
 This file is part of GCC.
@@ -638,13 +638,20 @@ compare_type (gfc_symbol *s1, gfc_symbol *s2)
   if (s2->attr.ext_attr & (1 << EXT_ATTR_NO_ARG_CHECK))
     return 1;
 
+  return gfc_compare_types (&s1->ts, &s2->ts) || s2->ts.type == BT_ASSUMED;
+}
+
+
+static bool
+compare_type_characteristics (gfc_symbol *s1, gfc_symbol *s2)
+{
   /* TYPE and CLASS of the same declared type are type compatible,
      but have different characteristics.  */
   if ((s1->ts.type == BT_CLASS && s2->ts.type == BT_DERIVED)
       || (s1->ts.type == BT_DERIVED && s2->ts.type == BT_CLASS))
     return 0;
 
-  return gfc_compare_types (&s1->ts, &s2->ts) || s2->ts.type == BT_ASSUMED;
+  return compare_type (s1, s2);
 }
 
 
@@ -1165,8 +1172,13 @@ generic_correspondence (gfc_formal_arglist *f1, gfc_formal_arglist *f2,
 static int
 symbol_rank (gfc_symbol *sym)
 {
-  gfc_array_spec *as;
-  as = (sym->ts.type == BT_CLASS) ? CLASS_DATA (sym)->as : sym->as;
+  gfc_array_spec *as = NULL;
+
+  if (sym->ts.type == BT_CLASS && CLASS_DATA (sym))
+    as = CLASS_DATA (sym)->as;
+  else
+    as = sym->as;
+
   return as ? as->rank : 0;
 }
 
@@ -1185,7 +1197,8 @@ gfc_check_dummy_characteristics (gfc_symbol *s1, gfc_symbol *s2,
   /* Check type and rank.  */
   if (type_must_agree)
     {
-      if (!compare_type (s1, s2) || !compare_type (s2, s1))
+      if (!compare_type_characteristics (s1, s2)
+	  || !compare_type_characteristics (s2, s1))
 	{
 	  snprintf (errmsg, err_len, "Type mismatch in argument '%s' (%s/%s)",
 		    s1->name, gfc_typename (&s1->ts), gfc_typename (&s2->ts));
@@ -1404,7 +1417,7 @@ gfc_check_result_characteristics (gfc_symbol *s1, gfc_symbol *s2,
     return true;
 
   /* Check type and rank.  */
-  if (!compare_type (r1, r2))
+  if (!compare_type_characteristics (r1, r2))
     {
       snprintf (errmsg, err_len, "Type mismatch in function result (%s/%s)",
 		gfc_typename (&r1->ts), gfc_typename (&r2->ts));
@@ -2705,7 +2718,8 @@ is_procptr_result (gfc_expr *expr)
 
 static int
 compare_actual_formal (gfc_actual_arglist **ap, gfc_formal_arglist *formal,
-	 	       int ranks_must_agree, int is_elemental, locus *where)
+	 	       int ranks_must_agree, int is_elemental,
+		       bool in_statement_function, locus *where)
 {
   gfc_actual_arglist **new_arg, *a, *actual;
   gfc_formal_arglist *f;
@@ -2733,6 +2747,13 @@ compare_actual_formal (gfc_actual_arglist **ap, gfc_formal_arglist *formal,
 
   for (a = actual; a; a = a->next, f = f->next)
     {
+      if (a->name != NULL && in_statement_function)
+	{
+	  gfc_error ("Keyword argument %qs at %L is invalid in "
+		     "a statement function", a->name, &a->expr->where);
+	  return false;
+	}
+
       /* Look for keywords but ignore g77 extensions like %VAL.  */
       if (a->name != NULL && a->name[0] != '%')
 	{
@@ -3053,8 +3074,9 @@ compare_actual_formal (gfc_actual_arglist **ap, gfc_formal_arglist *formal,
 	}
 
       /* Check intent = OUT/INOUT for definable actual argument.  */
-      if ((f->sym->attr.intent == INTENT_OUT
-	  || f->sym->attr.intent == INTENT_INOUT))
+      if (!in_statement_function
+	  && (f->sym->attr.intent == INTENT_OUT
+	      || f->sym->attr.intent == INTENT_INOUT))
 	{
 	  const char* context = (where
 				 ? _("actual argument to INTENT = OUT/INOUT")
@@ -3152,7 +3174,8 @@ compare_actual_formal (gfc_actual_arglist **ap, gfc_formal_arglist *formal,
 		       "at %L", where);
 	  return 0;
 	}
-      if (!f->sym->attr.optional)
+      if (!f->sym->attr.optional
+	  || (in_statement_function && f->sym->attr.optional))
 	{
 	  if (where)
 	    gfc_error ("Missing actual argument for argument %qs at %L",
@@ -3438,6 +3461,7 @@ check_intents (gfc_formal_arglist *f, gfc_actual_arglist *a)
 bool
 gfc_procedure_use (gfc_symbol *sym, gfc_actual_arglist **ap, locus *where)
 {
+  gfc_actual_arglist *a;
   gfc_formal_arglist *dummy_args;
 
   /* Warn about calls with an implicit interface.  Special case
@@ -3464,8 +3488,6 @@ gfc_procedure_use (gfc_symbol *sym, gfc_actual_arglist **ap, locus *where)
 
   if (sym->attr.if_source == IFSRC_UNKNOWN)
     {
-      gfc_actual_arglist *a;
-
       if (sym->attr.pointer)
 	{
 	  gfc_error ("The pointer object %qs at %L must have an explicit "
@@ -3557,9 +3579,12 @@ gfc_procedure_use (gfc_symbol *sym, gfc_actual_arglist **ap, locus *where)
 
   dummy_args = gfc_sym_get_dummy_args (sym);
 
-  if (!compare_actual_formal (ap, dummy_args, 0, sym->attr.elemental, where))
+  /* For a statement function, check that types and type parameters of actual
+     arguments and dummy arguments match.  */
+  if (!compare_actual_formal (ap, dummy_args, 0, sym->attr.elemental,
+			      sym->attr.proc == PROC_ST_FUNCTION, where))
     return false;
-
+ 
   if (!check_intents (dummy_args, *ap))
     return false;
 
@@ -3606,7 +3631,7 @@ gfc_ppc_use (gfc_component *comp, gfc_actual_arglist **ap, locus *where)
     }
 
   if (!compare_actual_formal (ap, comp->ts.interface->formal, 0,
-			      comp->attr.elemental, where))
+			      comp->attr.elemental, false, where))
     return;
 
   check_intents (comp->ts.interface->formal, *ap);
@@ -3631,7 +3656,7 @@ gfc_arglist_matches_symbol (gfc_actual_arglist** args, gfc_symbol* sym)
   dummy_args = gfc_sym_get_dummy_args (sym);
 
   r = !sym->attr.elemental;
-  if (compare_actual_formal (args, dummy_args, r, !r, NULL))
+  if (compare_actual_formal (args, dummy_args, r, !r, false, NULL))
     {
       check_intents (dummy_args, *args);
       if (warn_aliasing)

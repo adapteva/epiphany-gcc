@@ -2557,9 +2557,14 @@ expand_call (tree exp, rtx target, int ignore)
 	if (CALL_EXPR_RETURN_SLOT_OPT (exp)
 	    && target
 	    && MEM_P (target)
-	    && !(MEM_ALIGN (target) < TYPE_ALIGN (rettype)
-		 && SLOW_UNALIGNED_ACCESS (TYPE_MODE (rettype),
-					   MEM_ALIGN (target))))
+	    /* If rettype is addressable, we may not create a temporary.
+	       If target is properly aligned at runtime and the compiler
+	       just doesn't know about it, it will work fine, otherwise it
+	       will be UB.  */
+	    && (TREE_ADDRESSABLE (rettype)
+		|| !(MEM_ALIGN (target) < TYPE_ALIGN (rettype)
+		     && SLOW_UNALIGNED_ACCESS (TYPE_MODE (rettype),
+					       MEM_ALIGN (target)))))
 	  structure_value_addr = XEXP (target, 0);
 	else
 	  {
@@ -2695,8 +2700,7 @@ expand_call (tree exp, rtx target, int ignore)
     n_named_args = num_actuals;
 
   /* Make a vector to hold all the information about each arg.  */
-  args = XALLOCAVEC (struct arg_data, num_actuals);
-  memset (args, 0, num_actuals * sizeof (struct arg_data));
+  args = XCNEWVEC (struct arg_data, num_actuals);
 
   /* Build up entries in the ARGS array, compute the size of the
      arguments into ARGS_SIZE, etc.  */
@@ -3710,6 +3714,7 @@ expand_call (tree exp, rtx target, int ignore)
   currently_expanding_call--;
 
   free (stack_usage_map_buf);
+  free (args);
 
   /* Join result with returned bounds so caller may use them if needed.  */
   target = chkp_join_splitted_slot (target, valbnd);

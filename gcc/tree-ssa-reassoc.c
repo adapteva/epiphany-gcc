@@ -599,7 +599,18 @@ is_reassociable_op (gimple *stmt, enum tree_code code, struct loop *loop)
   if (is_gimple_assign (stmt)
       && gimple_assign_rhs_code (stmt) == code
       && has_single_use (gimple_assign_lhs (stmt)))
-    return true;
+    {
+      tree rhs1 = gimple_assign_rhs1 (stmt);
+      tree rhs2 = gimple_assign_rhs1 (stmt);
+      if (TREE_CODE (rhs1) == SSA_NAME
+	  && SSA_NAME_OCCURS_IN_ABNORMAL_PHI (rhs1))
+	return false;
+      if (rhs2
+	  && TREE_CODE (rhs2) == SSA_NAME
+	  && SSA_NAME_OCCURS_IN_ABNORMAL_PHI (rhs2))
+	return false;
+      return true;
+    }
 
   return false;
 }
@@ -3699,11 +3710,15 @@ find_insert_point (gimple *stmt, tree rhs1, tree rhs2)
 
 /* Recursively rewrite our linearized statements so that the operators
    match those in OPS[OPINDEX], putting the computation in rank
-   order.  Return new lhs.  */
+   order.  Return new lhs.
+   CHANGED is true if we shouldn't reuse the lhs SSA_NAME both in
+   the current stmt and during recursive invocations.
+   NEXT_CHANGED is true if we shouldn't reuse the lhs SSA_NAME in
+   recursive invocations.  */
 
 static tree
 rewrite_expr_tree (gimple *stmt, unsigned int opindex,
-		   vec<operand_entry *> ops, bool changed)
+		   vec<operand_entry *> ops, bool changed, bool next_changed)
 {
   tree rhs1 = gimple_assign_rhs1 (stmt);
   tree rhs2 = gimple_assign_rhs2 (stmt);
@@ -3783,7 +3798,8 @@ rewrite_expr_tree (gimple *stmt, unsigned int opindex,
      be the non-leaf side.  */
   tree new_rhs1
     = rewrite_expr_tree (SSA_NAME_DEF_STMT (rhs1), opindex + 1, ops,
-			 changed || oe->op != rhs2);
+			 changed || oe->op != rhs2 || next_changed,
+			 false);
 
   if (oe->op != rhs2 || new_rhs1 != rhs1)
     {
@@ -4466,6 +4482,8 @@ static bool
 can_reassociate_p (tree op)
 {
   tree type = TREE_TYPE (op);
+  if (TREE_CODE (op) == SSA_NAME && SSA_NAME_OCCURS_IN_ABNORMAL_PHI (op))
+    return false;
   if ((ANY_INTEGRAL_TYPE_P (type) && TYPE_OVERFLOW_WRAPS (type))
       || NON_SAT_FIXED_POINT_TYPE_P (type)
       || (flag_associative_math && FLOAT_TYPE_P (type)))
@@ -5102,6 +5120,7 @@ reassociate_bb (basic_block bb)
 	      gimple_set_visited (stmt, true);
 	      linearize_expr_tree (&ops, stmt, true, true);
 	      ops.qsort (sort_by_operand_rank);
+	      int orig_len = ops.length ();
 	      optimize_ops_list (rhs_code, &ops);
 	      if (undistribute_ops_list (rhs_code, &ops,
 					 loop_containing_stmt (stmt)))
@@ -5166,7 +5185,8 @@ reassociate_bb (basic_block bb)
                         swap_ops_for_binary_stmt (ops, len - 3, stmt);
 
 		      new_lhs = rewrite_expr_tree (stmt, 0, ops,
-						   powi_result != NULL);
+						   powi_result != NULL,
+						   len != orig_len);
                     }
 
 		  /* If we combined some repeated factors into a 

@@ -506,8 +506,11 @@ resolve_formal_arglist (gfc_symbol *proc)
 	{
 	  if (sym->as != NULL)
 	    {
-	      gfc_error ("Argument %qs of statement function at %L must "
-			 "be scalar", sym->name, &sym->declared_at);
+	      /* F03:C1263 (R1238) The function-name and each dummy-arg-name
+		 shall be specified, explicitly or implicitly, to be scalar.  */
+	      gfc_error ("Argument '%s' of statement function '%s' at %L "
+			 "must be scalar", sym->name, proc->name,
+			 &proc->declared_at);
 	      continue;
 	    }
 
@@ -2896,8 +2899,8 @@ update_current_proc_array_outer_dependency (gfc_symbol *sym)
 
   /* If SYM has references to outer arrays, so has the procedure calling
      SYM.  If SYM is a procedure pointer, we can assume the worst.  */
-  if (sym->attr.array_outer_dependency
-      || sym->attr.proc_pointer)
+  if ((sym->attr.array_outer_dependency || sym->attr.proc_pointer)
+      && gfc_current_ns->proc_name)
     gfc_current_ns->proc_name->attr.array_outer_dependency = 1;
 }
 
@@ -6313,6 +6316,31 @@ gfc_is_expandable_expr (gfc_expr *e)
   return false;
 }
 
+
+/* Sometimes variables in specification expressions of the result
+   of module procedures in submodules wind up not being the 'real'
+   dummy.  Find this, if possible, in the namespace of the first
+   formal argument.  */
+
+static void
+fixup_unique_dummy (gfc_expr *e)
+{
+  gfc_symtree *st = NULL;
+  gfc_symbol *s = NULL;
+
+  if (e->symtree->n.sym->ns->proc_name
+      && e->symtree->n.sym->ns->proc_name->formal)
+    s = e->symtree->n.sym->ns->proc_name->formal->sym;
+
+  if (s != NULL)
+    st = gfc_find_symtree (s->ns->sym_root, e->symtree->n.sym->name);
+
+  if (st != NULL
+      && st->n.sym != NULL
+      && st->n.sym->attr.dummy)
+    e->symtree = st;
+}
+
 /* Resolve an expression.  That is, make sure that types of operands agree
    with their operators, intrinsic operators are converted to function calls
    for overloaded types and unresolved function references are resolved.  */
@@ -6336,6 +6364,14 @@ gfc_resolve_expr (gfc_expr *e)
       inquiry_argument = false;
       actual_arg = false;
       first_actual_arg = false;
+    }
+  else if (e->symtree != NULL
+	   && *e->symtree->name == '@'
+	   && e->symtree->n.sym->attr.dummy)
+    {
+      /* Deal with submodule specification expressions that are not
+	 found to be referenced in module.c(read_cleanup).  */
+      fixup_unique_dummy (e);
     }
 
   switch (e->expr_type)
@@ -7103,8 +7139,13 @@ resolve_allocate_expr (gfc_expr *e, gfc_code *code, bool *array_alloc_wo_spec)
   if (code->ext.alloc.ts.type == BT_CHARACTER && !e->ts.deferred
       && !UNLIMITED_POLY (e))
     {
-      int cmp = gfc_dep_compare_expr (e->ts.u.cl->length,
-				      code->ext.alloc.ts.u.cl->length);
+      int cmp;
+
+      if (!e->ts.u.cl->length)
+	goto failure;
+
+      cmp = gfc_dep_compare_expr (e->ts.u.cl->length,
+				  code->ext.alloc.ts.u.cl->length);
       if (cmp == 1 || cmp == -1 || cmp == -3)
 	{
 	  gfc_error ("Allocating %s at %L with type-spec requires the same "
@@ -8303,6 +8344,9 @@ resolve_select_type (gfc_code *code, gfc_namespace *old_ns)
 	code->expr1->symtree->n.sym->ts = code->expr2->ts;
       selector_type = CLASS_DATA (code->expr2)->ts.u.derived;
 
+      if (code->expr2->rank && CLASS_DATA (code->expr1)->as)
+	CLASS_DATA (code->expr1)->as->rank = code->expr2->rank;
+
       /* F2008: C803 The selector expression must not be coindexed.  */
       if (gfc_is_coindexed (code->expr2))
 	{
@@ -8840,10 +8884,13 @@ resolve_lock_unlock_event (gfc_code *code)
     return;
 
   /* Check for EVENT WAIT the UNTIL_COUNT.  */
-  if (code->op == EXEC_EVENT_WAIT && code->expr4
-      && (code->expr4->ts.type != BT_INTEGER || code->expr4->rank != 0))
-    gfc_error ("UNTIL_COUNT= argument at %L must be a scalar INTEGER "
-	       "expression", &code->expr4->where);
+  if (code->op == EXEC_EVENT_WAIT && code->expr4)
+    {
+      if (!gfc_resolve_expr (code->expr4) || code->expr4->ts.type != BT_INTEGER
+	  || code->expr4->rank != 0)
+	gfc_error ("UNTIL_COUNT= argument at %L must be a scalar INTEGER "
+		   "expression", &code->expr4->where);
+    }
 }
 
 
@@ -8922,6 +8969,7 @@ resolve_sync (gfc_code *code)
     }
 
   /* Check STAT.  */
+  gfc_resolve_expr (code->expr2);
   if (code->expr2
       && (code->expr2->ts.type != BT_INTEGER || code->expr2->rank != 0
 	  || code->expr2->expr_type != EXPR_VARIABLE))
@@ -8929,6 +8977,7 @@ resolve_sync (gfc_code *code)
 	       &code->expr2->where);
 
   /* Check ERRMSG.  */
+  gfc_resolve_expr (code->expr3);
   if (code->expr3
       && (code->expr3->ts.type != BT_CHARACTER || code->expr3->rank != 0
 	  || code->expr3->expr_type != EXPR_VARIABLE))
@@ -9755,7 +9804,8 @@ resolve_ordinary_assign (gfc_code *code, gfc_namespace *ns)
 
   /* Assign the 'data' of a class object to a derived type.  */
   if (lhs->ts.type == BT_DERIVED
-      && rhs->ts.type == BT_CLASS)
+      && rhs->ts.type == BT_CLASS
+      && rhs->expr_type != EXPR_ARRAY)
     gfc_add_data_component (rhs);
 
   /* Insert a GFC_ISYM_CAF_SEND intrinsic, when the LHS is a coindexed variable.
@@ -9892,6 +9942,8 @@ get_temp_from_expr (gfc_expr *e, gfc_namespace *ns)
   tmp->n.sym->attr.function = 0;
   tmp->n.sym->attr.result = 0;
   tmp->n.sym->attr.flavor = FL_VARIABLE;
+  tmp->n.sym->attr.dummy = 0;
+  tmp->n.sym->attr.intent = INTENT_UNKNOWN;
 
   if (as)
     {
@@ -11040,10 +11092,17 @@ resolve_charlen (gfc_charlen *cl)
 	  specification_expr = saved_specification_expr;
 	  return false;
 	}
+
+      /* cl->length has been resolved.  It should have an integer type.  */
+      if (cl->length && cl->length->ts.type != BT_INTEGER)
+	{
+	  gfc_error ("Scalar INTEGER expression expected at %L",
+		     &cl->length->where);
+	  return false;
+	}
     }
   else
     {
-
       if (!resolve_index_expr (cl->length))
 	{
 	  specification_expr = saved_specification_expr;
@@ -11903,6 +11962,19 @@ resolve_fl_procedure (gfc_symbol *sym, int mp_flag)
 	}
     }
 
+  /* F2018, C15100: "The result of an elemental function shall be scalar,
+     and shall not have the POINTER or ALLOCATABLE attribute."  The scalar
+     pointer is tested and caught elsewhere.  */
+  if (sym->attr.elemental && sym->result
+      && (sym->result->attr.allocatable || sym->result->attr.pointer))
+    {
+      gfc_error ("Function result variable %qs at %L of elemental "
+		 "function %qs shall not have an ALLOCATABLE or POINTER "
+		 "attribute", sym->result->name,
+		 &sym->result->declared_at, sym->name);
+      return false;
+    }
+
   if (sym->attr.is_bind_c && sym->attr.is_c_interop != 1)
     {
       gfc_formal_arglist *curr_arg;
@@ -11928,7 +12000,7 @@ resolve_fl_procedure (gfc_symbol *sym, int mp_flag)
       while (curr_arg != NULL)
         {
           /* Skip implicitly typed dummy args here.  */
-	  if (curr_arg->sym->attr.implicit_type == 0)
+	  if (curr_arg->sym && curr_arg->sym->attr.implicit_type == 0)
 	    if (!gfc_verify_c_interop_param (curr_arg->sym))
 	      /* If something is found to fail, record the fact so we
 		 can mark the symbol for the procedure as not being
@@ -13929,7 +14001,23 @@ resolve_symbol (gfc_symbol *sym)
 
   if (as)
     {
-      gcc_assert (as->type != AS_IMPLIED_SHAPE);
+      /* If AS_IMPLIED_SHAPE makes it to here, it must be a bad
+	 specification expression.  */
+      if (as->type == AS_IMPLIED_SHAPE)
+	{
+	  int i;
+	  for (i=0; i<as->rank; i++)
+	    {
+	      if (as->lower[i] != NULL && as->upper[i] == NULL)
+		{
+		  gfc_error ("Bad specification for assumed size array at %L",
+			     &as->lower[i]->where);
+		  return;
+		}
+	    }
+	  gcc_unreachable();
+	}
+
       if (((as->type == AS_ASSUMED_SIZE && !as->cp_was_assumed)
 	   || as->type == AS_ASSUMED_SHAPE)
 	  && !sym->attr.dummy && !sym->attr.select_type_temporary)
@@ -14490,7 +14578,12 @@ resolve_symbol (gfc_symbol *sym)
 
       if ((!a->save && !a->dummy && !a->pointer
 	   && !a->in_common && !a->use_assoc
-	   && !a->result && !a->function)
+	   && a->referenced
+	   && !((a->function || a->result)
+		&& (!a->dimension
+		    || sym->ts.u.derived->attr.alloc_comp
+		    || sym->ts.u.derived->attr.pointer_comp))
+	   && !(a->function && sym != sym->result))
 	  || (a->dummy && a->intent == INTENT_OUT && !a->pointer))
 	apply_default_init (sym);
       else if (a->function && sym->result && a->access != ACCESS_PRIVATE
@@ -15318,9 +15411,22 @@ resolve_equivalence (gfc_equiv *eq)
 	  && sym->ns->proc_name->attr.pure
 	  && sym->attr.in_common)
 	{
-	  gfc_error ("Common block member %qs at %L cannot be an EQUIVALENCE "
-		     "object in the pure procedure %qs",
-		     sym->name, &e->where, sym->ns->proc_name->name);
+	  /* Need to check for symbols that may have entered the pure
+	     procedure via a USE statement.  */
+	  bool saw_sym = false;
+	  if (sym->ns->use_stmts)
+	    {
+	      gfc_use_rename *r;
+	      for (r = sym->ns->use_stmts->rename; r; r = r->next)
+		if (strcmp(r->use_name, sym->name) == 0) saw_sym = true; 
+	    }
+	  else
+	    saw_sym = true;
+
+	  if (saw_sym)
+	    gfc_error ("COMMON block member %qs at %L cannot be an "
+		       "EQUIVALENCE object in the pure procedure %qs",
+		       sym->name, &e->where, sym->ns->proc_name->name);
 	  break;
 	}
 

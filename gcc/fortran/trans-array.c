@@ -1431,6 +1431,17 @@ gfc_trans_array_ctor_element (stmtblock_t * pblock, tree desc,
 	    }
 	}
     }
+  else if (GFC_CLASS_TYPE_P (TREE_TYPE (se->expr))
+	   && !GFC_CLASS_TYPE_P (gfc_get_element_type (TREE_TYPE (desc))))
+    {
+      /* Assignment of a CLASS array constructor to a derived type array.  */
+      if (expr->expr_type == EXPR_FUNCTION)
+	se->expr = gfc_evaluate_now (se->expr, pblock);
+      se->expr = gfc_class_data_get (se->expr);
+      se->expr = build_fold_indirect_ref_loc (input_location, se->expr);
+      se->expr = fold_convert (TREE_TYPE (tmp), se->expr);
+      gfc_add_modify (&se->pre, tmp, se->expr);
+    }
   else
     {
       /* TODO: Should the frontend already have done this conversion?  */
@@ -2604,6 +2615,8 @@ gfc_add_loop_ss_code (gfc_loopinfo * loop, gfc_ss * ss, bool subscript,
 	  gfc_init_se (&se, NULL);
 	  se.loop = loop;
 	  se.ss = ss;
+	  if (gfc_is_class_array_function (expr))
+	    expr->must_finalize = 1;
 	  gfc_conv_expr (&se, expr);
 	  gfc_add_block_to_block (&outer_loop->pre, &se.pre);
 	  gfc_add_block_to_block (&outer_loop->post, &se.post);
@@ -3009,7 +3022,7 @@ conv_array_index_offset (gfc_se * se, gfc_ss * ss, int dim, int i,
     }
 
   /* Multiply by the stride.  */
-  if (!integer_onep (stride))
+  if (stride != NULL && !integer_onep (stride))
     index = fold_build2_loc (input_location, MULT_EXPR, gfc_array_index_type,
 			     index, stride);
 
@@ -3034,7 +3047,7 @@ build_class_array_ref (gfc_se *se, tree base, tree index)
 
   if (expr == NULL
       || (expr->ts.type != BT_CLASS
-	  && !gfc_is_alloc_class_array_function (expr)))
+	  && !gfc_is_class_array_function (expr)))
     return false;
 
   if (expr->symtree && expr->symtree->n.sym->ts.type == BT_CLASS)
@@ -3063,12 +3076,12 @@ build_class_array_ref (gfc_se *se, tree base, tree index)
     return false;
 
   if (class_ref == NULL && expr->symtree->n.sym->attr.function
-      && expr->symtree->n.sym == expr->symtree->n.sym->result)
+      && expr->symtree->n.sym == expr->symtree->n.sym->result
+      && expr->symtree->n.sym->backend_decl == current_function_decl)
     {
-      gcc_assert (expr->symtree->n.sym->backend_decl == current_function_decl);
       decl = gfc_get_fake_result_decl (expr->symtree->n.sym, 0);
     }
-  else if (gfc_is_alloc_class_array_function (expr))
+  else if (gfc_is_class_array_function (expr))
     {
       size = NULL_TREE;
       decl = NULL_TREE;
@@ -3091,6 +3104,8 @@ build_class_array_ref (gfc_se *se, tree base, tree index)
 
       if (decl == NULL_TREE)
 	return false;
+
+      se->class_vptr = gfc_evaluate_now (gfc_class_vptr_get (decl), &se->pre);
     }
   else if (class_ref == NULL)
     {
@@ -8225,7 +8240,7 @@ structure_alloc_comps (gfc_symbol * der_type, tree decl,
 	  break;
 
 	case COPY_ALLOC_COMP:
-	  if (c->attr.pointer)
+	  if (c->attr.pointer || c->attr.proc_pointer)
 	    continue;
 
 	  /* We need source and destination components.  */
@@ -9526,7 +9541,7 @@ gfc_walk_function_expr (gfc_ss * ss, gfc_expr * expr)
   if (!sym)
     sym = expr->symtree->n.sym;
 
-  if (gfc_is_alloc_class_array_function (expr))
+  if (gfc_is_class_array_function (expr))
     return gfc_get_array_ss (ss, expr,
 			     CLASS_DATA (expr->value.function.esym->result)->as->rank,
 			     GFC_SS_FUNCTION);

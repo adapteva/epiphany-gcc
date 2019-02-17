@@ -2481,7 +2481,20 @@ extract_range_from_binary_expr_1 (value_range *vr,
 	  else if (min_op0)
 	    wmin = min_op0;
 	  else if (min_op1)
-	    wmin = minus_p ? wi::neg (min_op1) : min_op1;
+	    {
+	      if (minus_p)
+		{
+		  wmin = wi::neg (min_op1);
+
+		  /* Check for overflow.  */
+		  if (sgn == SIGNED && wi::neg_p (min_op1) && wi::neg_p (wmin))
+		    min_ovf = 1;
+		  else if (sgn == UNSIGNED && wi::ne_p (min_op1, 0))
+		    min_ovf = -1;
+		}
+	      else
+		wmin = min_op1;
+	    }
 	  else
 	    wmin = wi::shwi (0, prec);
 
@@ -2509,7 +2522,20 @@ extract_range_from_binary_expr_1 (value_range *vr,
 	  else if (max_op0)
 	    wmax = max_op0;
 	  else if (max_op1)
-	    wmax = minus_p ? wi::neg (max_op1) : max_op1;
+	    {
+	      if (minus_p)
+		{
+		  wmax = wi::neg (max_op1);
+
+		  /* Check for overflow.  */
+		  if (sgn == SIGNED && wi::neg_p (max_op1) && wi::neg_p (wmax))
+		    max_ovf = 1;
+		  else if (sgn == UNSIGNED && wi::ne_p (max_op1, 0))
+		    max_ovf = -1;
+		}
+	      else
+		wmax = max_op1;
+	    }
 	  else
 	    wmax = wi::shwi (0, prec);
 
@@ -2651,8 +2677,17 @@ extract_range_from_binary_expr_1 (value_range *vr,
 	    min = build_symbolic_expr (expr_type, sym_min_op0,
 				       neg_min_op0, min);
 	  else if (sym_min_op1)
-	    min = build_symbolic_expr (expr_type, sym_min_op1,
-				       neg_min_op1 ^ minus_p, min);
+	    {
+	      /* We may not negate if that might introduce
+		 undefined overflow.  */
+	      if (! minus_p
+		  || neg_min_op1
+		  || TYPE_OVERFLOW_WRAPS (expr_type))
+		min = build_symbolic_expr (expr_type, sym_min_op1,
+					   neg_min_op1 ^ minus_p, min);
+	      else
+		min = NULL_TREE;
+	    }
 
 	  /* Likewise for the upper bound.  */
 	  if (sym_max_op0 == sym_max_op1)
@@ -2661,8 +2696,17 @@ extract_range_from_binary_expr_1 (value_range *vr,
 	    max = build_symbolic_expr (expr_type, sym_max_op0,
 				       neg_max_op0, max);
 	  else if (sym_max_op1)
-	    max = build_symbolic_expr (expr_type, sym_max_op1,
-				       neg_max_op1 ^ minus_p, max);
+	    {
+	      /* We may not negate if that might introduce
+		 undefined overflow.  */
+	      if (! minus_p
+		  || neg_max_op1
+		  || TYPE_OVERFLOW_WRAPS (expr_type))
+		max = build_symbolic_expr (expr_type, sym_max_op1,
+					   neg_max_op1 ^ minus_p, max);
+	      else
+		max = NULL_TREE;
+	    }
 	}
       else
 	{
@@ -7057,8 +7101,7 @@ vrp_valueize_1 (tree name)
 static enum ssa_prop_result
 vrp_visit_assignment_or_call (gimple *stmt, tree *output_p)
 {
-  tree def, lhs;
-  ssa_op_iter iter;
+  tree lhs;
   enum gimple_code code = gimple_code (stmt);
   lhs = gimple_get_lhs (stmt);
 
@@ -7175,8 +7218,7 @@ vrp_visit_assignment_or_call (gimple *stmt, tree *output_p)
       }
 
   /* Every other statement produces no useful ranges.  */
-  FOR_EACH_SSA_TREE_OPERAND (def, stmt, iter, SSA_OP_DEF)
-    set_value_range_to_varying (get_value_range (def));
+  set_defs_to_varying (stmt);
 
   return SSA_PROP_VARYING;
 }
@@ -8224,9 +8266,9 @@ union_ranges (enum value_range_type *vr0type,
 	  if (TREE_CODE (*vr0min) == INTEGER_CST)
 	    {
 	      *vr0type = vr1type;
-	      *vr0min = vr1min;
 	      *vr0max = int_const_binop (MINUS_EXPR, *vr0min,
 					 build_int_cst (TREE_TYPE (*vr0min), 1));
+	      *vr0min = vr1min;
 	    }
 	  else
 	    goto give_up;

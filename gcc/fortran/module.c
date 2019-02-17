@@ -193,10 +193,6 @@ static const char *module_name;
 /* The name of the .smod file that the submodule will write to.  */
 static const char *submodule_name;
 
-/* Suppress the output of a .smod file by module, if no module
-   procedures have been seen.  */
-static bool no_module_procedures;
-
 static gfc_use_list *module_list;
 
 /* If we're reading an intrinsic module, this is its ID.  */
@@ -740,6 +736,7 @@ gfc_match_submodule (void)
   match m;
   char name[GFC_MAX_SYMBOL_LEN + 1];
   gfc_use_list *use_list;
+  bool seen_colon = false;
 
   if (!gfc_notify_std (GFC_STD_F2008, "SUBMODULE declaration at %C"))
     return MATCH_ERROR;
@@ -772,7 +769,7 @@ gfc_match_submodule (void)
 	}
       else
 	{
-	module_list = use_list;
+	  module_list = use_list;
 	  use_list->module_name = gfc_get_string (name);
 	  use_list->submodule_name = use_list->module_name;
 	}
@@ -780,8 +777,11 @@ gfc_match_submodule (void)
       if (gfc_match_char (')') == MATCH_YES)
 	break;
 
-      if (gfc_match_char (':') != MATCH_YES)
+      if (gfc_match_char (':') != MATCH_YES
+	  || seen_colon)
 	goto syntax;
+
+      seen_colon = true;
     }
 
   m = gfc_match (" %s%t", &gfc_new_block);
@@ -2236,10 +2236,7 @@ mio_symbol_attribute (symbol_attribute *attr)
       if (attr->array_outer_dependency)
 	MIO_NAME (ab_attribute) (AB_ARRAY_OUTER_DEPENDENCY, attr_bits);
       if (attr->module_procedure)
-	{
 	MIO_NAME (ab_attribute) (AB_MODULE_PROCEDURE, attr_bits);
-	  no_module_procedures = false;
-	}
       if (attr->oacc_declare_create)
 	MIO_NAME (ab_attribute) (AB_OACC_DECLARE_CREATE, attr_bits);
       if (attr->oacc_declare_copyin)
@@ -6083,8 +6080,10 @@ dump_module (const char *name, int dump_flag)
     gfc_fatal_error ("Can't open module file %qs for writing at %C: %s",
 		     filename_tmp, xstrerror (errno));
 
+  /* Use lbasename to ensure module files are reproducible regardless
+     of the build path (see the reproducible builds project).  */
   gzprintf (module_fp, "GFORTRAN module version '%s' created from %s\n",
-	    MOD_VERSION, gfc_source_file);
+	    MOD_VERSION, lbasename (gfc_source_file));
 
   /* Write the module itself.  */
   iomode = IO_OUTPUT;
@@ -6125,6 +6124,18 @@ dump_module (const char *name, int dump_flag)
 }
 
 
+/* Suppress the output of a .smod file by module, if no module
+   procedures have been seen.  */
+static bool no_module_procedures;
+
+static void
+check_for_module_procedures (gfc_symbol *sym)
+{
+  if (sym && sym->attr.module_procedure)
+    no_module_procedures = false;
+}
+
+
 void
 gfc_dump_module (const char *name, int dump_flag)
 {
@@ -6134,6 +6145,8 @@ gfc_dump_module (const char *name, int dump_flag)
     dump_smod =false;
 
   no_module_procedures = true;
+  gfc_traverse_ns (gfc_current_ns, check_for_module_procedures);
+
   dump_module (name, dump_flag);
 
   if (no_module_procedures || dump_smod)
@@ -6917,8 +6930,17 @@ gfc_use_module (gfc_use_list *module)
     }
 
   if (module_fp == NULL)
-    gfc_fatal_error ("Can't open module file %qs for reading at %C: %s",
-		     filename, xstrerror (errno));
+    {
+      if (gfc_state_stack->state != COMP_SUBMODULE
+	  && module->submodule_name == NULL)
+	gfc_fatal_error ("Can't open module file %qs for reading at %C: %s",
+			 filename, xstrerror (errno));
+      else
+	gfc_fatal_error ("Module file %qs has not been generated, either "
+			 "because the module does not contain a MODULE "
+			 "PROCEDURE or there is an error in the module.",
+			 filename);
+    }
 
   /* Check that we haven't already USEd an intrinsic module with the
      same name.  */

@@ -1541,7 +1541,8 @@ trans_associate_var (gfc_symbol *sym, gfc_wrapped_block *block)
 
       desc = sym->backend_decl;
       cst_array_ctor = e->expr_type == EXPR_ARRAY
-	      && gfc_constant_array_constructor_p (e->value.constructor);
+	      && gfc_constant_array_constructor_p (e->value.constructor)
+	      && e->ts.type != BT_CHARACTER;
 
       /* If association is to an expression, evaluate it and create temporary.
 	 Otherwise, get descriptor of target for pointer assignment.  */
@@ -5492,17 +5493,6 @@ gfc_trans_allocate (gfc_code * code)
 	    }
 	  gfc_add_modify_loc (input_location, &block, var, tmp);
 
-	  /* Deallocate any allocatable components after all the allocations
-	     and assignments of expr3 have been completed.  */
-	  if (code->expr3->ts.type == BT_DERIVED
-	      && code->expr3->rank == 0
-	      && code->expr3->ts.u.derived->attr.alloc_comp)
-	    {
-	      tmp = gfc_deallocate_alloc_comp (code->expr3->ts.u.derived,
-					       var, 0);
-	      gfc_add_expr_to_block (&post, tmp);
-	    }
-
 	  expr3 = var;
 	  if (se.string_length)
 	    /* Evaluate it assuming that it also is complicated like expr3.  */
@@ -5513,6 +5503,19 @@ gfc_trans_allocate (gfc_code * code)
 	  expr3 = se.expr;
 	  expr3_len = se.string_length;
 	}
+
+      /* Deallocate any allocatable components after all the allocations
+	 and assignments of expr3 have been completed.  */
+      if ((code->expr3->ts.type == BT_DERIVED
+	   || code->expr3->ts.type == BT_CLASS)
+	  && (code->expr3->expr_type != EXPR_VARIABLE || temp_var_needed)
+	  && code->expr3->ts.u.derived->attr.alloc_comp)
+	{
+	  tmp = gfc_deallocate_alloc_comp (code->expr3->ts.u.derived,
+					   expr3, code->expr3->rank);
+	  gfc_prepend_expr_to_block (&post, tmp);
+	}
+
       /* Store what the expr3 is to be used for.  */
       if (e3_is == E3_UNSET)
 	e3_is = expr3 != NULL_TREE ?
@@ -5691,10 +5694,9 @@ gfc_trans_allocate (gfc_code * code)
       if (code->ext.alloc.ts.type != BT_CHARACTER)
 	expr3_esize = TYPE_SIZE_UNIT (
 	      gfc_typenode_for_spec (&code->ext.alloc.ts));
-      else
+      else if (code->ext.alloc.ts.u.cl->length != NULL)
 	{
 	  gfc_expr *sz;
-	  gcc_assert (code->ext.alloc.ts.u.cl->length != NULL);
 	  sz = gfc_copy_expr (code->ext.alloc.ts.u.cl->length);
 	  gfc_init_se (&se_sz, NULL);
 	  gfc_conv_expr (&se_sz, sz);
@@ -5708,6 +5710,8 @@ gfc_trans_allocate (gfc_code * code)
 					 tmp, se_sz.expr);
 	  expr3_esize = gfc_evaluate_now (expr3_esize, &block);
 	}
+      else
+	expr3_esize = NULL_TREE;
     }
 
   /* Loop over all objects to allocate.  */

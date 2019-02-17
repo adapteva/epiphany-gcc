@@ -14767,7 +14767,14 @@ c_parser_omp_for_loop (location_t loc, c_parser *parser, enum tree_code code,
 
 	  cond = cond_expr.value;
 	  cond = c_objc_common_truthvalue_conversion (cond_loc, cond);
-	  cond = c_fully_fold (cond, false, NULL);
+	  if (COMPARISON_CLASS_P (cond))
+	    {
+	      tree op0 = TREE_OPERAND (cond, 0), op1 = TREE_OPERAND (cond, 1);
+	      op0 = c_fully_fold (op0, false, NULL);
+	      op1 = c_fully_fold (op1, false, NULL);
+	      TREE_OPERAND (cond, 0) = op0;
+	      TREE_OPERAND (cond, 1) = op1;
+	    }
 	  switch (cond_expr.original_code)
 	    {
 	    case GT_EXPR:
@@ -15180,7 +15187,7 @@ c_parser_omp_ordered (c_parser *parser, enum pragma_context context,
   if (context != pragma_stmt && context != pragma_compound)
     {
       c_parser_error (parser, "expected declaration specifiers");
-      c_parser_skip_until_found (parser, CPP_PRAGMA_EOL, NULL);
+      c_parser_skip_to_pragma_eol (parser, false);
       return false;
     }
 
@@ -16212,6 +16219,11 @@ c_parser_omp_target (c_parser *parser, enum pragma_context context, bool *if_p)
 	  return c_parser_omp_target_update (loc, parser, context);
 	}
     }
+  if (!flag_openmp) /* flag_openmp_simd  */
+    {
+      c_parser_skip_to_pragma_eol (parser, false);
+      return false;
+    }
 
   stmt = make_node (OMP_TARGET);
   TREE_TYPE (stmt) = void_type_node;
@@ -16560,8 +16572,11 @@ c_parser_omp_declare_target (c_parser *parser)
 	}
       if (!at1)
 	{
-	  symtab_node *node = symtab_node::get (t);
 	  DECL_ATTRIBUTES (t) = tree_cons (id, NULL_TREE, DECL_ATTRIBUTES (t));
+	  if (TREE_CODE (t) != FUNCTION_DECL && !is_global_var (t))
+	    continue;
+
+	  symtab_node *node = symtab_node::get (t);
 	  if (node != NULL)
 	    {
 	      node->offloadable = 1;

@@ -2170,10 +2170,17 @@ determine_specialization (tree template_id,
 	     that the const qualification is the same.  Since
 	     get_bindings does not try to merge the "this" parameter,
 	     we must do the comparison explicitly.  */
-	  if (DECL_NONSTATIC_MEMBER_FUNCTION_P (fn)
-	      && !same_type_p (TREE_VALUE (fn_arg_types),
-			       TREE_VALUE (decl_arg_types)))
-	    continue;
+	  if (DECL_NONSTATIC_MEMBER_FUNCTION_P (fn))
+	    {
+	      if (!same_type_p (TREE_VALUE (fn_arg_types),
+				TREE_VALUE (decl_arg_types)))
+		continue;
+
+	      /* And the ref-qualification.  */
+	      if (type_memfn_rqual (TREE_TYPE (decl))
+		  != type_memfn_rqual (TREE_TYPE (fn)))
+		continue;
+	    }
 
 	  /* Skip the "this" parameter and, for constructors of
 	     classes with virtual bases, the VTT parameter.  A
@@ -2278,6 +2285,11 @@ determine_specialization (tree template_id,
 	  if (!compparms (TYPE_ARG_TYPES (TREE_TYPE (fn)),
 			 decl_arg_types))
             continue;
+
+	  if (DECL_NONSTATIC_MEMBER_FUNCTION_P (fn)
+	      && (type_memfn_rqual (TREE_TYPE (decl))
+		  != type_memfn_rqual (TREE_TYPE (fn))))
+	    continue;
 
           // If the deduced arguments do not satisfy the constraints,
           // this is not a candidate.
@@ -3549,8 +3561,12 @@ find_parameter_packs_r (tree *tp, int *walk_subtrees, void* data)
       *walk_subtrees = 0;
       return NULL_TREE;
 
-    case CONSTRUCTOR:
     case TEMPLATE_DECL:
+      if (!DECL_TEMPLATE_TEMPLATE_PARM_P (t))
+	return NULL_TREE;
+      /* Fall through.  */
+
+    case CONSTRUCTOR:
       cp_walk_tree (&TREE_TYPE (t),
 		    &find_parameter_packs_r, ppd, ppd->visited);
       return NULL_TREE;
@@ -4768,7 +4784,7 @@ static void
 fixed_parameter_pack_p_1 (tree parm, struct find_parameter_pack_data *ppd)
 {
   /* A type parm can't refer to another parm.  */
-  if (TREE_CODE (parm) == TYPE_DECL)
+  if (TREE_CODE (parm) == TYPE_DECL || parm == error_mark_node)
     return;
   else if (TREE_CODE (parm) == PARM_DECL)
     {
@@ -6395,7 +6411,20 @@ convert_nontype_argument (tree type, tree expr, tsubst_flags_t complain)
 		return NULL_TREE;
 	      /* else cxx_constant_value complained but gave us
 		 a real constant, so go ahead.  */
-	      gcc_assert (TREE_CODE (expr) == INTEGER_CST);
+	      if (TREE_CODE (expr) != INTEGER_CST)
+		{
+		  /* Some assemble time constant expressions like
+		     (intptr_t)&&lab1 - (intptr_t)&&lab2 or
+		     4 + (intptr_t)&&var satisfy reduced_constant_expression_p
+		     as we can emit them into .rodata initializers of
+		     variables, yet they can't fold into an INTEGER_CST at
+		     compile time.  Refuse them here.  */
+		  gcc_checking_assert (reduced_constant_expression_p (expr));
+		  location_t loc = EXPR_LOC_OR_LOC (expr, input_location);
+		  error_at (loc, "template argument %qE for type %qT not "
+				 "a constant integer", expr, type);
+		  return NULL_TREE;
+		}
 	    }
 	  else
 	    return NULL_TREE;
@@ -14082,7 +14111,7 @@ tsubst_copy (tree t, tree args, tsubst_flags_t complain, tree in_decl)
 	    {
 	      /* First try name lookup to find the instantiation.  */
 	      r = lookup_name (DECL_NAME (t));
-	      if (r)
+	      if (r && !is_capture_proxy (r))
 		{
 		  /* Make sure that the one we found is the one we want.  */
 		  tree ctx = DECL_CONTEXT (t);
@@ -14101,6 +14130,9 @@ tsubst_copy (tree t, tree args, tsubst_flags_t complain, tree in_decl)
 		     local static or constant.  Building a new VAR_DECL
 		     should be OK in all those cases.  */
 		  r = tsubst_decl (t, args, complain);
+		  if (local_specializations)
+		    /* Avoid infinite recursion (79640).  */
+		    register_local_specialization (r, t);
 		  if (decl_maybe_constant_var_p (r))
 		    {
 		      /* We can't call cp_finish_decl, so handle the
@@ -16061,7 +16093,7 @@ tsubst_copy_and_build (tree t,
 	if (targs)
 	  targs = tsubst_template_args (targs, args, complain, in_decl);
 	if (targs == error_mark_node)
-	  return error_mark_node;
+	  RETURN (error_mark_node);
 
 	if (variable_template_p (templ))
 	  RETURN (lookup_and_finish_template_variable (templ, targs, complain));
@@ -16126,6 +16158,8 @@ tsubst_copy_and_build (tree t,
       {
 	tree type = tsubst (TREE_TYPE (t), args, complain, in_decl);
 	tree op0 = RECUR (TREE_OPERAND (t, 0));
+	if (op0 == error_mark_node)
+	  RETURN (error_mark_node);
 	RETURN (build1 (CONVERT_EXPR, type, op0));
       }
 
@@ -16273,7 +16307,7 @@ tsubst_copy_and_build (tree t,
       {
 	tree op0 = RECUR (TREE_OPERAND (t, 0));
 	tree op1 = RECUR (TREE_OPERAND (t, 1));
-	return fold_build_pointer_plus (op0, op1);
+	RETURN (fold_build_pointer_plus (op0, op1));
       }
 
     case SCOPE_REF:
@@ -16613,19 +16647,34 @@ tsubst_copy_and_build (tree t,
 
 		if (unq != function)
 		  {
-		    tree fn = unq;
-		    if (INDIRECT_REF_P (fn))
-		      fn = TREE_OPERAND (fn, 0);
-		    if (TREE_CODE (fn) == COMPONENT_REF)
-		      fn = TREE_OPERAND (fn, 1);
-		    if (is_overloaded_fn (fn))
-		      fn = get_first_fn (fn);
-		    if (permerror (EXPR_LOC_OR_LOC (t, input_location),
-				   "%qD was not declared in this scope, "
-				   "and no declarations were found by "
-				   "argument-dependent lookup at the point "
-				   "of instantiation", function))
+		    /* In a lambda fn, we have to be careful to not
+		       introduce new this captures.  Legacy code can't
+		       be using lambdas anyway, so it's ok to be
+		       stricter.  */
+		    bool in_lambda = (current_class_type
+				      && LAMBDA_TYPE_P (current_class_type));
+		    char const *msg = "%qD was not declared in this scope, "
+		      "and no declarations were found by "
+		      "argument-dependent lookup at the point "
+		      "of instantiation";
+
+		    bool diag = true;
+		    if (in_lambda)
+		      error_at (EXPR_LOC_OR_LOC (t, input_location),
+				msg, function);
+		    else
+		      diag = permerror (EXPR_LOC_OR_LOC (t, input_location),
+					msg, function);
+		    if (diag)
 		      {
+			tree fn = unq;
+			if (INDIRECT_REF_P (fn))
+			  fn = TREE_OPERAND (fn, 0);
+			if (TREE_CODE (fn) == COMPONENT_REF)
+			  fn = TREE_OPERAND (fn, 1);
+			if (is_overloaded_fn (fn))
+			  fn = get_first_fn (fn);
+
 			if (!DECL_P (fn))
 			  /* Can't say anything more.  */;
 			else if (DECL_CLASS_SCOPE_P (fn))
@@ -16648,7 +16697,13 @@ tsubst_copy_and_build (tree t,
 			  inform (DECL_SOURCE_LOCATION (fn),
 				  "%qD declared here, later in the "
 				  "translation unit", fn);
+			if (in_lambda)
+			  {
+			    release_tree_vector (call_args);
+			    RETURN (error_mark_node);
+			  }
 		      }
+
 		    function = unq;
 		  }
 	      }
@@ -17058,7 +17113,7 @@ tsubst_copy_and_build (tree t,
 	     variadic capture proxy, we instantiate the elements
 	     when needed.  */
 	  gcc_assert (DECL_HAS_VALUE_EXPR_P (t));
-	  return RECUR (DECL_VALUE_EXPR (t));
+	  RETURN (RECUR (DECL_VALUE_EXPR (t)));
 	}
       /* Fall through */
 
@@ -18904,9 +18959,10 @@ try_one_overload (tree tparms,
 	     is equivalent to the corresponding explicitly specified argument.
 	     We may have deduced more arguments than were explicitly specified,
 	     and that's OK.  */
-	  gcc_assert (ARGUMENT_PACK_INCOMPLETE_P (oldelt));
-	  gcc_assert (ARGUMENT_PACK_ARGS (oldelt)
-		      == ARGUMENT_PACK_EXPLICIT_ARGS (oldelt));
+
+	  /* We used to assert ARGUMENT_PACK_INCOMPLETE_P (oldelt) here, but
+	     that's wrong if we deduce the same argument pack from multiple
+	     function arguments: it's only incomplete the first time.  */
 
 	  tree explicit_pack = ARGUMENT_PACK_ARGS (oldelt);
 	  tree deduced_pack = ARGUMENT_PACK_ARGS (elt);

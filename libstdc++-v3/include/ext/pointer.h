@@ -437,6 +437,10 @@ _GLIBCXX_BEGIN_NAMESPACE_VERSION
       _CXX_POINTER_ARITH_OPERATOR_SET(unsigned int);
       _CXX_POINTER_ARITH_OPERATOR_SET(long);
       _CXX_POINTER_ARITH_OPERATOR_SET(unsigned long);
+#ifdef _GLIBCXX_USE_LONG_LONG
+      _CXX_POINTER_ARITH_OPERATOR_SET(long long);
+      _CXX_POINTER_ARITH_OPERATOR_SET(unsigned long long);
+#endif
 
       // Mathematical Manipulators
       inline _Pointer_adapter& 
@@ -449,9 +453,9 @@ _GLIBCXX_BEGIN_NAMESPACE_VERSION
       inline _Pointer_adapter 
       operator++(int)
       {
-        _Pointer_adapter tmp(*this);
+        _Pointer_adapter __tmp(*this);
         _Storage_policy::set(_Storage_policy::get() + 1);
-        return tmp;
+        return __tmp;
       }
   
       inline _Pointer_adapter& 
@@ -464,9 +468,9 @@ _GLIBCXX_BEGIN_NAMESPACE_VERSION
       inline _Pointer_adapter
       operator--(int) 
       {
-        _Pointer_adapter tmp(*this);
+        _Pointer_adapter __tmp(*this);
         _Storage_policy::set(_Storage_policy::get() - 1);
-        return tmp;
+        return __tmp;
       }
   
     }; // class _Pointer_adapter

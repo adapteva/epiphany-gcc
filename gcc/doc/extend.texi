@@ -1,4 +1,4 @@
-@c Copyright (C) 1988-2016 Free Software Foundation, Inc.
+@c Copyright (C) 1988-2018 Free Software Foundation, Inc.
 
 @c This is part of the GCC manual.
 @c For copying conditions, see the file gcc.texi.
@@ -5419,6 +5419,25 @@ Specify which floating-point unit to use.  You must specify the
 @code{target("fpmath=sse,387")} option as
 @code{target("fpmath=sse+387")} because the comma would separate
 different options.
+
+@item indirect_branch("@var{choice}")
+@cindex @code{indirect_branch} function attribute, x86
+On x86 targets, the @code{indirect_branch} attribute causes the compiler
+to convert indirect call and jump with @var{choice}.  @samp{keep}
+keeps indirect call and jump unmodified.  @samp{thunk} converts indirect
+call and jump to call and return thunk.  @samp{thunk-inline} converts
+indirect call and jump to inlined call and return thunk.
+@samp{thunk-extern} converts indirect call and jump to external call
+and return thunk provided in a separate object file.
+
+@item function_return("@var{choice}")
+@cindex @code{function_return} function attribute, x86
+On x86 targets, the @code{function_return} attribute causes the compiler
+to convert function return with @var{choice}.  @samp{keep} keeps function
+return unmodified.  @samp{thunk} converts function return to call and
+return thunk.  @samp{thunk-inline} converts function return to inlined
+call and return thunk.  @samp{thunk-extern} converts function return to
+external call and return thunk provided in a separate object file.
 @end table
 
 On the x86, the inliner does not inline a
@@ -8492,6 +8511,9 @@ The table below shows the list of supported modifiers and their effects.
 @tab @code{2}
 @end multitable
 
+@code{V} is a special modifier which prints the name of the full integer
+register without @code{%}.
+
 @anchor{x86floatingpointasmoperands}
 @subsubsection x86 Floating-Point @code{asm} Operands
 
@@ -10157,7 +10179,7 @@ is enabled. Cilk Plus can be enabled using the @option{-fcilkplus} flag.
 
 Further details and examples about these built-in functions are described 
 in the Cilk Plus language manual which can be found at 
-@uref{http://www.cilkplus.org}.
+@uref{https://www.cilkplus.org}.
 
 @node Other Builtins
 @section Other Built-in Functions Provided by GCC
@@ -13667,10 +13689,25 @@ This function is a @code{nop} on the PowerPC platform and is included solely
 to maintain API compatibility with the x86 builtins.
 @end deftypefn
 
+@deftypefn {Built-in Function} void __builtin_cpu_init (void)
+This function is a @code{nop} on the PowerPC platform and is included solely
+to maintain API compatibility with the x86 builtins.
+@end deftypefn
+
 @deftypefn {Built-in Function} int __builtin_cpu_is (const char *@var{cpuname})
 This function returns a value of @code{1} if the run-time CPU is of type
-@var{cpuname} and returns @code{0} otherwise. The following CPU names can be
-detected:
+@var{cpuname} and returns @code{0} otherwise
+
+The @code{__builtin_cpu_is} function requires GLIBC 2.23 or newer
+which exports the hardware capability bits.  GCC defines the macro
+@code{__BUILTIN_CPU_SUPPORTS__} if the @code{__builtin_cpu_supports}
+built-in function is fully supported.
+
+If GCC was configured to use a GLIBC before 2.23, the built-in
+function @code{__builtin_cpu_is} always returns a 0 and the compiler
+issues a warning.
+
+The following CPU names can be detected:
 
 @table @samp
 @item power9
@@ -13707,20 +13744,33 @@ IBM PowerPC Cell Broadband Engine Architecture CPU.
 
 Here is an example:
 @smallexample
-if (__builtin_cpu_is ("power8"))
-  @{
-     do_power8 (); // POWER8 specific implementation.
-  @}
-else
-  @{
-     do_generic (); // Generic implementation.
-  @}
+#ifdef __BUILTIN_CPU_SUPPORTS__
+  if (__builtin_cpu_is ("power8"))
+    @{
+       do_power8 (); // POWER8 specific implementation.
+    @}
+  else
+#endif
+    @{
+       do_generic (); // Generic implementation.
+    @}
 @end smallexample
 @end deftypefn
 
 @deftypefn {Built-in Function} int __builtin_cpu_supports (const char *@var{feature})
 This function returns a value of @code{1} if the run-time CPU supports the HWCAP
-feature @var{feature} and returns @code{0} otherwise. The following features can be
+feature @var{feature} and returns @code{0} otherwise.
+
+The @code{__builtin_cpu_supports} function requires GLIBC 2.23 or
+newer which exports the hardware capability bits.  GCC defines the
+macro @code{__BUILTIN_CPU_SUPPORTS__} if the
+@code{__builtin_cpu_supports} built-in function is fully supported.
+
+If GCC was configured to use a GLIBC before 2.23, the built-in
+function @code{__builtin_cpu_suports} always returns a 0 and the
+compiler issues a warning.
+
+The following features can be
 detected:
 
 @table @samp
@@ -13804,14 +13854,16 @@ CPU supports the vector-scalar extension.
 
 Here is an example:
 @smallexample
-if (__builtin_cpu_supports ("fpu"))
-  @{
-     asm("fadd %0,%1,%2" : "=d"(dst) : "d"(src1), "d"(src2));
-  @}
-else
-  @{
-     dst = __fadd (src1, src2); // Software FP addition function.
-  @}
+#ifdef __BUILTIN_CPU_SUPPORTS__
+  if (__builtin_cpu_supports ("fpu"))
+    @{
+       asm("fadd %0,%1,%2" : "=d"(dst) : "d"(src1), "d"(src2));
+    @}
+  else
+#endif
+    @{
+       dst = __fadd (src1, src2); // Software FP addition function.
+    @}
 @end smallexample
 @end deftypefn
 
@@ -13885,21 +13937,16 @@ or @option{-mpopcntd}):
 @smallexample
 long __builtin_bpermd (long, long);
 int __builtin_divwe (int, int);
-int __builtin_divweo (int, int);
 unsigned int __builtin_divweu (unsigned int, unsigned int);
-unsigned int __builtin_divweuo (unsigned int, unsigned int);
 long __builtin_divde (long, long);
-long __builtin_divdeo (long, long);
 unsigned long __builtin_divdeu (unsigned long, unsigned long);
-unsigned long __builtin_divdeuo (unsigned long, unsigned long);
 unsigned int cdtbcd (unsigned int);
 unsigned int cbcdtd (unsigned int);
 unsigned int addg6s (unsigned int, unsigned int);
 @end smallexample
 
-The @code{__builtin_divde}, @code{__builtin_divdeo},
-@code{__builtin_divdeu}, @code{__builtin_divdeou} functions require a
-64-bit environment support ISA 2.06 or later.
+The @code{__builtin_divde} and @code{__builtin_divdeu} functions
+require a 64-bit environment supporting ISA 2.06 or later.
 
 The following built-in functions are available for the PowerPC family
 of processors, starting with ISA 3.0 or later (@option{-mcpu=power9}):
@@ -13973,14 +14020,14 @@ The following built-in functions are available for the PowerPC family
 of processors when hardware decimal floating point
 (@option{-mhard-dfp}) is available:
 @smallexample
-_Decimal64 __builtin_dxex (_Decimal64);
-_Decimal128 __builtin_dxexq (_Decimal128);
+long long __builtin_dxex (_Decimal64);
+long long __builtin_dxexq (_Decimal128);
 _Decimal64 __builtin_ddedpd (int, _Decimal64);
 _Decimal128 __builtin_ddedpdq (int, _Decimal128);
 _Decimal64 __builtin_denbcd (int, _Decimal64);
 _Decimal128 __builtin_denbcdq (int, _Decimal128);
-_Decimal64 __builtin_diex (_Decimal64, _Decimal64);
-_Decimal128 _builtin_diexq (_Decimal128, _Decimal128);
+_Decimal64 __builtin_diex (long long, _Decimal64);
+_Decimal128 _builtin_diexq (long long, _Decimal128);
 _Decimal64 __builtin_dscli (_Decimal64, int);
 _Decimal128 __builtin_dscliq (_Decimal128, int);
 _Decimal64 __builtin_dscri (_Decimal64, int);
@@ -16149,20 +16196,21 @@ void vec_vsx_st (vector bool char, int, vector bool char *);
 void vec_vsx_st (vector bool char, int, unsigned char *);
 void vec_vsx_st (vector bool char, int, signed char *);
 
-vector double vec_xxpermdi (vector double, vector double, int);
-vector float vec_xxpermdi (vector float, vector float, int);
-vector long long vec_xxpermdi (vector long long, vector long long, int);
+vector double vec_xxpermdi (vector double, vector double, const int);
+vector float vec_xxpermdi (vector float, vector float, const int);
+vector long long vec_xxpermdi (vector long long, vector long long, const int);
 vector unsigned long long vec_xxpermdi (vector unsigned long long,
-                                        vector unsigned long long, int);
-vector int vec_xxpermdi (vector int, vector int, int);
+                                        vector unsigned long long, const int);
+vector int vec_xxpermdi (vector int, vector int, const int);
 vector unsigned int vec_xxpermdi (vector unsigned int,
-                                  vector unsigned int, int);
-vector short vec_xxpermdi (vector short, vector short, int);
+                                  vector unsigned int, const int);
+vector short vec_xxpermdi (vector short, vector short, const int);
 vector unsigned short vec_xxpermdi (vector unsigned short,
-                                    vector unsigned short, int);
-vector signed char vec_xxpermdi (vector signed char, vector signed char, int);
+                                    vector unsigned short, const int);
+vector signed char vec_xxpermdi (vector signed char, vector signed char,
+                                 const int);
 vector unsigned char vec_xxpermdi (vector unsigned char,
-                                   vector unsigned char, int);
+                                   vector unsigned char, const int);
 
 vector double vec_xxsldi (vector double, vector double, int);
 vector float vec_xxsldi (vector float, vector float, int);
@@ -16554,8 +16602,8 @@ int __builtin_bcdsub_gt (vector __int128_t, vector__int128_t);
 int __builtin_bcdsub_ov (vector __int128_t, vector__int128_t);
 @end smallexample
 
-If the ISA 3.00 additions to the vector/scalar (power9-vector)
-instruction set are available:
+If the ISA 3.0 instruction set additions (@option{-mcpu=power9})
+are available:
 
 @smallexample
 vector long long vec_vctz (vector long long);
@@ -16591,10 +16639,9 @@ vector long long vec_vprtybd (vector long long);
 vector unsigned long long vec_vprtybd (vector unsigned long long);
 @end smallexample
 
-
-If the ISA 3.00 additions to the vector/scalar (power9-vector)
-instruction set are available for 64-bit targets:
-
+On 64-bit targets, if the ISA 3.0 additions (@option{-mcpu=power9})
+are available:
+ 
 @smallexample
 vector long vec_vprtyb (vector long);
 vector unsigned long vec_vprtyb (vector unsigned long);
@@ -16609,9 +16656,7 @@ vector __uint128_t vec_vprtybd (vector __uint128_t);
 @end smallexample
 
 The following built-in vector functions are available for the PowerPC family
-of processors, starting with ISA 3.0 or later (@option{-mcpu=power9})
-or with @option{-mpower9-vector}:
-
+of processors, starting with ISA 3.0 or later (@option{-mcpu=power9}):
 @smallexample
 __vector unsigned char
 vec_absd (__vector unsigned char arg1, __vector unsigned char arg2);
@@ -16723,9 +16768,9 @@ The second argument to the @var{__builtin_crypto_vshasigmad} and
 integer that is 0 or 1.  The third argument to these builtin functions
 must be a constant integer in the range of 0 to 15.
 
-If the ISA 3.00 additions to the vector/scalar (power9-vector)
-instruction set are available, the following additional functions are
-available for both 32-bit and 64-bit targets.
+If the ISA 3.0 instruction set additions 
+are enabled (@option{-mcpu=power9}), the following additional
+functions are available for both 32-bit and 64-bit targets.
 
 vector short vec_xl (int, vector short *);
 vector short vec_xl (int, short *);
@@ -17743,8 +17788,11 @@ AMD Family 15h Bulldozer version 4.
 @item btver2
 AMD Family 16h CPU.
 
-@item znver1
+@item amdfam17h
 AMD Family 17h CPU.
+
+@item znver1
+AMD Family 17h Zen version 1.
 @end table
 
 Here is an example:
@@ -18903,7 +18951,7 @@ unsigned long long _pext_u64 (unsigned long long, unsigned long long)
 The following built-in functions are available when @option{-mlzcnt} is used.
 All of them generate the machine instruction that is part of the name.
 @smallexample
-unsigned short __builtin_ia32_lzcnt_16(unsigned short);
+unsigned short __builtin_ia32_lzcnt_u16(unsigned short);
 unsigned int __builtin_ia32_lzcnt_u32(unsigned int);
 unsigned long long __builtin_ia32_lzcnt_u64 (unsigned long long);
 @end smallexample

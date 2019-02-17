@@ -1193,8 +1193,16 @@ analyze_functions (bool first_time)
 	     at looking at optimized away DECLs, since
 	     late_global_decl will subsequently be called from the
 	     contents of the now pruned symbol table.  */
-	  if (!decl_function_context (node->decl))
-	    (*debug_hooks->late_global_decl) (node->decl);
+	  if (VAR_P (node->decl)
+	      && !decl_function_context (node->decl))
+	    {
+	      /* We are reclaiming totally unreachable code and variables
+	         so they effectively appear as readonly.  Show that to
+	         the debug machinery.  */
+	      TREE_READONLY (node->decl) = 1;
+	      node->definition = false;
+	      (*debug_hooks->late_global_decl) (node->decl);
+	    }
 
 	  node->remove ();
 	  continue;
@@ -1756,6 +1764,10 @@ cgraph_node::expand_thunk (bool output_asm_thunks, bool force_gimple_thunk)
 	for (; i < nargs; i++, arg = DECL_CHAIN (arg))
 	  {
 	    tree tmp = arg;
+	    if (VECTOR_TYPE_P (TREE_TYPE (arg))
+		|| TREE_CODE (TREE_TYPE (arg)) == COMPLEX_TYPE)
+	      DECL_GIMPLE_REG_P (arg) = 1;
+
 	    if (!is_gimple_val (arg))
 	      {
 		tmp = create_tmp_reg (TYPE_MAIN_VARIANT

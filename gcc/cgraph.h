@@ -315,6 +315,9 @@ public:
      or abstract function kept for debug info purposes only.  */
   bool real_symbol_p (void);
 
+  /* Return true when the symbol needs to be output to the LTO symbol table.  */
+  bool output_to_lto_symbol_table_p (void);
+
   /* Determine if symbol declaration is needed.  That is, visible to something
      either outside this translation unit, something magic in the system
      configury. This function is used just during symbol creation.  */
@@ -2272,6 +2275,8 @@ tree clone_function_name (tree decl, const char *);
 
 void tree_function_versioning (tree, tree, vec<ipa_replace_map *, va_gc> *,
 			       bool, bitmap, bool, bitmap, basic_block);
+tree cgraph_build_function_type_skip_args (tree orig_type, bitmap args_to_skip,
+					   bool skip_return);
 
 /* In cgraphbuild.c  */
 int compute_call_stmt_bb_frequency (tree, basic_block bb);

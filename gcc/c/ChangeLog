@@ -1,3 +1,72 @@
+2018-10-26  Release Manager
+
+	* GCC 6.5.0 released.
+
+2018-06-25  Jakub Jelinek  <jakub@redhat.com>
+
+	Backported from mainline
+	2017-12-22  Jakub Jelinek  <jakub@redhat.com>
+
+	PR debug/83550
+	* c-decl.c (finish_struct): Set DECL_SOURCE_LOCATION on
+	TYPE_STUB_DECL and call rest_of_type_compilation before processing
+	incomplete vars rather than after it.
+
+	2017-09-29  Jakub Jelinek  <jakub@redhat.com>
+
+	PR c/82340
+	* c-decl.c (build_compound_literal): Use c_apply_type_quals_to_decl
+	instead of trying to set just TREE_READONLY manually.
+
+2017-12-10  Tom de Vries  <tom@codesourcery.com>
+
+	backport from trunk:
+	PR c/81875
+	2017-09-16  Tom de Vries  <tom@codesourcery.com>
+
+	* c-parser.c (c_parser_omp_for_loop): Fold only operands of cond, not
+	cond itself.
+
+2017-07-04  Release Manager
+
+	* GCC 6.4.0 released.
+
+2017-06-08  Jakub Jelinek  <jakub@redhat.com>
+
+	PR c/81006
+	* c-typeck.c (handle_omp_array_sections_1): Convert TYPE_MAX_VALUE
+	to sizetype before size_binop.
+
+2017-05-05  Jakub Jelinek  <jakub@redhat.com>
+
+	Backported from mainline
+	2017-03-21  Jakub Jelinek  <jakub@redhat.com>
+
+	PR c/80097
+	* c-typeck.c (build_binary_op): Add EXCESS_PRECISION_EXPR only around
+	optional COMPOUND_EXPR with ubsan instrumentation.
+
+	2017-02-16  Jakub Jelinek  <jakub@redhat.com>
+
+	PR c++/79512
+	* c-parser.c (c_parser_omp_target): For -fopenmp-simd
+	ignore #pragma omp target even when not followed by identifier.
+
+2017-02-15  Jakub Jelinek  <jakub@redhat.com>
+
+	Backported from mainline
+	2017-02-09  Jakub Jelinek  <jakub@redhat.com>
+
+	PR c/79431
+	* c-parser.c (c_parser_omp_declare_target): Don't invoke
+	symtab_node::get on automatic variables.
+
+2016-12-21  Jakub Jelinek  <jakub@redhat.com>
+
+	PR c/77767
+	* c-decl.c (grokdeclarator): If *expr is non-NULL, append expression
+	to *expr instead of overwriting it.
+
 2016-12-21  Release Manager
 
 	* GCC 6.3.0 released.

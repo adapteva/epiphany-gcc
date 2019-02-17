@@ -1,3 +1,115 @@
+2018-10-26  Release Manager
+
+	* GCC 6.5.0 released.
+
+2018-06-02  Eric Botcazou  <ebotcazou@adacore.com>
+
+	Backport from mainline
+	2018-05-31  Eric Botcazou  <ebotcazou@adacore.com>
+
+	* gcc-interface/trans.c (Call_to_gnu): If this is a function call and
+	there is no target, also create a temporary for the return value for
+	an allocator if the type is an unconstrained record type with default
+	discriminant.
+
+2018-03-06  Eric Botcazou  <ebotcazou@adacore.com>
+
+	* gcc-interface/trans.c (convert_with_check): Fix typo in the condition
+	guarding the overflow check emitted for the upper bound of a floating-
+	point conversion.
+
+2017-12-14  Eric Botcazou  <ebotcazou@adacore.com>
+
+	* gcc-interface/decl.c (gnat_to_gnu_field): Do not set the alignment
+	of the enclosing record type if it is not already set.
+
+2017-11-10  Eric Botcazou  <ebotcazou@adacore.com>
+
+	* gcc-interface/utils.c (convert) <RECORD_TYPE>: Add comment and do
+	not fall through to the next case.
+	<ARRAY_TYPE>: Deal specially with a dereference from another array
+	type with the same element type.
+
+2017-09-15  Martin Liska  <mliska@suse.cz>
+
+	Backport from mainline
+	2017-08-29  Martin Liska  <mliska@suse.cz>
+
+	PR other/39851
+	* gcc-interface/trans.c (Pragma_to_gnu): Set argument to NULL.
+
+2017-09-05  Eric Botcazou  <ebotcazou@adacore.com>
+
+	* gcc-interface/utils.c (unchecked_convert): When the result type is a
+	non-biased integral type with size 0, set the result to 0 directly.
+
+2017-09-05  Eric Botcazou  <ebotcazou@adacore.com>
+
+	* gcc-interface/trans.c (Call_to_gnu): If this is a function call and
+	there is no target, do not create a temporary for the return value for
+	an allocator either.
+
+2017-09-05  Eric Botcazou  <ebotcazou@adacore.com>
+
+	* gcc-interface/trans.c (pos_to_constructor): Skip conversions to an
+	unconstrained array type.
+
+2017-07-04  Release Manager
+
+	* GCC 6.4.0 released.
+
+2017-03-28  Andreas Schwab  <schwab@suse.de>
+
+	Backport from trunk
+
+	2017-03-28  Andreas Schwab  <schwab@suse.de>
+
+	PR ada/80117
+	* system-linux-aarch64-ilp32.ads: New file.
+	* gcc-interface/Makefile.in (LIBGNAT_TARGET_PAIRS_COMMON): Rename
+	from LIBGNAT_TARGET_PAIRS.
+	(LIBGNAT_TARGET_PAIRS_32, LIBGNAT_TARGET_PAIRS_64): Define.
+	(LIBGNAT_TARGET_PAIRS): Use LIBGNAT_TARGET_PAIRS_COMMON, and
+	LIBGNAT_TARGET_PAIRS_64 or LIBGNAT_TARGET_PAIRS_32 for -mabi=lp64
+	or -mabi=ilp32, resp.
+
+2017-03-08  Thanassis Tsiodras  <ttsiodras@gmail.com>
+
+	PR ada/79903
+	* socket.c (__gnat_gethostbyaddr): Add missing test for __rtems__.
+
+2017-03-08  Eric Botcazou  <ebotcazou@adacore.com>
+
+	PR ada/79945
+	* system-linux-ppc.ads (Default_Bit_Order): Use Standard's setting.
+
+2017-02-24  Eric Botcazou  <ebotcazou@adacore.com>
+
+	* gcc-interface/decl.c (gnat_to_gnu_field): Do not remove the wrapper
+	around a justified modular type if it doesn't have the same scalar
+	storage order as the enclosing record type.
+
+2017-02-24  Eric Botcazou  <ebotcazou@adacore.com>
+
+	* gcc-interface/trans.c (gnat_to_gnu): Do not apply special handling
+	of boolean rvalues to function calls.
+
+2017-02-24  Eric Botcazou  <ebotcazou@adacore.com>
+
+	* gcc-interface/utils.c (fold_bit_position): New function.
+	(rest_of_record_type_compilation): Call it instead of bit_position to
+	compute the field position and remove the call to remove_conversions.
+	(compute_related_constant): Factor out the multiplication in both
+	operands, if any, and streamline the final test.
+
+2017-02-24  Eric Botcazou  <ebotcazou@adacore.com>
+
+	* gcc-interface/trans.c (return_value_ok_for_nrv_p): Add sanity check.
+
+2017-02-12  John Marino  <gnugcc@marino.st>
+
+	* gcc-interface/Makefile.in: Support aarch64-freebsd.
+
 2016-12-21  Release Manager
 
 	* GCC 6.3.0 released.

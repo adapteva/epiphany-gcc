@@ -573,6 +573,20 @@ gfc_match_data (void)
       if (m != MATCH_YES)
 	goto cleanup;
 
+      if (new_data->var->iter.var
+	  && new_data->var->iter.var->ts.type == BT_INTEGER
+	  && new_data->var->iter.var->symtree->n.sym->attr.implied_index == 1
+	  && new_data->var->list
+	  && new_data->var->list->expr
+	  && new_data->var->list->expr->ts.type == BT_CHARACTER
+	  && new_data->var->list->expr->ref
+	  && new_data->var->list->expr->ref->type == REF_SUBSTRING)
+	{
+	  gfc_error ("Invalid substring in data-implied-do at %L in DATA "
+		     "statement", &new_data->var->list->expr->where);
+	  goto cleanup;
+	}
+
       m = top_val_list (new_data);
       if (m != MATCH_YES)
 	goto cleanup;
@@ -922,7 +936,8 @@ char_len_param_value (gfc_expr **expr, bool *deferred)
 
       if (!t && e->ts.type == BT_UNKNOWN
 	  && e->symtree->n.sym->attr.untyped == 1
-	  && (e->symtree->n.sym->ns->seen_implicit_none == 1
+	  && (flag_implicit_none
+	      || e->symtree->n.sym->ns->seen_implicit_none == 1
 	      || e->symtree->n.sym->ns->parent->seen_implicit_none == 1))
 	{
 	  gfc_free_expr (e);
@@ -1156,6 +1171,12 @@ get_proc_name (const char *name, gfc_symbol **result, bool module_fcn_entry)
 	gfc_error_now ("Procedure %qs at %C is already defined at %L",
 		       name, &sym->declared_at);
 
+      if (sym->attr.external && sym->attr.procedure
+	  && gfc_current_state () == COMP_CONTAINS)
+	gfc_error_now ("Contained procedure %qs at %C clashes with "
+			"procedure defined at %L",
+		       name, &sym->declared_at);
+
       /* Trap a procedure with a name the same as interface in the
 	 encompassing scope.  */
       if (sym->attr.generic != 0
@@ -1382,8 +1403,28 @@ build_sym (const char *name, gfc_charlen *cl, bool cl_deferred,
   symbol_attribute attr;
   gfc_symbol *sym;
   int upper;
+  gfc_symtree *st;
 
-  if (gfc_get_symbol (name, NULL, &sym))
+  /* Symbols in a submodule are host associated from the parent module or
+     submodules. Therefore, they can be overridden by declarations in the
+     submodule scope. Deal with this by attaching the existing symbol to
+     a new symtree and recycling the old symtree with a new symbol...  */
+  st = gfc_find_symtree (gfc_current_ns->sym_root, name);
+  if (st != NULL && gfc_state_stack->state == COMP_SUBMODULE
+      && st->n.sym != NULL
+      && st->n.sym->attr.host_assoc && st->n.sym->attr.used_in_submodule)
+    {
+      gfc_symtree *s = gfc_get_unique_symtree (gfc_current_ns);
+      s->n.sym = st->n.sym;
+      sym = gfc_new_symbol (name, gfc_current_ns);
+
+
+      st->n.sym = sym;
+      sym->refs++;
+      gfc_set_sym_referenced (sym);
+    }
+  /* ...Otherwise generate a new symtree and new symbol.  */
+  else if (gfc_get_symbol (name, NULL, &sym))
     return false;
 
   /* Check if the name has already been defined as a type.  The
@@ -1671,7 +1712,7 @@ add_init_expr_to_sym (const char *name, gfc_expr **initp, locus *var_locus)
 		    }
 		  else if (init->expr_type == EXPR_ARRAY)
 		    {
-		      if (init->ts.u.cl)
+		      if (init->ts.u.cl && init->ts.u.cl->length)
 			clen = mpz_get_si (init->ts.u.cl->length->value.integer);
 		      else if (init->value.constructor)
 			{
@@ -2185,7 +2226,10 @@ variable_decl (int elem)
   /* At this point, we know for sure if the symbol is PARAMETER and can thus
      determine (and check) whether it can be implied-shape.  If it
      was parsed as assumed-size, change it because PARAMETERs can not
-     be assumed-size.  */
+     be assumed-size.
+
+     An explicit-shape-array cannot appear under several conditions.
+     That check is done here as well.  */
   if (as)
     {
       if (as->type == AS_IMPLIED_SHAPE && current_attr.flavor != FL_PARAMETER)
@@ -2206,6 +2250,50 @@ variable_decl (int elem)
 	{
 	  m = MATCH_ERROR;
 	  goto cleanup;
+	}
+
+      /* F2018:C830 (R816) An explicit-shape-spec whose bounds are not
+	 constant expressions shall appear only in a subprogram, derived
+	 type definition, BLOCK construct, or interface body.  */
+      if (as->type == AS_EXPLICIT
+	  && gfc_current_state () != COMP_BLOCK
+	  && gfc_current_state () != COMP_DERIVED
+	  && gfc_current_state () != COMP_FUNCTION
+	  && gfc_current_state () != COMP_INTERFACE
+	  && gfc_current_state () != COMP_SUBROUTINE)
+	{
+	  gfc_expr *e;
+	  bool not_constant = false;
+
+	  for (int i = 0; i < as->rank; i++)
+	    {
+	      e = gfc_copy_expr (as->lower[i]);
+	      gfc_resolve_expr (e);
+	      gfc_simplify_expr (e, 0);
+	      if (e && (e->expr_type != EXPR_CONSTANT))
+		{
+		  not_constant = true;
+		  break;
+		}
+	      gfc_free_expr (e);
+
+	      e = gfc_copy_expr (as->upper[i]);
+	      gfc_resolve_expr (e);
+	      gfc_simplify_expr (e, 0);
+	      if (e && (e->expr_type != EXPR_CONSTANT))
+		{
+		  not_constant = true;
+		  break;
+		}
+	      gfc_free_expr (e);
+	    }
+
+	  if (not_constant)
+	    { 
+	      gfc_error ("Explicit shaped array with nonconstant bounds at %C");
+	      m = MATCH_ERROR;
+	      goto cleanup;
+	    }
 	}
     }
 
@@ -2925,7 +3013,38 @@ done:
   if (seen_length == 0)
     cl->length = gfc_get_int_expr (gfc_default_integer_kind, NULL, 1);
   else
-    cl->length = len;
+    {
+      /* If gfortran ends up here, then len may be reducible to a constant.
+	 Try to do that here.  If it does not reduce, simply assign len to
+	 charlen.  A complication occurs with user-defined generic functions,
+	 which are not resolved.  Use a private namespace to deal with
+	 generic functions.  */
+
+      if (len && len->expr_type != EXPR_CONSTANT)
+	{
+	  gfc_namespace *old_ns;
+	  gfc_expr *e;
+
+	  old_ns = gfc_current_ns;
+	  gfc_current_ns = gfc_get_namespace (NULL, 0);
+
+	  e = gfc_copy_expr (len);
+	  gfc_reduce_init_expr (e);
+	  if (e->expr_type == EXPR_CONSTANT)
+	    {
+	      gfc_replace_expr (len, e);
+	      if (mpz_cmp_si (len->value.integer, 0) < 0)
+		mpz_set_ui (len->value.integer, 0);
+	    }
+	  else
+	    gfc_free_expr (e);
+
+	  gfc_free_namespace (gfc_current_ns);
+	  gfc_current_ns = old_ns;
+	}
+
+      cl->length = len;
+    }
 
   ts->u.cl = cl;
   ts->kind = kind == 0 ? gfc_default_character_kind : kind;
@@ -8646,8 +8765,12 @@ gfc_match_derived_decl (void)
 
   if (!gensym->attr.generic && gensym->ts.type != BT_UNKNOWN)
     {
-      gfc_error ("Derived type name %qs at %C already has a basic type "
-		 "of %s", gensym->name, gfc_typename (&gensym->ts));
+      if (gensym->ts.u.derived)
+	gfc_error ("Derived type name %qs at %C already has a basic type "
+		   "of %s", gensym->name, gfc_typename (&gensym->ts));
+      else
+	gfc_error ("Derived type name %qs at %C already has a basic type",
+		   gensym->name);
       return MATCH_ERROR;
     }
 

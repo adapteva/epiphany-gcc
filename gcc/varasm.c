@@ -2806,7 +2806,7 @@ static void
 decode_addr_const (tree exp, struct addr_const *value)
 {
   tree target = TREE_OPERAND (exp, 0);
-  int offset = 0;
+  HOST_WIDE_INT offset = 0;
   rtx x;
 
   while (1)
@@ -2820,8 +2820,9 @@ decode_addr_const (tree exp, struct addr_const *value)
       else if (TREE_CODE (target) == ARRAY_REF
 	       || TREE_CODE (target) == ARRAY_RANGE_REF)
 	{
-	  offset += (tree_to_uhwi (TYPE_SIZE_UNIT (TREE_TYPE (target)))
-		     * tree_to_shwi (TREE_OPERAND (target, 1)));
+	  /* Truncate big offset.  */
+	  offset += (TREE_INT_CST_LOW (TYPE_SIZE_UNIT (TREE_TYPE (target)))
+		     * TREE_INT_CST_LOW (TREE_OPERAND (target, 1)));
 	  target = TREE_OPERAND (target, 0);
 	}
       else if (TREE_CODE (target) == MEM_REF
@@ -3275,6 +3276,10 @@ build_constant_desc (tree exp)
   rtl = gen_const_mem (TYPE_MODE (TREE_TYPE (exp)), symbol);
   set_mem_attributes (rtl, exp, 1);
   set_mem_alias_set (rtl, 0);
+
+  /* Putting EXP into the literal pool might have imposed a different
+     alignment which should be visible in the RTX as well.  */
+  set_mem_align (rtl, DECL_ALIGN (decl));
 
   /* We cannot share RTX'es in pool entries.
      Mark this piece of RTL as required for unsharing.  */

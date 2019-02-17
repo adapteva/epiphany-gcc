@@ -587,25 +587,6 @@
   [(set_attr "type" "branch")]
 )
 
-(define_insn "eh_return"
-  [(unspec_volatile [(match_operand:DI 0 "register_operand" "r")]
-    UNSPECV_EH_RETURN)]
-  ""
-  "#"
-  [(set_attr "type" "branch")]
-
-)
-
-(define_split
-  [(unspec_volatile [(match_operand:DI 0 "register_operand" "")]
-    UNSPECV_EH_RETURN)]
-  "reload_completed"
-  [(set (match_dup 1) (match_dup 0))]
-  {
-    operands[1] = aarch64_final_eh_return_addr ();
-  }
-)
-
 (define_insn "*cb<optab><mode>1"
   [(set (pc) (if_then_else (EQL (match_operand:GPI 0 "register_operand" "r")
 				(const_int 0))
@@ -3100,7 +3081,8 @@
 (define_insn_and_split "*compare_cstore<mode>_insn"
   [(set (match_operand:GPI 0 "register_operand" "=r")
 	 (EQL:GPI (match_operand:GPI 1 "register_operand" "r")
-		  (match_operand:GPI 2 "aarch64_imm24" "n")))]
+		  (match_operand:GPI 2 "aarch64_imm24" "n")))
+   (clobber (reg:CC CC_REGNUM))]
   "!aarch64_move_imm (INTVAL (operands[2]), <MODE>mode)
    && !aarch64_plus_operand (operands[2], <MODE>mode)
    && !reload_completed"
@@ -5121,11 +5103,11 @@
    (set_attr "type" "block")]
 )
 
-(define_insn "probe_stack_range_<PTR:mode>"
-  [(set (match_operand:PTR 0 "register_operand" "=r")
-	(unspec_volatile:PTR [(match_operand:PTR 1 "register_operand" "0")
-			      (match_operand:PTR 2 "register_operand" "r")]
-			       UNSPECV_PROBE_STACK_RANGE))]
+(define_insn "probe_stack_range"
+  [(set (match_operand:DI 0 "register_operand" "=r")
+	(unspec_volatile:DI [(match_operand:DI 1 "register_operand" "0")
+			     (match_operand:DI 2 "register_operand" "r")]
+			      UNSPECV_PROBE_STACK_RANGE))]
   ""
 {
   return aarch64_output_probe_stack_range (operands[0], operands[2]);

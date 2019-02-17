@@ -1,3 +1,62 @@
+2018-10-26  Release Manager
+
+	* GCC 6.5.0 released.
+
+2018-10-16  Gerald Pfeifer  <gerald@pfeifer.com>
+
+	Backport from trunk
+	* io/close.c [!HAVE_UNLINK_OPEN_FILE]: Include <string.h>.
+
+2018-01-03  Janne Blomqvist  <jb@gcc.gnu.org>
+
+	Backport from trunk
+	PR libgfortran/83649
+	* io/unix.c (MAX_CHUNK): New define.
+	(raw_read): For reads larger than MAX_CHUNK, loop.
+	(raw_write): Write no more than MAX_CHUNK bytes per iteration.
+
+2017-12-16  Jerry DeLisle  <jvdelisle@gcc.gnu.org>
+
+	Backport from trunk
+	PR libgfortran/81937
+	* io/list_read.c (next_char_internal): Don't attempt to read
+	from the internal unit stream if no bytes are left. Decrement
+	bytes_left in the right place.
+
+2017-10-22  Thomas Koenig  <tkoenig@gcc.gnu.org>
+
+	Backport from trunk
+	PR libfortran/82233
+	* intrinsics/execute_command_line.c (execute_command_line):
+	No call to runtime_error if cmdstat is present.
+
+2017-07-04  Release Manager
+
+	* GCC 6.4.0 released.
+
+2017-05-19  Janne Blomqvist  <jb@gcc.gnu.org>
+
+	Backport from trunk
+	* libgfortran.h: HAVE_SECURE_GETENV: Don't check
+	HAVE___SECURE_GETENV.
+	* environ/runtime.c (secure_getenv): Use __secure_getenv via a
+        weak reference.
+
+2017-01-31  Steven G. Kargl  <kargl@gcc.gnu.org>
+
+	PR fortran/79305
+	* c99_protos.h: Spell HAVE_EXPL correctly.
+	* intrinsics/c99_functions.c: Ditto.
+
+2017-01-24  Uros Bizjak  <ubizjak@gmail.com>
+
+	PR target/78478
+	* acinclude.m4: Include ../config/ax_check_define.m4
+	* configure.ac: Check if _SOFT_FLOAT is defined.
+	* configure.host (i?86 | x86_64): Use fpu-generic when
+	have_soft_float is set.
+	* configure: Regenerate.
+
 2016-12-21  Release Manager
 
 	* GCC 6.3.0 released.
@@ -13,14 +72,14 @@
 
 	Backport from trunk
 	PR libgfortran/77707
-	io/transfer.c (next_record): Flush before calculating next_record.
+	* io/transfer.c (next_record): Flush before calculating next_record.
 	Correctly calculate.
 
 2016-09-28  Steven G. Kargl  <kargl@gcc.gnu.org>
 
 	Backport from trunk
 	PR fortran/77507
- 	* ieee/ieee_arithmetic.F90 (IEEE_VALUE_4,IEEE_VALUE_8,IEEE_VALULE_10,
+	* ieee/ieee_arithmetic.F90 (IEEE_VALUE_4,IEEE_VALUE_8,IEEE_VALULE_10,
 	IEEE_VALUE_16):  Use correct keyword.
 
 2016-08-22  Release Manager
@@ -82,9 +141,10 @@
 	(read_logical): If '!' bang encountered when not in namelist mode got
 	bad_logical to give an error. (read_integer): Likewise reject '!'.
 	(read_character): Remove condition testing c = '!' which is now inside
-	the is_separator macro. (parse_real): Reject '!' unless in namelist mode.
-	(read_complex): Reject '!' unless in namelist mode. (read_real): Likewise
-	reject '!'. 
+	the is_separator macro. (parse_real): Reject '!' unless in
+	namelist mode.
+	(read_complex): Reject '!' unless in namelist mode.
+	(read_real): Likewise reject '!'.
 
 2016-02-12  Jerry DeLisle  <jvdelisle@gcc.gnu.org>
 

@@ -378,6 +378,9 @@ build_data_member_initialization (tree t, vec<constructor_elt, va_gc> **vec)
   if (TREE_CODE (member) == COMPONENT_REF)
     {
       tree aggr = TREE_OPERAND (member, 0);
+      if (TREE_CODE (aggr) == VAR_DECL)
+	/* Initializing a local variable, don't add anything.  */
+	return true;
       if (TREE_CODE (aggr) != COMPONENT_REF)
 	/* Normal member initialization.  */
 	member = TREE_OPERAND (member, 1);
@@ -1611,8 +1614,13 @@ reduced_constant_expression_p (tree t)
       /* And we need to handle PTRMEM_CST wrapped in a CONSTRUCTOR.  */
       tree elt; unsigned HOST_WIDE_INT idx;
       FOR_EACH_CONSTRUCTOR_VALUE (CONSTRUCTOR_ELTS (t), idx, elt)
-	if (!reduced_constant_expression_p (elt))
-	  return false;
+	{
+	  if (!elt)
+	    /* We're in the middle of initializing this element.  */
+	    return false;
+	  if (!reduced_constant_expression_p (elt))
+	    return false;
+	}
       return true;
 
     default:
@@ -1909,6 +1917,45 @@ cxx_eval_conditional_expression (const constexpr_ctx *ctx, tree t,
 				       lval,
 				       non_constant_p, overflow_p,
 				       jump_target);
+}
+
+/* Subroutine of cxx_eval_constant_expression.
+   Attempt to evaluate vector condition expressions.  Unlike
+   cxx_eval_conditional_expression, VEC_COND_EXPR acts like a normal
+   ternary arithmetics operation, where all 3 arguments have to be
+   evaluated as constants and then folding computes the result from
+   them.  */
+
+static tree
+cxx_eval_vector_conditional_expression (const constexpr_ctx *ctx, tree t,
+					bool *non_constant_p, bool *overflow_p)
+{
+  tree arg1 = cxx_eval_constant_expression (ctx, TREE_OPERAND (t, 0),
+					    /*lval*/false,
+					    non_constant_p, overflow_p);
+  VERIFY_CONSTANT (arg1);
+  tree arg2 = cxx_eval_constant_expression (ctx, TREE_OPERAND (t, 1),
+					    /*lval*/false,
+					    non_constant_p, overflow_p);
+  VERIFY_CONSTANT (arg2);
+  tree arg3 = cxx_eval_constant_expression (ctx, TREE_OPERAND (t, 2),
+					    /*lval*/false,
+					    non_constant_p, overflow_p);
+  VERIFY_CONSTANT (arg3);
+  location_t loc = EXPR_LOCATION (t);
+  tree type = TREE_TYPE (t);
+  tree r = fold_ternary_loc (loc, VEC_COND_EXPR, type, arg1, arg2, arg3);
+  if (r == NULL_TREE)
+    {
+      if (arg1 == TREE_OPERAND (t, 0)
+	  && arg2 == TREE_OPERAND (t, 1)
+	  && arg3 == TREE_OPERAND (t, 2))
+	r = t;
+      else
+	r = build3_loc (loc, VEC_COND_EXPR, type, arg1, arg2, arg3);
+    }
+  VERIFY_CONSTANT (r);
+  return r;
 }
 
 /* Returns less than, equal to, or greater than zero if KEY is found to be
@@ -2493,8 +2540,16 @@ verify_ctor_sanity (const constexpr_ctx *ctx, tree type)
   /* We used to check that ctx->ctor was empty, but that isn't the case when
      the object is zero-initialized before calling the constructor.  */
   if (ctx->object)
-    gcc_assert (same_type_ignoring_top_level_qualifiers_p
-		(type, TREE_TYPE (ctx->object)));
+    {
+      tree otype = TREE_TYPE (ctx->object);
+      gcc_assert (same_type_ignoring_top_level_qualifiers_p (type, otype)
+		  /* Handle flexible array members.  */
+		  || (TREE_CODE (otype) == ARRAY_TYPE
+		      && TYPE_DOMAIN (otype) == NULL_TREE
+		      && TREE_CODE (type) == ARRAY_TYPE
+		      && (same_type_ignoring_top_level_qualifiers_p
+			  (TREE_TYPE (type), TREE_TYPE (otype)))));
+    }
   gcc_assert (!ctx->object || !DECL_P (ctx->object)
 	      || *(ctx->values->get (ctx->object)) == ctx->ctor);
 }
@@ -2682,9 +2737,8 @@ cxx_eval_vec_init_1 (const constexpr_ctx *ctx, tree atype, tree init,
 	  if (!real_lvalue_p (init))
 	    eltinit = move (eltinit);
 	  eltinit = force_rvalue (eltinit, tf_warning_or_error);
-	  eltinit = (cxx_eval_constant_expression
-		     (&new_ctx, eltinit, lval,
-		      non_constant_p, overflow_p));
+	  eltinit = cxx_eval_constant_expression (&new_ctx, eltinit, lval,
+						  non_constant_p, overflow_p);
 	}
       if (*non_constant_p && !ctx->quiet)
 	break;
@@ -2697,12 +2751,13 @@ cxx_eval_vec_init_1 (const constexpr_ctx *ctx, tree atype, tree init,
       else
 	CONSTRUCTOR_APPEND_ELT (*p, idx, eltinit);
       /* Reuse the result of cxx_eval_constant_expression call
-	  from the first iteration to all others if it is a constant
-	  initializer that doesn't require relocations.  */
+	 from the first iteration to all others if it is a constant
+	 initializer that doesn't require relocations.  */
       if (reuse
 	  && max > 1
-	  && (initializer_constant_valid_p (eltinit, TREE_TYPE (eltinit))
-	      == null_pointer_node))
+	  && (eltinit == NULL_TREE
+	      || (initializer_constant_valid_p (eltinit, TREE_TYPE (eltinit))
+		  == null_pointer_node)))
 	{
 	  if (new_ctx.ctor != ctx->ctor)
 	    eltinit = new_ctx.ctor;
@@ -3004,12 +3059,10 @@ cxx_eval_indirect_ref (const constexpr_ctx *ctx, tree t,
   if (*non_constant_p)
     return t;
 
-  /* If we're pulling out the value of an empty base, make sure
-     that the whole object is constant and then return an empty
+  /* If we're pulling out the value of an empty base, just return an empty
      CONSTRUCTOR.  */
   if (empty_base && !lval)
     {
-      VERIFY_CONSTANT (r);
       r = build_constructor (TREE_TYPE (t), NULL);
       TREE_CONSTANT (r) = true;
     }
@@ -3239,6 +3292,11 @@ cxx_eval_store_expression (const constexpr_ctx *ctx, tree t,
 	  tree fields = TYPE_FIELDS (DECL_CONTEXT (index));
 	  unsigned HOST_WIDE_INT idx;
 
+	  if (code == UNION_TYPE && CONSTRUCTOR_NELTS (*valp)
+	      && CONSTRUCTOR_ELT (*valp, 0)->index != index)
+	    /* Changing active member.  */
+	    vec_safe_truncate (CONSTRUCTOR_ELTS (*valp), 0);
+
 	  for (idx = 0;
 	       vec_safe_iterate (CONSTRUCTOR_ELTS (*valp), idx, &cep);
 	       idx++, fields = DECL_CHAIN (fields))
@@ -3275,11 +3333,12 @@ cxx_eval_store_expression (const constexpr_ctx *ctx, tree t,
 	 wants to modify it.  */
       if (*valp == NULL_TREE)
 	{
-	  *valp = new_ctx.ctor = build_constructor (type, NULL);
-	  CONSTRUCTOR_NO_IMPLICIT_ZERO (new_ctx.ctor) = no_zero_init;
+	  *valp = build_constructor (type, NULL);
+	  CONSTRUCTOR_NO_IMPLICIT_ZERO (*valp) = no_zero_init;
 	}
-      else
-	new_ctx.ctor = *valp;
+      else if (TREE_CODE (*valp) == PTRMEM_CST)
+	*valp = cplus_expand_constant (*valp);
+      new_ctx.ctor = *valp;
       new_ctx.object = target;
     }
 
@@ -4011,11 +4070,13 @@ cxx_eval_constant_expression (const constexpr_ctx *ctx, tree t,
 					      jump_target);
 	  break;
 	}
-      /* FALLTHRU */
-    case VEC_COND_EXPR:
       r = cxx_eval_conditional_expression (ctx, t, lval,
 					   non_constant_p, overflow_p,
 					   jump_target);
+      break;
+    case VEC_COND_EXPR:
+      r = cxx_eval_vector_conditional_expression (ctx, t, non_constant_p,
+						  overflow_p);
       break;
 
     case CONSTRUCTOR:
@@ -4976,10 +5037,40 @@ potential_constant_expression_1 (tree t, bool want_rval, bool strict,
     case DELETE_EXPR:
     case VEC_DELETE_EXPR:
     case THROW_EXPR:
+    case OMP_PARALLEL:
+    case OMP_TASK:
+    case OMP_FOR:
+    case OMP_DISTRIBUTE:
+    case OMP_TASKLOOP:
+    case OMP_TEAMS:
+    case OMP_TARGET_DATA:
+    case OMP_TARGET:
+    case OMP_SECTIONS:
+    case OMP_ORDERED:
+    case OMP_CRITICAL:
+    case OMP_SINGLE:
+    case OMP_SECTION:
+    case OMP_MASTER:
+    case OMP_TASKGROUP:
+    case OMP_TARGET_UPDATE:
+    case OMP_TARGET_ENTER_DATA:
+    case OMP_TARGET_EXIT_DATA:
     case OMP_ATOMIC:
     case OMP_ATOMIC_READ:
     case OMP_ATOMIC_CAPTURE_OLD:
     case OMP_ATOMIC_CAPTURE_NEW:
+    case OACC_PARALLEL:
+    case OACC_KERNELS:
+    case OACC_DATA:
+    case OACC_HOST_DATA:
+    case OACC_LOOP:
+    case OACC_CACHE:
+    case OACC_DECLARE:
+    case OACC_ENTER_DATA:
+    case OACC_EXIT_DATA:
+    case OACC_UPDATE:
+    case CILK_SIMD:
+    case CILK_FOR:
       /* GCC internal stuff.  */
     case VA_ARG_EXPR:
     case OBJ_TYPE_REF:
@@ -4988,7 +5079,8 @@ potential_constant_expression_1 (tree t, bool want_rval, bool strict,
     case AT_ENCODE_EXPR:
     fail:
       if (flags & tf_error)
-        error ("expression %qE is not a constant-expression", t);
+	error_at (EXPR_LOC_OR_LOC (t, input_location),
+		  "expression %qE is not a constant-expression", t);
       return false;
 
     case TYPEID_EXPR:
@@ -5295,6 +5387,7 @@ potential_constant_expression_1 (tree t, bool want_rval, bool strict,
       /* We can see these in statement-expressions.  */
       return true;
 
+    case CLEANUP_STMT:
     case EMPTY_CLASS_EXPR:
       return false;
 

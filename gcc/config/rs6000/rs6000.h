@@ -1,5 +1,5 @@
 /* Definitions of target machine for GNU compiler, for IBM RS/6000.
-   Copyright (C) 1992-2016 Free Software Foundation, Inc.
+   Copyright (C) 1992-2018 Free Software Foundation, Inc.
    Contributed by Richard Kenner (kenner@vlsi1.ultra.nyu.edu)
 
    This file is part of GCC.
@@ -110,7 +110,8 @@
 /* Common ASM definitions used by ASM_SPEC among the various targets for
    handling -mcpu=xxx switches.  There is a parallel list in driver-rs6000.c to
    provide the default assembler options if the user uses -mcpu=native, so if
-   you make changes here, make them also there.  */
+   you make changes here, make them also there.  PR63177: Do not pass -mpower8
+   to the assembler if -mpower9-vector was also used.  */
 #define ASM_CPU_SPEC \
 "%{!mcpu*: \
   %{mpowerpc64*: -mppc64} \
@@ -124,7 +125,7 @@
 %{mcpu=power6: %(asm_cpu_power6) -maltivec} \
 %{mcpu=power6x: %(asm_cpu_power6) -maltivec} \
 %{mcpu=power7: %(asm_cpu_power7)} \
-%{mcpu=power8: %(asm_cpu_power8)} \
+%{mcpu=power8: %{!mpower9-vector: %(asm_cpu_power8)}} \
 %{mcpu=power9: %(asm_cpu_power9)} \
 %{mcpu=a2: -ma2} \
 %{mcpu=powerpc: -mppc} \
@@ -173,6 +174,7 @@
 %{maltivec: -maltivec} \
 %{mvsx: -mvsx %{!maltivec: -maltivec} %{!mcpu*: %(asm_cpu_power7)}} \
 %{mpower8-vector|mcrypto|mdirect-move|mhtm: %{!mcpu*: %(asm_cpu_power8)}} \
+%{mpower9-vector: %{!mcpu*|mcpu=power8: %(asm_cpu_power9)}} \
 -many"
 
 #define CPP_DEFAULT_SPEC ""
@@ -635,6 +637,7 @@ extern int rs6000_vector_align[];
 #define MASK_DIRECT_MOVE		OPTION_MASK_DIRECT_MOVE
 #define MASK_DLMZB			OPTION_MASK_DLMZB
 #define MASK_EABI			OPTION_MASK_EABI
+#define MASK_FLOAT128			OPTION_MASK_FLOAT128
 #define MASK_FPRND			OPTION_MASK_FPRND
 #define MASK_P8_FUSION			OPTION_MASK_P8_FUSION
 #define MASK_HARD_FLOAT			OPTION_MASK_HARD_FLOAT
@@ -743,7 +746,8 @@ extern int rs6000_vector_align[];
 			 && (TARGET_POPCNTB || VECTOR_UNIT_VSX_P (DFmode)))
 
 #define TARGET_FRSQRTES	(TARGET_HARD_FLOAT && TARGET_POPCNTB \
-			 && TARGET_FPRS && TARGET_SINGLE_FLOAT)
+			 && TARGET_PPC_GFXOPT && TARGET_FPRS \
+			 && TARGET_SINGLE_FLOAT)
 
 #define TARGET_FRSQRTE	(TARGET_HARD_FLOAT && TARGET_FPRS \
 			 && TARGET_DOUBLE_FLOAT \
@@ -1588,6 +1592,7 @@ enum r6000_reg_class_enum {
   RS6000_CONSTRAINT_wx,		/* FPR register for STFIWX */
   RS6000_CONSTRAINT_wy,		/* VSX register for SF */
   RS6000_CONSTRAINT_wz,		/* FPR register for LFIWZX */
+  RS6000_CONSTRAINT_wA,		/* BASE_REGS if 64-bit.  */
   RS6000_CONSTRAINT_MAX
 };
 
@@ -2718,7 +2723,8 @@ extern int frame_pointer_needed;
 #define RS6000_BTM_HARD_FLOAT	MASK_SOFT_FLOAT	/* Hardware floating point.  */
 #define RS6000_BTM_LDBL128	MASK_MULTIPLE	/* 128-bit long double.  */
 #define RS6000_BTM_64BIT	MASK_64BIT	/* 64-bit addressing.  */
-#define RS6000_BTM_FLOAT128	MASK_P9_VECTOR	/* IEEE 128-bit float.  */
+#define RS6000_BTM_POWERPC64	MASK_POWERPC64	/* 64-bit registers.  */
+#define RS6000_BTM_FLOAT128	MASK_FLOAT128	/* IEEE 128-bit float.  */
 
 #define RS6000_BTM_COMMON	(RS6000_BTM_ALTIVEC			\
 				 | RS6000_BTM_VSX			\
@@ -2737,6 +2743,7 @@ extern int frame_pointer_needed;
 				 | RS6000_BTM_DFP			\
 				 | RS6000_BTM_HARD_FLOAT		\
 				 | RS6000_BTM_LDBL128			\
+				 | RS6000_BTM_POWERPC64			\
 				 | RS6000_BTM_FLOAT128)
 
 /* Define builtin enum index.  */

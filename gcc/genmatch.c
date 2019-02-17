@@ -1930,7 +1930,11 @@ capture_info::walk_match (operand *o, unsigned toplevel_arg,
       if (c->what
 	  && (e = dyn_cast <expr *> (c->what)))
 	{
-	  info[where].expr_p = true;
+	  /* Zero-operand expression captures like ADDR_EXPR@0 are
+	     similar as predicates -- if they are not mentioned in
+	     the result we have to force them to have no side-effects.  */
+	  if (e->ops.length () != 0)
+	    info[where].expr_p = true;
 	  info[where].force_single_use |= e->force_single_use;
 	}
     }
@@ -2389,7 +2393,18 @@ capture::gen_transform (FILE *f, int indent, const char *dest, bool gimple,
 	}
     }
 
-  fprintf_indent (f, indent, "%s = captures[%u];\n", dest, where);
+  /* If in GENERIC some capture is used multiple times, unshare it except
+     when emitting the last use.  */
+  if (!gimple
+      && cinfo->info.exists ()
+      && cinfo->info[cinfo->info[where].same_as].result_use_count > 1)
+    {
+      fprintf_indent (f, indent, "%s = unshare_expr (captures[%u]);\n",
+		      dest, where);
+      cinfo->info[cinfo->info[where].same_as].result_use_count--;
+    }
+  else
+    fprintf_indent (f, indent, "%s = captures[%u];\n", dest, where);
 
   /* ???  Stupid tcc_comparison GENERIC trees in COND_EXPRs.  Deal
      with substituting a capture of that.  */

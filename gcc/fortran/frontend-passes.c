@@ -127,6 +127,10 @@ gfc_run_passes (gfc_namespace *ns)
   doloop_list.release ();
   int w, e;
 
+  gfc_get_errors (&w, &e);
+  if (e > 0)
+   return;
+
   if (flag_frontend_optimize)
     {
       optimize_namespace (ns);
@@ -136,10 +140,6 @@ gfc_run_passes (gfc_namespace *ns)
 
       expr_array.release ();
     }
-
-  gfc_get_errors (&w, &e);
-  if (e > 0)
-   return;
 
   if (flag_realloc_lhs)
     realloc_strings (ns);
@@ -2306,7 +2306,7 @@ matmul_lhs_realloc (gfc_expr *c, gfc_expr *a, gfc_expr *b,
       break;
 
     case A1B2:
-      ar->start[0] = get_array_inq_function (GFC_ISYM_SIZE, b, 1);
+      ar->start[0] = get_array_inq_function (GFC_ISYM_SIZE, b, 2);
       cond = build_logical_expr (INTRINSIC_NE,
 				 get_array_inq_function (GFC_ISYM_SIZE, c, 1),
 				 get_array_inq_function (GFC_ISYM_SIZE, b, 2));

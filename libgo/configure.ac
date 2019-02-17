@@ -519,24 +519,6 @@ AC_CHECK_HEADERS([linux/filter.h linux/if_addr.h linux/if_ether.h linux/if_tun.h
 #endif
 ])
 
-AC_CACHE_CHECK([whether <ustat.h> can be used],
-[libgo_cv_c_ustat_h],
-[CFLAGS_hold=$CFLAGS
-CFLAGS="$CFLAGS -D_LARGEFILE_SOURCE -D_LARGEFILE64_SOURCE $OSCFLAGS"
-AC_COMPILE_IFELSE(
-[AC_LANG_SOURCE([
-#include <sys/types.h>
-#ifdef HAVE_LINUX_FILTER_H
-#include <linux/filter.h>
-#endif
-#include <ustat.h>
-])], [libgo_cv_c_ustat_h=yes], [libgo_cv_c_ustat_h=no])
-CFLAGS=$CFLAGS_hold])
-if test $libgo_cv_c_ustat_h = yes; then
-  AC_DEFINE(HAVE_USTAT_H, 1,
-    [Define to 1 if you have the <ustat.h> header file and it works.])
-fi
-
 AM_CONDITIONAL(HAVE_SYS_MMAN_H, test "$ac_cv_header_sys_mman_h" = yes)
 
 AC_CHECK_FUNCS(strerror_r strsignal wait4 mincore setenv unsetenv dl_iterate_phdr)
@@ -684,7 +666,7 @@ STRUCT_EPOLL_EVENT_FD_OFFSET=${libgo_cv_c_epoll_event_fd_offset}
 AC_SUBST(STRUCT_EPOLL_EVENT_FD_OFFSET)
 
 dnl Check if <sys/stat.h> uses timespec_t for st_?tim members.  Introduced
-dnl in Solaris 12 for XPG7 compatibility.
+dnl in Solaris 11.4 for XPG7 compatibility.
 AC_EGREP_HEADER([timespec_t.*st_atim], [sys/stat.h],
 		[have_stat_timespec=yes], [have_stat_timespec=no])
 AM_CONDITIONAL(HAVE_STAT_TIMESPEC, test $have_stat_timespec = yes)

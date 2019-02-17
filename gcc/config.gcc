@@ -850,8 +850,8 @@ case ${target} in
   sol2_tm_file_tail="${cpu_type}/sol2.h sol2.h"
   sol2_tm_file="${sol2_tm_file_head} ${sol2_tm_file_tail}"
   case ${target} in
-    *-*-solaris2.1[2-9]*)
-      # __cxa_atexit was introduced in Solaris 12.
+    *-*-solaris2.1[1-9]*)
+      # __cxa_atexit was introduced in Solaris 11.4.
       default_use_cxa_atexit=yes
       ;;
   esac
@@ -945,6 +945,11 @@ aarch64*-*-elf | aarch64*-*-rtems*)
 		esac
 	done
 	TM_MULTILIB_CONFIG=`echo $TM_MULTILIB_CONFIG | sed 's/^,//'`
+	;;
+aarch64*-*-freebsd*)
+	tm_file="${tm_file} dbxelf.h elfos.h ${fbsd_tm_file}"
+	tm_file="${tm_file} aarch64/aarch64-elf.h aarch64/aarch64-freebsd.h"
+	tmake_file="${tmake_file} aarch64/t-aarch64 aarch64/t-aarch64-freebsd"
 	;;
 aarch64*-*-linux*)
 	tm_file="${tm_file} dbxelf.h elfos.h gnu-user.h linux.h glibc-stdint.h"
@@ -1066,6 +1071,10 @@ arm*-*-freebsd*)                # ARM FreeBSD EABI
             if test $fbsd_major -ge 11; then
                tm_defines="${tm_defines} TARGET_FREEBSD_ARM_HARD_FLOAT=1"
             fi
+	    ;;
+	armv7*-*-freebsd*)
+	    tm_defines="${tm_defines} TARGET_FREEBSD_ARMv7=1"
+	    tm_defines="${tm_defines} TARGET_FREEBSD_ARM_HARD_FLOAT=1"
 	    ;;
 	esac
 	with_tls=${with_tls:-gnu}

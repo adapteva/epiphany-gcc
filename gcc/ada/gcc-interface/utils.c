@@ -238,6 +238,7 @@ static GTY ((cache))
   hash_table<pad_type_hasher> *pad_type_hash_table;
 
 static tree merge_sizes (tree, tree, tree, bool, bool);
+static tree fold_bit_position (const_tree);
 static tree compute_related_constant (tree, tree);
 static tree split_plus (tree, tree *);
 static tree float_type_for_precision (int, machine_mode);
@@ -2021,14 +2022,10 @@ rest_of_record_type_compilation (tree record_type)
 	{
 	  tree field_type = TREE_TYPE (old_field);
 	  tree field_name = DECL_NAME (old_field);
-	  tree curpos = bit_position (old_field);
+	  tree curpos = fold_bit_position (old_field);
 	  tree pos, new_field;
 	  bool var = false;
 	  unsigned int align = 0;
-
-	  /* We're going to do some pattern matching below so remove as many
-	     conversions as possible.  */
-	  curpos = remove_conversions (curpos, true);
 
 	  /* See how the position was modified from the last position.
 
@@ -2126,7 +2123,7 @@ rest_of_record_type_compilation (tree record_type)
 	     is when there are other components at fixed positions after
 	     it (meaning there was a rep clause for every field) and we
 	     want to be able to encode them.  */
-	  last_pos = size_binop (PLUS_EXPR, bit_position (old_field),
+	  last_pos = size_binop (PLUS_EXPR, curpos,
 				 (TREE_CODE (TREE_TYPE (old_field))
 				  == QUAL_UNION_TYPE)
 				 ? bitsize_zero_node
@@ -2181,23 +2178,51 @@ merge_sizes (tree last_size, tree first_bit, tree size, bool special,
   return new_size;
 }
 
+/* Return the bit position of FIELD, in bits from the start of the record,
+   and fold it as much as possible.  This is a tree of type bitsizetype.  */
+
+static tree
+fold_bit_position (const_tree field)
+{
+  tree offset = DECL_FIELD_OFFSET (field);
+  if (TREE_CODE (offset) == MULT_EXPR || TREE_CODE (offset) == PLUS_EXPR)
+    offset = size_binop (TREE_CODE (offset),
+			 fold_convert (bitsizetype, TREE_OPERAND (offset, 0)),
+			 fold_convert (bitsizetype, TREE_OPERAND (offset, 1)));
+  else
+    offset = fold_convert (bitsizetype, offset);
+  return size_binop (PLUS_EXPR, DECL_FIELD_BIT_OFFSET (field),
+ 		     size_binop (MULT_EXPR, offset, bitsize_unit_node));
+}
+
 /* Utility function of above to see if OP0 and OP1, both of SIZETYPE, are
    related by the addition of a constant.  Return that constant if so.  */
 
 static tree
 compute_related_constant (tree op0, tree op1)
 {
-  tree op0_var, op1_var;
-  tree op0_con = split_plus (op0, &op0_var);
-  tree op1_con = split_plus (op1, &op1_var);
-  tree result = size_binop (MINUS_EXPR, op0_con, op1_con);
+  tree factor, op0_var, op1_var, op0_cst, op1_cst, result;
+
+  if (TREE_CODE (op0) == MULT_EXPR
+      && TREE_CODE (op1) == MULT_EXPR
+      && TREE_CODE (TREE_OPERAND (op0, 1)) == INTEGER_CST
+      && TREE_OPERAND (op1, 1) == TREE_OPERAND (op0, 1))
+    {
+      factor = TREE_OPERAND (op0, 1);
+      op0 = TREE_OPERAND (op0, 0);
+      op1 = TREE_OPERAND (op1, 0);
+    }
+  else
+    factor = NULL_TREE;
+
+  op0_cst = split_plus (op0, &op0_var);
+  op1_cst = split_plus (op1, &op1_var);
+  result = size_binop (MINUS_EXPR, op0_cst, op1_cst);
 
   if (operand_equal_p (op0_var, op1_var, 0))
-    return result;
-  else if (operand_equal_p (op0, size_binop (PLUS_EXPR, op1_var, result), 0))
-    return result;
-  else
-    return 0;
+    return factor ? size_binop (MULT_EXPR, factor, result) : result;
+
+  return NULL_TREE;
 }
 
 /* Utility function of above to split a tree OP which may be a sum, into a
@@ -4617,6 +4642,7 @@ convert (tree type, tree expr)
       return fold (convert_to_real (type, expr));
 
     case RECORD_TYPE:
+      /* Do a normal conversion between scalar and justified modular type.  */
       if (TYPE_JUSTIFIED_MODULAR_P (type) && !AGGREGATE_TYPE_P (etype))
 	{
 	  vec<constructor_elt, va_gc> *v;
@@ -4628,9 +4654,27 @@ convert (tree type, tree expr)
 	  return gnat_build_constructor (type, v);
 	}
 
-      /* ... fall through ... */
+      /* In these cases, assume the front-end has validated the conversion.
+	 If the conversion is valid, it will be a bit-wise conversion, so
+	 it can be viewed as an unchecked conversion.  */
+      return unchecked_convert (type, expr, false);
 
     case ARRAY_TYPE:
+      /* Do a normal conversion between unconstrained and constrained array
+	 type, assuming the latter is a constrained version of the former.  */
+      if (TREE_CODE (expr) == INDIRECT_REF
+	  && ecode == ARRAY_TYPE
+	  && TREE_TYPE (etype) == TREE_TYPE (type))
+	{
+	  tree ptr_type = build_pointer_type (type);
+	  tree t = build_unary_op (INDIRECT_REF, NULL_TREE,
+				   fold_convert (ptr_type,
+						 TREE_OPERAND (expr, 0)));
+	  TREE_READONLY (t) = TREE_READONLY (expr);
+	  TREE_THIS_NOTRAP (t) = TREE_THIS_NOTRAP (expr);
+	  return t;
+	}
+
       /* In these cases, assume the front-end has validated the conversion.
 	 If the conversion is valid, it will be a bit-wise conversion, so
 	 it can be viewed as an unchecked conversion.  */
@@ -5182,20 +5226,26 @@ unchecked_convert (tree type, tree expr, bool notrunc_p)
       && !(code == INTEGER_TYPE && TYPE_BIASED_REPRESENTATION_P (type))
       && !(TYPE_UNSIGNED (type) && TYPE_UNSIGNED (etype)))
     {
-      tree base_type
-	= gnat_type_for_size (TREE_INT_CST_LOW (TYPE_SIZE (type)),
-			      TYPE_UNSIGNED (type));
-      tree shift_expr
-	= convert (base_type,
-		   size_binop (MINUS_EXPR,
-			       TYPE_SIZE (type), TYPE_RM_SIZE (type)));
-      expr
-	= convert (type,
-		   build_binary_op (RSHIFT_EXPR, base_type,
-				    build_binary_op (LSHIFT_EXPR, base_type,
-						     convert (base_type, expr),
-						     shift_expr),
-				    shift_expr));
+      if (integer_zerop (TYPE_RM_SIZE (type)))
+	expr = build_int_cst (type, 0);
+      else
+	{
+	  tree base_type
+	    = gnat_type_for_size (TREE_INT_CST_LOW (TYPE_SIZE (type)),
+				  TYPE_UNSIGNED (type));
+	  tree shift_expr
+	    = convert (base_type,
+		       size_binop (MINUS_EXPR,
+				   TYPE_SIZE (type), TYPE_RM_SIZE (type)));
+	  expr
+	    = convert (type,
+		       build_binary_op (RSHIFT_EXPR, base_type,
+				        build_binary_op (LSHIFT_EXPR, base_type,
+							 convert (base_type,
+								  expr),
+							 shift_expr),
+				        shift_expr));
+	}
     }
 
   /* An unchecked conversion should never raise Constraint_Error.  The code

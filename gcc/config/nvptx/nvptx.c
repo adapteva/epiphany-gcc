@@ -989,11 +989,14 @@ nvptx_declare_function_name (FILE *file, const char *name, const_tree decl)
     init_frame (file, STACK_POINTER_REGNUM,
 		UNITS_PER_WORD, crtl->outgoing_args_size);
 
-  /* Declare a local variable for the frame.  */
+  /* Declare a local variable for the frame.  Force its size to be
+     DImode-compatible.  */
   HOST_WIDE_INT sz = get_frame_size ();
   if (sz || cfun->machine->has_chain)
     init_frame (file, FRAME_POINTER_REGNUM,
-		crtl->stack_alignment_needed / BITS_PER_UNIT, sz);
+		crtl->stack_alignment_needed / BITS_PER_UNIT,
+		(sz + GET_MODE_SIZE (DImode) - 1)
+		& ~(HOST_WIDE_INT)(GET_MODE_SIZE (DImode) - 1));
 
   /* Declare the pseudos we have as ptx registers.  */
   int maxregs = max_reg_num ();
@@ -1480,9 +1483,15 @@ output_init_frag (rtx sym)
   
   if (sym)
     {
-      fprintf (asm_out_file, "generic(");
+      bool function = (SYMBOL_REF_DECL (sym)
+		       && (TREE_CODE (SYMBOL_REF_DECL (sym)) == FUNCTION_DECL));
+      if (!function)
+	fprintf (asm_out_file, "generic(");
       output_address (VOIDmode, sym);
-      fprintf (asm_out_file, val ? ") + " : ")");
+      if (!function)
+	fprintf (asm_out_file, ")");
+      if (val)
+	fprintf (asm_out_file, " + ");
     }
 
   if (!sym || val)
@@ -1607,6 +1616,9 @@ static void
 nvptx_assemble_decl_begin (FILE *file, const char *name, const char *section,
 			   const_tree type, HOST_WIDE_INT size, unsigned align)
 {
+  bool atype = (TREE_CODE (type) == ARRAY_TYPE)
+    && (TYPE_DOMAIN (type) == NULL_TREE);
+
   while (TREE_CODE (type) == ARRAY_TYPE)
     type = TREE_TYPE (type);
 
@@ -1646,6 +1658,8 @@ nvptx_assemble_decl_begin (FILE *file, const char *name, const char *section,
     /* We make everything an array, to simplify any initialization
        emission.  */
     fprintf (file, "[" HOST_WIDE_INT_PRINT_DEC "]", init_frag.remaining);
+  else if (atype)
+    fprintf (file, "[]");
 }
 
 /* Called when the initializer for a decl has been completely output through
@@ -3212,8 +3226,9 @@ nvptx_propagate (basic_block block, rtx_insn *insn, propagate_mask rw,
       rtx pred = NULL_RTX;
       rtx_code_label *label = NULL;
 
-      gcc_assert (!(fs & (GET_MODE_SIZE (DImode) - 1)));
-      fs /= GET_MODE_SIZE (DImode);
+      /* The frame size might not be DImode compatible, but the frame
+	 array's declaration will be.  So it's ok to round up here.  */
+      fs = (fs + GET_MODE_SIZE (DImode) - 1) / GET_MODE_SIZE (DImode);
       /* Detect single iteration loop. */
       if (fs == 1)
 	fs = 0;

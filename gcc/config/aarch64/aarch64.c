@@ -1110,7 +1110,7 @@ aarch64_load_symref_appropriately (rtx dest, rtx imm,
 	    emit_move_insn (gp_rtx, gen_rtx_HIGH (Pmode, s));
 
 	    if (mode != GET_MODE (gp_rtx))
-	      gp_rtx = simplify_gen_subreg (mode, gp_rtx, GET_MODE (gp_rtx), 0);
+             gp_rtx = gen_lowpart (mode, gp_rtx);
 	  }
 
 	if (mode == ptr_mode)
@@ -2316,7 +2316,7 @@ aarch64_libgcc_cmp_return_mode (void)
 static void
 aarch64_emit_probe_stack_range (HOST_WIDE_INT first, HOST_WIDE_INT size)
 {
-  rtx reg1 = gen_rtx_REG (ptr_mode, PROBE_STACK_FIRST_REG);
+  rtx reg1 = gen_rtx_REG (Pmode, PROBE_STACK_FIRST_REG);
 
   /* See the same assertion on PROBE_INTERVAL above.  */
   gcc_assert ((first % ARITH_FACTOR) == 0);
@@ -2328,9 +2328,9 @@ aarch64_emit_probe_stack_range (HOST_WIDE_INT first, HOST_WIDE_INT size)
       const HOST_WIDE_INT base = ROUND_UP (size, ARITH_FACTOR);
 
       emit_set_insn (reg1,
-		     plus_constant (ptr_mode,
+		     plus_constant (Pmode,
 				    stack_pointer_rtx, -(first + base)));
-      emit_stack_probe (plus_constant (ptr_mode, reg1, base - size));
+      emit_stack_probe (plus_constant (Pmode, reg1, base - size));
     }
 
   /* The run-time loop is made up of 8 insns in the generic case while the
@@ -2340,7 +2340,7 @@ aarch64_emit_probe_stack_range (HOST_WIDE_INT first, HOST_WIDE_INT size)
       HOST_WIDE_INT i, rem;
 
       emit_set_insn (reg1,
-		     plus_constant (ptr_mode,
+		     plus_constant (Pmode,
 				    stack_pointer_rtx,
 				    -(first + PROBE_INTERVAL)));
       emit_stack_probe (reg1);
@@ -2351,7 +2351,7 @@ aarch64_emit_probe_stack_range (HOST_WIDE_INT first, HOST_WIDE_INT size)
       for (i = 2 * PROBE_INTERVAL; i < size; i += PROBE_INTERVAL)
 	{
 	  emit_set_insn (reg1,
-			 plus_constant (ptr_mode, reg1, -PROBE_INTERVAL));
+			 plus_constant (Pmode, reg1, -PROBE_INTERVAL));
 	  emit_stack_probe (reg1);
 	}
 
@@ -2360,11 +2360,11 @@ aarch64_emit_probe_stack_range (HOST_WIDE_INT first, HOST_WIDE_INT size)
 	{
 	  const HOST_WIDE_INT base = ROUND_UP (rem, ARITH_FACTOR);
 
-	  emit_set_insn (reg1, plus_constant (ptr_mode, reg1, -base));
-	  emit_stack_probe (plus_constant (ptr_mode, reg1, base - rem));
+	  emit_set_insn (reg1, plus_constant (Pmode, reg1, -base));
+	  emit_stack_probe (plus_constant (Pmode, reg1, base - rem));
 	}
       else
-	emit_stack_probe (plus_constant (ptr_mode, reg1, -rem));
+	emit_stack_probe (plus_constant (Pmode, reg1, -rem));
     }
 
   /* Otherwise, do the same as above, but in a loop.  Note that we must be
@@ -2374,7 +2374,7 @@ aarch64_emit_probe_stack_range (HOST_WIDE_INT first, HOST_WIDE_INT size)
      equality test for the loop condition.  */
   else
     {
-      rtx reg2 = gen_rtx_REG (ptr_mode, PROBE_STACK_SECOND_REG);
+      rtx reg2 = gen_rtx_REG (Pmode, PROBE_STACK_SECOND_REG);
 
       /* Step 1: round SIZE to the previous multiple of the interval.  */
 
@@ -2385,11 +2385,11 @@ aarch64_emit_probe_stack_range (HOST_WIDE_INT first, HOST_WIDE_INT size)
 
       /* TEST_ADDR = SP + FIRST.  */
       emit_set_insn (reg1,
-		     plus_constant (ptr_mode, stack_pointer_rtx, -first));
+		     plus_constant (Pmode, stack_pointer_rtx, -first));
 
       /* LAST_ADDR = SP + FIRST + ROUNDED_SIZE.  */
       emit_set_insn (reg2,
-		     plus_constant (ptr_mode, stack_pointer_rtx,
+		     plus_constant (Pmode, stack_pointer_rtx,
 				    -(first + rounded_size)));
 
 
@@ -2405,10 +2405,7 @@ aarch64_emit_probe_stack_range (HOST_WIDE_INT first, HOST_WIDE_INT size)
 	 probes at FIRST + N * PROBE_INTERVAL for values of N from 1
 	 until it is equal to ROUNDED_SIZE.  */
 
-      if (ptr_mode == DImode)
-	emit_insn (gen_probe_stack_range_di (reg1, reg1, reg2));
-      else
-	emit_insn (gen_probe_stack_range_si (reg1, reg1, reg2));
+      emit_insn (gen_probe_stack_range (reg1, reg1, reg2));
 
 
       /* Step 4: probe at FIRST + SIZE if we cannot assert at compile-time
@@ -2422,11 +2419,11 @@ aarch64_emit_probe_stack_range (HOST_WIDE_INT first, HOST_WIDE_INT size)
 	    {
 	      const HOST_WIDE_INT base = ROUND_UP (rem, ARITH_FACTOR);
 
-	      emit_set_insn (reg2, plus_constant (ptr_mode, reg2, -base));
-	      emit_stack_probe (plus_constant (ptr_mode, reg2, base - rem));
+	      emit_set_insn (reg2, plus_constant (Pmode, reg2, -base));
+	      emit_stack_probe (plus_constant (Pmode, reg2, base - rem));
 	    }
 	  else
-	    emit_stack_probe (plus_constant (ptr_mode, reg2, -rem));
+	    emit_stack_probe (plus_constant (Pmode, reg2, -rem));
 	}
     }
 
@@ -2478,6 +2475,10 @@ aarch64_frame_pointer_required (void)
      function.  */
   if (flag_omit_leaf_frame_pointer
       && (!crtl->is_leaf || df_regs_ever_live_p (LR_REGNUM)))
+    return true;
+
+  /* Force a frame pointer for EH returns so the return address is at FP+8.  */
+  if (crtl->calls_eh_return)
     return true;
 
   return false;
@@ -3036,7 +3037,8 @@ aarch64_expand_epilogue (bool for_sibcall)
   rtx_insn *insn;
   /* We need to add memory barrier to prevent read from deallocated stack.  */
   bool need_barrier_p = (get_frame_size () != 0
-			 || cfun->machine->frame.saved_varargs_size);
+			 || cfun->machine->frame.saved_varargs_size
+			 || crtl->calls_eh_return);
 
   aarch64_layout_frame ();
 
@@ -3189,52 +3191,40 @@ aarch64_expand_epilogue (bool for_sibcall)
     emit_jump_insn (ret_rtx);
 }
 
-/* Return the place to copy the exception unwinding return address to.
-   This will probably be a stack slot, but could (in theory be the
-   return register).  */
+/* Implement EH_RETURN_HANDLER_RTX.  EH returns need to either return
+   normally or return to a previous frame after unwinding.
+
+   An EH return uses a single shared return sequence.  The epilogue is
+   exactly like a normal epilogue except that it has an extra input
+   register (EH_RETURN_STACKADJ_RTX) which contains the stack adjustment
+   that must be applied after the frame has been destroyed.  An extra label
+   is inserted before the epilogue which initializes this register to zero,
+   and this is the entry point for a normal return.
+
+   An actual EH return updates the return address, initializes the stack
+   adjustment and jumps directly into the epilogue (bypassing the zeroing
+   of the adjustment).  Since the return address is typically saved on the
+   stack when a function makes a call, the saved LR must be updated outside
+   the epilogue.
+
+   This poses problems as the store is generated well before the epilogue,
+   so the offset of LR is not known yet.  Also optimizations will remove the
+   store as it appears dead, even after the epilogue is generated (as the
+   base or offset for loading LR is different in many cases).
+
+   To avoid these problems this implementation forces the frame pointer
+   in eh_return functions so that the location of LR is fixed and known early.
+   It also marks the store volatile, so no optimization is permitted to
+   remove the store.  */
 rtx
-aarch64_final_eh_return_addr (void)
+aarch64_eh_return_handler_rtx (void)
 {
-  HOST_WIDE_INT fp_offset;
+  rtx tmp = gen_frame_mem (Pmode,
+    plus_constant (Pmode, hard_frame_pointer_rtx, UNITS_PER_WORD));
 
-  aarch64_layout_frame ();
-
-  fp_offset = cfun->machine->frame.frame_size
-	      - cfun->machine->frame.hard_fp_offset;
-
-  if (cfun->machine->frame.reg_offset[LR_REGNUM] < 0)
-    return gen_rtx_REG (DImode, LR_REGNUM);
-
-  /* DSE and CSELIB do not detect an alias between sp+k1 and fp+k2.  This can
-     result in a store to save LR introduced by builtin_eh_return () being
-     incorrectly deleted because the alias is not detected.
-     So in the calculation of the address to copy the exception unwinding
-     return address to, we note 2 cases.
-     If FP is needed and the fp_offset is 0, it means that SP = FP and hence
-     we return a SP-relative location since all the addresses are SP-relative
-     in this case.  This prevents the store from being optimized away.
-     If the fp_offset is not 0, then the addresses will be FP-relative and
-     therefore we return a FP-relative location.  */
-
-  if (frame_pointer_needed)
-    {
-      if (fp_offset)
-        return gen_frame_mem (DImode,
-			      plus_constant (Pmode, hard_frame_pointer_rtx, UNITS_PER_WORD));
-      else
-        return gen_frame_mem (DImode,
-			      plus_constant (Pmode, stack_pointer_rtx, UNITS_PER_WORD));
-    }
-
-  /* If FP is not needed, we calculate the location of LR, which would be
-     at the top of the saved registers block.  */
-
-  return gen_frame_mem (DImode,
-			plus_constant (Pmode,
-				       stack_pointer_rtx,
-				       fp_offset
-				       + cfun->machine->frame.saved_regs_size
-				       - 2 * UNITS_PER_WORD));
+  /* Mark the store volatile, so no optimization is permitted to remove it.  */
+  MEM_VOLATILE_P (tmp) = true;
+  return tmp;
 }
 
 /* Possibly output code to build up a constant in a register.  For
@@ -5347,7 +5337,7 @@ aarch64_class_max_nregs (reg_class_t regclass, machine_mode mode)
 {
   switch (regclass)
     {
-    case CALLER_SAVE_REGS:
+    case TAILCALL_ADDR_REGS:
     case POINTER_REGS:
     case GENERAL_REGS:
     case ALL_REGS:
@@ -5427,7 +5417,7 @@ aarch64_elf_asm_constructor (rtx symbol, int priority)
       section *s;
       char buf[18];
       snprintf (buf, sizeof (buf), ".init_array.%.5u", priority);
-      s = get_section (buf, SECTION_WRITE, NULL);
+      s = get_section (buf, SECTION_WRITE | SECTION_NOTYPE, NULL);
       switch_to_section (s);
       assemble_align (POINTER_SIZE);
       assemble_aligned_integer (POINTER_BYTES, symbol);
@@ -5444,7 +5434,7 @@ aarch64_elf_asm_destructor (rtx symbol, int priority)
       section *s;
       char buf[18];
       snprintf (buf, sizeof (buf), ".fini_array.%.5u", priority);
-      s = get_section (buf, SECTION_WRITE, NULL);
+      s = get_section (buf, SECTION_WRITE | SECTION_NOTYPE, NULL);
       switch_to_section (s);
       assemble_align (POINTER_SIZE);
       assemble_aligned_integer (POINTER_BYTES, symbol);
@@ -7393,10 +7383,10 @@ aarch64_register_move_cost (machine_mode mode,
     = aarch64_tune_params.regmove_cost;
 
   /* Caller save and pointer regs are equivalent to GENERAL_REGS.  */
-  if (to == CALLER_SAVE_REGS || to == POINTER_REGS)
+  if (to == TAILCALL_ADDR_REGS || to == POINTER_REGS)
     to = GENERAL_REGS;
 
-  if (from == CALLER_SAVE_REGS || from == POINTER_REGS)
+  if (from == TAILCALL_ADDR_REGS || from == POINTER_REGS)
     from = GENERAL_REGS;
 
   /* Moving between GPR and stack cost is the same as GP2GP.  */

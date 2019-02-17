@@ -837,11 +837,13 @@ lto_post_options (const char **pfilename ATTRIBUTE_UNUSED)
          flag_pie is 2.  */
       flag_pie = MAX (flag_pie, flag_pic);
       flag_pic = flag_pie;
+      flag_shlib = 0;
       break;
 
     case LTO_LINKER_OUTPUT_EXEC: /* Normal executable */
       flag_pic = 0;
       flag_pie = 0;
+      flag_shlib = 0;
       break;
 
     case LTO_LINKER_OUTPUT_UNKNOWN:
@@ -851,6 +853,12 @@ lto_post_options (const char **pfilename ATTRIBUTE_UNUSED)
   /* Excess precision other than "fast" requires front-end
      support.  */
   flag_excess_precision_cmdline = EXCESS_PRECISION_FAST;
+
+  /* When partitioning, we can tear appart STRING_CSTs uses from the same
+     TU into multiple partitions.  Without constant merging the constants
+     might not be equal at runtime.  See PR50199.  */
+  if (!flag_merge_constants)
+    flag_merge_constants = 1;
 
   /* Initialize the compiler back end.  */
   return false;

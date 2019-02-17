@@ -389,9 +389,9 @@ extern unsigned aarch64_architecture_version;
 #define ASM_DECLARE_FUNCTION_NAME(STR, NAME, DECL)	\
   aarch64_declare_function_name (STR, NAME, DECL)
 
-/* The register that holds the return address in exception handlers.  */
-#define AARCH64_EH_STACKADJ_REGNUM	(R0_REGNUM + 4)
-#define EH_RETURN_STACKADJ_RTX	gen_rtx_REG (Pmode, AARCH64_EH_STACKADJ_REGNUM)
+/* For EH returns X4 contains the stack adjustment.  */
+#define EH_RETURN_STACKADJ_RTX	gen_rtx_REG (Pmode, R4_REGNUM)
+#define EH_RETURN_HANDLER_RTX  aarch64_eh_return_handler_rtx ()
 
 /* Don't use __builtin_setjmp until we've defined it.  */
 #undef DONT_USE_BUILTIN_SETJMP
@@ -420,7 +420,7 @@ extern unsigned aarch64_architecture_version;
 enum reg_class
 {
   NO_REGS,
-  CALLER_SAVE_REGS,
+  TAILCALL_ADDR_REGS,
   GENERAL_REGS,
   STACK_REG,
   POINTER_REGS,
@@ -435,7 +435,7 @@ enum reg_class
 #define REG_CLASS_NAMES				\
 {						\
   "NO_REGS",					\
-  "CALLER_SAVE_REGS",				\
+  "TAILCALL_ADDR_REGS",				\
   "GENERAL_REGS",				\
   "STACK_REG",					\
   "POINTER_REGS",				\
@@ -447,7 +447,7 @@ enum reg_class
 #define REG_CLASS_CONTENTS						\
 {									\
   { 0x00000000, 0x00000000, 0x00000000 },	/* NO_REGS */		\
-  { 0x0007ffff, 0x00000000, 0x00000000 },	/* CALLER_SAVE_REGS */	\
+  { 0x0004ffff, 0x00000000, 0x00000000 },	/* TAILCALL_ADDR_REGS */\
   { 0x7fffffff, 0x00000000, 0x00000003 },	/* GENERAL_REGS */	\
   { 0x80000000, 0x00000000, 0x00000000 },	/* STACK_REG */		\
   { 0xffffffff, 0x00000000, 0x00000003 },	/* POINTER_REGS */	\
@@ -934,5 +934,13 @@ extern const char *host_detect_local_cpu (int argc, const char **argv);
    need it in many places in the backend.  Defined in aarch64-builtins.c.  */
 extern tree aarch64_fp16_type_node;
 extern tree aarch64_fp16_ptr_type_node;
+
+/* The generic unwind code in libgcc does not initialize the frame pointer.
+   So in order to unwind a function using a frame pointer, the very first
+   function that is unwound must save the frame pointer.  That way the frame
+   pointer is restored and its value is now valid - otherwise _Unwind_GetGR
+   crashes.  Libgcc can now be safely built with -fomit-frame-pointer.  */
+#define LIBGCC2_UNWIND_ATTRIBUTE \
+  __attribute__((optimize ("no-omit-frame-pointer")))
 
 #endif /* GCC_AARCH64_H */

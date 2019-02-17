@@ -890,6 +890,7 @@ gfc_conv_class_to_class (gfc_se *parmse, gfc_expr *e, gfc_typespec class_ts,
     }
 
   if ((ref == NULL || class_ref == ref)
+      && !(gfc_is_class_array_function (e) && parmse->class_vptr != NULL_TREE)
       && (!class_ts.u.derived->components->as
 	  || class_ts.u.derived->components->as->rank != -1))
     return;
@@ -960,8 +961,11 @@ gfc_conv_class_to_class (gfc_se *parmse, gfc_expr *e, gfc_typespec class_ts,
      First we have to find the corresponding class reference.  */
 
   tmp = NULL_TREE;
-  if (class_ref == NULL
-	&& e->symtree && e->symtree->n.sym->ts.type == BT_CLASS)
+  if (gfc_is_class_array_function (e)
+      && parmse->class_vptr != NULL_TREE)
+    tmp = parmse->class_vptr;
+  else if (class_ref == NULL
+	   && e->symtree && e->symtree->n.sym->ts.type == BT_CLASS)
     {
       tmp = e->symtree->n.sym->backend_decl;
       if (DECL_LANG_SPECIFIC (tmp) && GFC_DECL_SAVED_DESCRIPTOR (tmp))
@@ -988,7 +992,11 @@ gfc_conv_class_to_class (gfc_se *parmse, gfc_expr *e, gfc_typespec class_ts,
   if (TREE_CODE (TREE_TYPE (tmp)) == REFERENCE_TYPE)
     tmp = build_fold_indirect_ref_loc (input_location, tmp);
 
-  vptr = gfc_class_vptr_get (tmp);
+  if (!(gfc_is_class_array_function (e) && parmse->class_vptr))
+    vptr = gfc_class_vptr_get (tmp);
+  else
+    vptr = tmp;
+
   gfc_add_modify (&block, ctree,
 		  fold_convert (TREE_TYPE (ctree), vptr));
 
@@ -1898,8 +1906,11 @@ gfc_get_tree_for_caf_expr (gfc_expr *expr)
 		     &expr->where);
     }
 
-  caf_decl = expr->symtree->n.sym->backend_decl;
-  gcc_assert (caf_decl);
+  /* Make sure the backend_decl is present before accessing it.  */
+  caf_decl = expr->symtree->n.sym->backend_decl == NULL_TREE
+      ? gfc_get_symbol_decl (expr->symtree->n.sym)
+      : expr->symtree->n.sym->backend_decl;
+
   if (expr->symtree->n.sym->ts.type == BT_CLASS)
     caf_decl = gfc_class_data_get (caf_decl);
   if (expr->symtree->n.sym->attr.codimension)
@@ -2345,7 +2356,7 @@ gfc_conv_component_ref (gfc_se * se, gfc_ref * ref)
      On the other hand, if the context is a UNION or a MAP (a
      RECORD_TYPE within a UNION_TYPE) always use the given FIELD_DECL.  */
 
-  if (context != TREE_TYPE (decl) 
+  if (context != TREE_TYPE (decl)
       && !(   TREE_CODE (TREE_TYPE (field)) == UNION_TYPE /* Field is union */
            || TREE_CODE (context) == UNION_TYPE))         /* Field is map */
     {
@@ -4147,9 +4158,7 @@ gfc_map_intrinsic_function (gfc_expr *expr, gfc_interface_mapping *mapping)
       if (arg2 && arg2->expr_type == EXPR_CONSTANT)
 	d = mpz_get_si (arg2->value.integer) - 1;
       else
-	/* TODO: If the need arises, this could produce an array of
-	   ubound/lbounds.  */
-	gcc_unreachable ();
+	return false;
 
       if (expr->value.function.isym->id == GFC_ISYM_LBOUND)
 	{
@@ -4278,6 +4287,8 @@ gfc_apply_interface_mapping_to_expr (gfc_interface_mapping * mapping,
 
       if (expr->value.function.esym == NULL
 	    && expr->value.function.isym != NULL
+	    && expr->value.function.actual
+	    && expr->value.function.actual->expr
 	    && expr->value.function.actual->expr->symtree
 	    && gfc_map_intrinsic_function (expr, mapping))
 	break;
@@ -4406,7 +4417,7 @@ gfc_conv_subref_array_arg (gfc_se * parmse, gfc_expr * expr, int g77,
   /* Reset the offset for the function call since the loop
      is zero based on the data pointer.  Note that the temp
      comes first in the loop chain since it is added second.  */
-  if (gfc_is_alloc_class_array_function (expr))
+  if (gfc_is_class_array_function (expr))
     {
       tmp = loop.ss->loop_chain->info->data.array.descriptor;
       gfc_conv_descriptor_offset_set (&loop.pre, tmp,
@@ -4455,7 +4466,7 @@ gfc_conv_subref_array_arg (gfc_se * parmse, gfc_expr * expr, int g77,
   dimen = rse.ss->dimen;
 
   /* Skip the write-out loop for this case.  */
-  if (gfc_is_alloc_class_array_function (expr))
+  if (gfc_is_class_array_function (expr))
     goto class_array_fcn;
 
   /* Calculate the bounds of the scalarization.  */
@@ -4748,7 +4759,7 @@ gfc_conv_procedure_call (gfc_se * se, gfc_symbol * sym,
 	      gcc_assert ((!comp && gfc_return_by_reference (sym)
 			   && sym->result->attr.dimension)
 			  || (comp && comp->attr.dimension)
-			  || gfc_is_alloc_class_array_function (expr));
+			  || gfc_is_class_array_function (expr));
 	      gcc_assert (se->loop != NULL);
 	      /* Access the previously obtained result.  */
 	      gfc_conv_tmp_array_ref (se);
@@ -5401,7 +5412,7 @@ gfc_conv_procedure_call (gfc_se * se, gfc_symbol * sym,
 				fsym ? fsym->attr.intent : INTENT_INOUT,
 				fsym && fsym->attr.pointer);
 
-	      else if (gfc_is_alloc_class_array_function (e)
+	      else if (gfc_is_class_array_function (e)
 			 && fsym && fsym->ts.type == BT_DERIVED)
 		/* See previous comment.  For function actual argument,
 		   the write out is not needed so the intent is set as
@@ -5551,7 +5562,7 @@ gfc_conv_procedure_call (gfc_se * se, gfc_symbol * sym,
 
 	  tmp = gfc_deallocate_alloc_comp (e->ts.u.derived, tmp, parm_rank);
 
-	  gfc_add_expr_to_block (&se->post, tmp);
+	  gfc_prepend_expr_to_block (&post, tmp);
         }
 
       /* Add argument checking of passing an unallocated/NULL actual to
@@ -6069,7 +6080,7 @@ gfc_conv_procedure_call (gfc_se * se, gfc_symbol * sym,
      after use. This necessitates the creation of a temporary to
      hold the result to prevent duplicate calls.  */
   if (!byref && sym->ts.type != BT_CHARACTER
-      && sym->attr.allocatable && !sym->attr.dimension)
+      && sym->attr.allocatable && !sym->attr.dimension && !comp)
     {
       tmp = gfc_create_var (TREE_TYPE (se->expr), NULL);
       gfc_add_modify (&se->pre, tmp, se->expr);
@@ -6190,7 +6201,7 @@ gfc_conv_procedure_call (gfc_se * se, gfc_symbol * sym,
 	 call the finalization function of the temporary. Note that the
 	 nullification of allocatable components needed by the result
 	 is done in gfc_trans_assignment_1.  */
-      if (expr && ((gfc_is_alloc_class_array_function (expr)
+      if (expr && ((gfc_is_class_array_function (expr)
 		    && se->ss && se->ss->loop)
 		   || gfc_is_alloc_class_scalar_function (expr))
 	  && se->expr && GFC_CLASS_TYPE_P (TREE_TYPE (se->expr))
@@ -6201,6 +6212,7 @@ gfc_conv_procedure_call (gfc_se * se, gfc_symbol * sym,
 	  int n;
 	  if (se->ss && se->ss->loop)
 	    {
+	      gfc_add_block_to_block (&se->ss->loop->pre, &se->pre);
 	      se->expr = gfc_evaluate_now (se->expr, &se->ss->loop->pre);
 	      tmp = gfc_class_data_get (se->expr);
 	      info->descriptor = tmp;
@@ -6222,6 +6234,11 @@ gfc_conv_procedure_call (gfc_se * se, gfc_symbol * sym,
 	      tmp = gfc_conv_scalar_to_descriptor (se, tmp,
 			CLASS_DATA (expr->value.function.esym->result)->attr);
 	    }
+
+	  if ((gfc_is_class_array_function (expr)
+	       || gfc_is_alloc_class_scalar_function (expr))
+	      && CLASS_DATA (expr->value.function.esym->result)->attr.pointer)
+	    goto no_finalization;
 
 	  final_fndecl = gfc_class_vtab_final_get (se->expr);
 	  is_final = fold_build2_loc (input_location, NE_EXPR,
@@ -6253,6 +6270,8 @@ gfc_conv_procedure_call (gfc_se * se, gfc_symbol * sym,
 	      tmp = gfc_call_free (tmp);
 	      gfc_add_expr_to_block (&se->post, tmp);
 	    }
+
+no_finalization:
 	  expr->must_finalize = 0;
 	}
 
@@ -8391,7 +8410,7 @@ arrayfunc_assign_needs_temporary (gfc_expr * expr1, gfc_expr * expr2)
   gfc_symbol *sym = expr1->symtree->n.sym;
 
   /* Play it safe with class functions assigned to a derived type.  */
-  if (gfc_is_alloc_class_array_function (expr2)
+  if (gfc_is_class_array_function (expr2)
       && expr1->ts.type == BT_DERIVED)
     return true;
 
@@ -9270,7 +9289,7 @@ gfc_trans_assignment_1 (gfc_expr * expr1, gfc_expr * expr2, bool init_flag,
   rss = NULL;
 
   if ((expr1->ts.type == BT_DERIVED)
-      && (gfc_is_alloc_class_array_function (expr2)
+      && (gfc_is_class_array_function (expr2)
 	  || gfc_is_alloc_class_scalar_function (expr2)))
     expr2->must_finalize = 1;
 
@@ -9441,9 +9460,9 @@ gfc_trans_assignment_1 (gfc_expr * expr1, gfc_expr * expr2, bool init_flag,
      nullification occurs before the call to the finalizer. In the case of
      a scalar to array assignment, this is done in gfc_trans_scalar_assign
      as part of the deep copy.  */
-  if (!scalar_to_array && (expr1->ts.type == BT_DERIVED)
-					      && (gfc_is_alloc_class_array_function (expr2)
-						      || gfc_is_alloc_class_scalar_function (expr2)))
+  if (!scalar_to_array
+      && (expr1->ts.type == BT_DERIVED)
+      && (gfc_is_class_array_function (expr2) || gfc_is_alloc_class_scalar_function (expr2)))
     {
       tmp = rse.expr;
       tmp = gfc_nullify_alloc_comp (expr1->ts.u.derived, rse.expr, 0);

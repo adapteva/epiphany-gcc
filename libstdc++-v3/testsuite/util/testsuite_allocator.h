@@ -287,7 +287,7 @@ namespace __gnu_test
 
       Alloc& base() { return *this; }
       const Alloc& base() const  { return *this; }
-      void swap_base(Alloc& b) { swap(b, this->base()); }
+      void swap_base(Alloc& b) { using std::swap; swap(b, this->base()); }
 
     public:
       typedef typename check_consistent_alloc_value_type<Tp, Alloc>::value_type
@@ -572,6 +572,8 @@ namespace __gnu_test
 
       explicit PointerBase(T* p = nullptr) : value(p) { }
 
+      PointerBase(std::nullptr_t) : value(nullptr) { }
+
       template<typename D, typename U,
 	       typename = decltype(static_cast<T*>(std::declval<U*>()))>
 	PointerBase(const PointerBase<D, U>& p) : value(p.value) { }
@@ -605,7 +607,11 @@ namespace __gnu_test
       }
 
     private:
-      Derived& derived() { return static_cast<Derived&>(*this); }
+      Derived&
+      derived() { return static_cast<Derived&>(*this); }
+
+      const Derived&
+      derived() const { return static_cast<const Derived&>(*this); }
     };
 
     template<typename D, typename T>

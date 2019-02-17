@@ -1469,7 +1469,7 @@ Pragma_to_gnu (Node_Id gnat_node)
 	else
 	  option_index = 0;
 
-	set_default_handlers (&handlers);
+	set_default_handlers (&handlers, NULL);
 	control_warning_option (option_index, (int) kind, arg, imply, location,
 				lang_mask, &handlers, &global_options,
 				&global_options_set, global_dc);
@@ -3600,7 +3600,14 @@ return_value_ok_for_nrv_p (tree ret_obj, tree ret_val)
   if (TREE_ADDRESSABLE (ret_val))
     return false;
 
+  /* For the constrained case, test for overalignment.  */
   if (ret_obj && DECL_ALIGN (ret_val) > DECL_ALIGN (ret_obj))
+    return false;
+
+  /* For the unconstrained case, test for bogus initialization.  */
+  if (!ret_obj
+      && DECL_INITIAL (ret_val)
+      && TREE_CODE (DECL_INITIAL (ret_val)) == NULL_EXPR)
     return false;
 
   return true;
@@ -4295,12 +4302,15 @@ Call_to_gnu (Node_Id gnat_node, tree *gnu_result_type_p, tree gnu_target,
 	  because we need to preserve the return value before copying back the
 	  parameters.
 
-       2. There is no target and the call is made for neither an object nor a
-	  renaming declaration, nor a return statement, and the return type has
-	  variable size, because in this case the gimplifier cannot create the
-	  temporary, or more generally is simply an aggregate type, because the
-	  gimplifier would create the temporary in the outermost scope instead
-	  of locally.
+       2. There is no target and the call is made for neither an object, nor a
+	  renaming declaration, nor a return statement, nor an allocator, and
+	  the return type has variable size because in this case the gimplifier
+	  cannot create the temporary, or more generally is an aggregate type,
+	  because the gimplifier would create the temporary in the outermost
+	  scope instead of locally.  But there is an exception for an allocator
+	  of an unconstrained record type with default discriminant because we
+	  allocate the actual size in this case, unlike the other 3 cases, so
+	  we need a temporary to fetch the discriminant and we create it here.
 
        3. There is a target and it is a slice or an array with fixed size,
 	  and the return type has variable size, because the gimplifier
@@ -4319,6 +4329,9 @@ Call_to_gnu (Node_Id gnat_node, tree *gnu_result_type_p, tree gnu_target,
 	      && Nkind (Parent (gnat_node)) != N_Object_Declaration
 	      && Nkind (Parent (gnat_node)) != N_Object_Renaming_Declaration
 	      && Nkind (Parent (gnat_node)) != N_Simple_Return_Statement
+	      && (!(Nkind (Parent (gnat_node)) == N_Qualified_Expression
+		    && Nkind (Parent (Parent (gnat_node))) == N_Allocator)
+		  || type_is_padding_self_referential (gnu_result_type))
 	      && AGGREGATE_TYPE_P (gnu_result_type)
 	      && !TYPE_IS_FAT_POINTER_P (gnu_result_type))
 	  || (gnu_target
@@ -7696,7 +7709,6 @@ gnat_to_gnu (Node_Id gnat_node)
       && (kind == N_Identifier
 	  || kind == N_Expanded_Name
 	  || kind == N_Explicit_Dereference
-	  || kind == N_Function_Call
 	  || kind == N_Indexed_Component
 	  || kind == N_Selected_Component)
       && TREE_CODE (get_base_type (gnu_result_type)) == BOOLEAN_TYPE
@@ -9207,7 +9219,7 @@ convert_with_check (Entity_Id gnat_type, tree gnu_expr, bool overflowp,
 	  ? tree_int_cst_lt (gnu_out_ub, gnu_in_ub)
 	  : (FLOAT_TYPE_P (gnu_base_type)
 	     ? real_less (&TREE_REAL_CST (gnu_out_ub),
-			  &TREE_REAL_CST (gnu_in_lb))
+			  &TREE_REAL_CST (gnu_in_ub))
 	     : 1))
 	gnu_cond
 	  = build_binary_op (TRUTH_ORIF_EXPR, boolean_type_node, gnu_cond,
@@ -9643,7 +9655,14 @@ pos_to_constructor (Node_Id gnat_expr, tree gnu_array_type,
 				       gnat_component_type);
       else
 	{
-	  gnu_expr = gnat_to_gnu (gnat_expr);
+	  /* If the expression is a conversion to an unconstrained array type,
+	     skip it to avoid spilling to memory.  */
+	  if (Nkind (gnat_expr) == N_Type_Conversion
+	      && Is_Array_Type (Etype (gnat_expr))
+	      && !Is_Constrained (Etype (gnat_expr)))
+	    gnu_expr = gnat_to_gnu (Expression (gnat_expr));
+	  else
+	    gnu_expr = gnat_to_gnu (gnat_expr);
 
 	  /* Before assigning the element to the array, make sure it is
 	     in range.  */

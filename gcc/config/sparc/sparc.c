@@ -969,7 +969,8 @@ sparc_do_work_around_errata (void)
 	       && NONJUMP_INSN_P (insn)
 	       && (set = single_set (insn)) != NULL_RTX
 	       && GET_MODE_SIZE (GET_MODE (SET_SRC (set))) <= 4
-	       && mem_ref (SET_SRC (set)) != NULL_RTX
+	       && (mem_ref (SET_SRC (set)) != NULL_RTX
+		   || INSN_CODE (insn) == CODE_FOR_movsi_pic_gotdata_op)
 	       && REG_P (SET_DEST (set))
 	       && REGNO (SET_DEST (set)) < 32)
 	{
@@ -1006,6 +1007,11 @@ sparc_do_work_around_errata (void)
 			       && REGNO (src) < 32
 			       && REGNO (src) != REGNO (x)))
 		       && !reg_mentioned_p (x, XEXP (dest, 0)))
+		insert_nop = true;
+
+	      /* GOT accesses uses LD.  */
+	      else if (INSN_CODE (next) == CODE_FOR_movsi_pic_gotdata_op
+		       && !reg_mentioned_p (x, XEXP (XEXP (src, 0), 1)))
 		insert_nop = true;
 	    }
 	}
@@ -1503,15 +1509,18 @@ sparc_option_override (void)
     target_flags &= ~MASK_STACK_BIAS;
 
   /* Supply a default value for align_functions.  */
-  if (align_functions == 0
-      && (sparc_cpu == PROCESSOR_ULTRASPARC
+  if (align_functions == 0)
+    {
+      if (sparc_cpu == PROCESSOR_ULTRASPARC
 	  || sparc_cpu == PROCESSOR_ULTRASPARC3
 	  || sparc_cpu == PROCESSOR_NIAGARA
 	  || sparc_cpu == PROCESSOR_NIAGARA2
 	  || sparc_cpu == PROCESSOR_NIAGARA3
-	  || sparc_cpu == PROCESSOR_NIAGARA4
-	  || sparc_cpu == PROCESSOR_NIAGARA7))
-    align_functions = 32;
+	  || sparc_cpu == PROCESSOR_NIAGARA4)
+	align_functions = 32;
+      else if (sparc_cpu == PROCESSOR_NIAGARA7)
+	align_functions = 64;
+    }
 
   /* Validate PCC_STRUCT_RETURN.  */
   if (flag_pcc_struct_return == DEFAULT_PCC_STRUCT_RETURN)
@@ -1828,7 +1837,7 @@ sparc_expand_move (machine_mode mode, rtx *operands)
 	}
     }
 
-  /* Fixup TLS cases.  */
+  /* Fix up TLS cases.  */
   if (TARGET_HAVE_TLS
       && CONSTANT_P (operands[1])
       && sparc_tls_referenced_p (operands [1]))
@@ -1837,15 +1846,20 @@ sparc_expand_move (machine_mode mode, rtx *operands)
       return false;
     }
 
-  /* Fixup PIC cases.  */
+  /* Fix up PIC cases.  */
   if (flag_pic && CONSTANT_P (operands[1]))
     {
       if (pic_address_needs_scratch (operands[1]))
 	operands[1] = sparc_legitimize_pic_address (operands[1], NULL_RTX);
 
       /* We cannot use the mov{si,di}_pic_label_ref patterns in all cases.  */
-      if (GET_CODE (operands[1]) == LABEL_REF
-	  && can_use_mov_pic_label_ref (operands[1]))
+      if ((GET_CODE (operands[1]) == LABEL_REF
+	   && can_use_mov_pic_label_ref (operands[1]))
+	  || (GET_CODE (operands[1]) == CONST
+	      && GET_CODE (XEXP (operands[1], 0)) == PLUS
+	      && GET_CODE (XEXP (XEXP (operands[1], 0), 0)) == LABEL_REF
+	      && GET_CODE (XEXP (XEXP (operands[1], 0), 1)) == CONST_INT
+	      && can_use_mov_pic_label_ref (XEXP (XEXP (operands[1], 0), 0))))
 	{
 	  if (mode == SImode)
 	    {
@@ -1855,7 +1869,6 @@ sparc_expand_move (machine_mode mode, rtx *operands)
 
 	  if (mode == DImode)
 	    {
-	      gcc_assert (TARGET_ARCH64);
 	      emit_insn (gen_movdi_pic_label_ref (operands[0], operands[1]));
 	      return true;
 	    }
@@ -3842,10 +3855,11 @@ int
 pic_address_needs_scratch (rtx x)
 {
   /* An address which is a symbolic plus a non SMALL_INT needs a temp reg.  */
-  if (GET_CODE (x) == CONST && GET_CODE (XEXP (x, 0)) == PLUS
+  if (GET_CODE (x) == CONST
+      && GET_CODE (XEXP (x, 0)) == PLUS
       && GET_CODE (XEXP (XEXP (x, 0), 0)) == SYMBOL_REF
       && GET_CODE (XEXP (XEXP (x, 0), 1)) == CONST_INT
-      && ! SMALL_INT (XEXP (XEXP (x, 0), 1)))
+      && !SMALL_INT (XEXP (XEXP (x, 0), 1)))
     return 1;
 
   return 0;
@@ -4286,16 +4300,15 @@ sparc_legitimize_tls_address (rtx addr)
 static rtx
 sparc_legitimize_pic_address (rtx orig, rtx reg)
 {
-  bool gotdata_op = false;
-
   if (GET_CODE (orig) == SYMBOL_REF
       /* See the comment in sparc_expand_move.  */
       || (GET_CODE (orig) == LABEL_REF && !can_use_mov_pic_label_ref (orig)))
     {
+      bool gotdata_op = false;
       rtx pic_ref, address;
       rtx_insn *insn;
 
-      if (reg == 0)
+      if (!reg)
 	{
 	  gcc_assert (can_create_pseudo_p ());
 	  reg = gen_reg_rtx (Pmode);
@@ -4306,8 +4319,7 @@ sparc_legitimize_pic_address (rtx orig, rtx reg)
 	  /* If not during reload, allocate another temp reg here for loading
 	     in the address, so that these instructions can be optimized
 	     properly.  */
-	  rtx temp_reg = (! can_create_pseudo_p ()
-			  ? reg : gen_reg_rtx (Pmode));
+	  rtx temp_reg = can_create_pseudo_p () ? gen_reg_rtx (Pmode) : reg;
 
 	  /* Must put the SYMBOL_REF inside an UNSPEC here so that cse
 	     won't get confused into thinking that these two instructions
@@ -4323,6 +4335,7 @@ sparc_legitimize_pic_address (rtx orig, rtx reg)
 	      emit_insn (gen_movsi_high_pic (temp_reg, orig));
 	      emit_insn (gen_movsi_lo_sum_pic (temp_reg, temp_reg, orig));
 	    }
+
 	  address = temp_reg;
 	  gotdata_op = true;
 	}
@@ -4363,7 +4376,7 @@ sparc_legitimize_pic_address (rtx orig, rtx reg)
 	  && XEXP (XEXP (orig, 0), 0) == pic_offset_table_rtx)
 	return orig;
 
-      if (reg == 0)
+      if (!reg)
 	{
 	  gcc_assert (can_create_pseudo_p ());
 	  reg = gen_reg_rtx (Pmode);
@@ -4472,7 +4485,11 @@ sparc_delegitimize_address (rtx x)
       && XINT (XEXP (XEXP (x, 1), 1), 1) == UNSPEC_MOVE_PIC_LABEL)
     {
       x = XVECEXP (XEXP (XEXP (x, 1), 1), 0, 0);
-      gcc_assert (GET_CODE (x) == LABEL_REF);
+      gcc_assert (GET_CODE (x) == LABEL_REF
+		  || (GET_CODE (x) == CONST
+		      && GET_CODE (XEXP (x, 0)) == PLUS
+		      && GET_CODE (XEXP (XEXP (x, 0), 0)) == LABEL_REF
+		      && GET_CODE (XEXP (XEXP (x, 0), 1)) == CONST_INT));
     }
 
   return x;
@@ -5752,6 +5769,9 @@ void
 sparc_expand_epilogue (bool for_eh)
 {
   HOST_WIDE_INT size = sparc_frame_size;
+
+  if (cfun->calls_alloca)
+    emit_insn (gen_frame_blockage ());
 
   if (sparc_n_global_fp_regs > 0)
     emit_save_or_restore_global_fp_regs (sparc_frame_base_reg,
@@ -11970,8 +11990,9 @@ sparc_frame_pointer_required (void)
   if (TARGET_FLAT)
     return false;
 
-  /* Otherwise, the frame pointer is required if the function isn't leaf.  */
-  return !(crtl->is_leaf && only_leaf_regs_used ());
+  /* Otherwise, the frame pointer is required if the function isn't leaf, but
+     we cannot use sparc_leaf_function_p since it hasn't been computed yet.  */
+  return !(optimize > 0 && crtl->is_leaf && only_leaf_regs_used ());
 }
 
 /* The way this is structured, we can't eliminate SFP in favor of SP

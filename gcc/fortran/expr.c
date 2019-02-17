@@ -2321,7 +2321,7 @@ check_inquiry (gfc_expr *e, int not_restricted)
 
 	/* Assumed character length will not reduce to a constant expression
 	   with LEN, as required by the standard.  */
-	if (i == 5 && not_restricted
+	if (i == 5 && not_restricted && ap->expr->symtree
 	    && ap->expr->symtree->n.sym->ts.type == BT_CHARACTER
 	    && (ap->expr->symtree->n.sym->ts.u.cl->length == NULL
 		|| ap->expr->symtree->n.sym->ts.deferred))
@@ -3768,7 +3768,8 @@ gfc_check_pointer_assign (gfc_expr *lvalue, gfc_expr *rvalue)
   if (warn_target_lifetime
       && rvalue->expr_type == EXPR_VARIABLE
       && !rvalue->symtree->n.sym->attr.save
-      && !attr.pointer && !rvalue->symtree->n.sym->attr.host_assoc
+      && !rvalue->symtree->n.sym->attr.pointer && !attr.pointer
+      && !rvalue->symtree->n.sym->attr.host_assoc
       && !rvalue->symtree->n.sym->attr.in_common
       && !rvalue->symtree->n.sym->attr.use_assoc
       && !rvalue->symtree->n.sym->attr.dummy)
@@ -3983,7 +3984,12 @@ gfc_default_initializer (gfc_typespec *ts)
 	  if ((comp->ts.type != comp->initializer->ts.type
 	       || comp->ts.kind != comp->initializer->ts.kind)
 	      && !comp->attr.pointer && !comp->attr.proc_pointer)
-	    gfc_convert_type_warn (ctor->expr, &comp->ts, 2, false);
+	    {
+	      bool val;
+	      val = gfc_convert_type_warn (ctor->expr, &comp->ts, 1, false);
+	      if (val == false)
+		return NULL;
+	    }
 	}
 
       if (comp->attr.allocatable
@@ -4096,7 +4102,11 @@ gfc_get_full_arrayspec_from_expr (gfc_expr *expr)
   if (expr->expr_type == EXPR_VARIABLE
       || expr->expr_type == EXPR_CONSTANT)
     {
-      as = expr->symtree->n.sym->as;
+      if (expr->symtree)
+	as = expr->symtree->n.sym->as;
+      else
+	as = NULL;
+
       for (ref = expr->ref; ref; ref = ref->next)
 	{
 	  switch (ref->type)
@@ -4338,14 +4348,15 @@ gfc_is_alloc_class_scalar_function (gfc_expr *expr)
 /* Determine if an expression is a function with an allocatable class array
    result.  */
 bool
-gfc_is_alloc_class_array_function (gfc_expr *expr)
+gfc_is_class_array_function (gfc_expr *expr)
 {
   if (expr->expr_type == EXPR_FUNCTION
       && expr->value.function.esym
       && expr->value.function.esym->result
       && expr->value.function.esym->result->ts.type == BT_CLASS
       && CLASS_DATA (expr->value.function.esym->result)->attr.dimension
-      && CLASS_DATA (expr->value.function.esym->result)->attr.allocatable)
+      && (CLASS_DATA (expr->value.function.esym->result)->attr.allocatable
+	  || CLASS_DATA (expr->value.function.esym->result)->attr.pointer))
     return true;
 
   return false;
