@@ -1252,7 +1252,7 @@
       (clobber (reg:SI GPR_LR))
       (clobber (reg:CC CC_REGNUM))
       (clobber (reg:CC_FP CCFP_REGNUM))])]
-  ""
+  "! reg_overlap_mentioned_p (gen_rtx_REG (SImode, 0), operands[2])"
   "#"
   "&& reload_completed"
   [(set (reg:SI 0) (match_dup 1))
@@ -1325,7 +1325,7 @@
       (clobber (reg:SI GPR_LR))
       (clobber (reg:CC CC_REGNUM))
       (clobber (reg:CC_FP CCFP_REGNUM))])]
-  ""
+  "! reg_overlap_mentioned_p (gen_rtx_REG (SImode, 0), operands[2])"
   "#"
   "&& reload_completed"
   [(set (reg:SI 0) (match_dup 1))
@@ -1398,7 +1398,7 @@
       (clobber (reg:SI GPR_LR))
       (clobber (reg:CC CC_REGNUM))
       (clobber (reg:CC_FP CCFP_REGNUM))])]
-  ""
+  "! reg_overlap_mentioned_p (gen_rtx_REG (SImode, 0), operands[2])"
   "#"
   "&& reload_completed"
   [(set (reg:SI 0) (match_dup 1))
@@ -1469,7 +1469,7 @@
       (clobber (reg:SI GPR_LR))
       (clobber (reg:CC CC_REGNUM))
       (clobber (reg:CC_FP CCFP_REGNUM))])]
-  ""
+  "! reg_overlap_mentioned_p (gen_rtx_REG (SImode, 0), operands[2])"
   "#"
   "&& reload_completed"
   [(set (reg:SI 0) (match_dup 1))

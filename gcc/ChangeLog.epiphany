@@ -1,3 +1,44 @@
+2017-10-18  Ola Jeppsson  <ola@adapteva.com>
+
+    Backported from mainline
+    commit 0744fd81c16fac8123936b120a196f04db67bbdc
+    Author: nickc <nickc@138bc75d-0d04-0410-961f-82ee72b054a4>
+    Date:   Mon Jun 22 16:25:08 2015 +0000
+
+	* testsuite/gcc.dg/graphite/isl-ast-gen-if.c (main): Increase
+	size of a array to allow a[50] to be a valid location.
+
+2017-05-03  Ola Jeppsson  <ola@adapteva.com>
+
+	* config/epiphany/epiphany.md (divsi3_1, modsi3_1, udivsi3_1,
+	umodsi3_1): Don't match if operands[2] is in r0.
+	* testsuite/gcc.target/epiphany/divmodsi-1.c: New test.
+
+2017-05-02  Ola Jeppsson  <ola@adapteva.com>
+
+	* config/epiphany/epiphany.c (epiphany_function_arg_boundary):
+	Convert type to main type variant.
+
+2017-05-02  Ola Jeppsson  <ola@adapteva.com>
+
+	* config/epiphany/epiphany.h (ENDFILE_SPEC): Add
+	cachemanager.o when -fPIC is used.
+
+2017-05-01  Ola Jeppsson  <ola@adapteva.com>
+
+	* config/epiphany/epiphany.c (epiphany_lra_p): New function.
+	(TARGET_LRA_P): Define to epiphany_lra_p.
+	* config/epiphany/epiphany-protos.h (epiphany_lra_p): Declare.
+	* config/epiphany/epiphany.opt (-mlra): New option.
+	* doc/invoke.texi (Epiphany Options): Add -mlra.
+
+2017-05-01  Ola Jeppsson  <ola@adapteva.com>
+
+	* config/epiphany/epiphany.opt (-mno-sched-prolog): Rename ...
+	(-msched-prolog): ... to this. Remove RejectNegative
+	constraint. Default is still -msched-prolog.
+	* doc/invoke.texi (Epiphany Options): Add -msched-prolog.
+
 2017-04-22  Ola Jeppsson  <ola@adapteva.com>
 
 	* config/epiphany/epiphany.h [IN_TARGET_LIBS]
