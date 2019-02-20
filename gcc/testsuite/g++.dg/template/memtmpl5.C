@@ -2,7 +2,7 @@
 
 struct C
 {
-  template< void(*F)()> void set_default() { 	}
+  template< void(*F)()> void set_default() { 	}	
 };
 
 

@@ -1,10 +1,9 @@
 // PR tree-optimization/80032
-/* { dg-do compile } */
-/* { dg-require-effective-target c++11 } */
-/* { dg-options "-O2" } */
-/* If DCE removes too many CLOBBERs then stack usage goes through the
-   roof as stack slots can no longer be shared.  */
-/* { dg-additional-options "-Wstack-usage=200" { target x86_64-*-* i?86-*-* } } */
+// { dg-do compile { target c++11 } }
+// { dg-options "-O2" }
+// If DCE removes too many CLOBBERs then stack usage goes through the
+// roof as stack slots can no longer be shared.
+// { dg-additional-options "-Wstack-usage=200" { target x86_64-*-* i?86-*-* } }
 
 typedef unsigned a;
 namespace test {

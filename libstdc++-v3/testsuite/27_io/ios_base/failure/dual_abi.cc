@@ -15,10 +15,11 @@
 // with this library; see the file COPYING3.  If not see
 // <http://www.gnu.org/licenses/>.
 
-// { dg-options "-D_GLIBCXX_USE_CXX11_ABI=1" }
-// { dg-do run }
+// { dg-options "-D_GLIBCXX_USE_CXX11_ABI=0" }
+// { dg-do run { target c++11 } }
 
 #include <fstream>
+#include <system_error>
 #include <testsuite_hooks.h>
 
 void
@@ -27,30 +28,30 @@ test01()
   using std::ios;
   bool caught_ios_failure = false;
   bool rethrown = false;
-  bool caught_exception = false;
+  bool caught_system_error = false;
   try {
     std::ifstream f;
     f.exceptions(ios::failbit | ios::badbit | ios::eofbit);
     try {
       f.get();
     }
-    catch (const ios::failure&) // catch as new ABI type
+    catch (const ios::failure&) // catch as old ABI type
     {
       caught_ios_failure = true;
 #if _GLIBCXX_USE_DUAL_ABI || _GLIBCXX_USE_CXX11_ABI == 1
       rethrown = true;
-      throw; // re-throw, to catch as old ABI type
+      throw; // re-throw, to catch as new ABI type
 #endif
     }
   }
-  catch (const std::exception& e)
+  catch (const std::system_error& e)
   {
-    caught_exception = true;
+    caught_system_error = true;
   }
 
   VERIFY( caught_ios_failure );
   if (rethrown)
-    VERIFY( caught_exception );
+    VERIFY( caught_system_error );
 }
 
 void
@@ -77,8 +78,8 @@ test02()
   {
     caught_ios_failure = true;
 #if _GLIBCXX_USE_DUAL_ABI
-    // If the Dual ABI is active the library throws the old type,
-    // so e1 was an object of that old type and so &e1 != &e2.
+    // If the Dual ABI is active the library throws the new type,
+    // so e1 was an object of that new type and so &e1 != &e2.
     VERIFY( p != &e2 );
 #else
     // Otherwise there's only one type of ios::failure, so &e1 == &e2.

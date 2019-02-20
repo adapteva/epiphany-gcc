@@ -16,11 +16,10 @@
 // <http://www.gnu.org/licenses/>.
 
 // { dg-do compile { target c++14 } }
-
+// { dg-require-effective-target cxx11-abi }
 
 #include <experimental/regex>
 
-#if _GLIBCXX_USE_CXX11_ABI
 namespace xpmr = std::experimental::pmr;
 
 struct X;
@@ -48,5 +47,4 @@ static_assert(std::is_same<xpmr::wsmatch,
       xpmr::polymorphic_allocator<
 	std::sub_match<xpmr::wstring::const_iterator>>>>::value,
     "pmr::wsmatch");
-#endif
 #endif

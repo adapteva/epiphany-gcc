@@ -1,7 +1,7 @@
 // { dg-do run }
 // { dg-options "-g -O0" }
 
-// Copyright (C) 2011-2016 Free Software Foundation, Inc.
+// Copyright (C) 2011-2017 Free Software Foundation, Inc.
 //
 // This file is part of the GNU ISO C++ Library.  This library is free
 // software; you can redistribute it and/or modify it under the
@@ -59,7 +59,8 @@ int main()
   std::set<C>::iterator siter = s.begin();
 // { dg-final { regexp-test siter {ref = @0x.*} } }
 
-  std::vector<C> v(1, c);
+  std::vector<C> v;
+  v.push_back(c);
   std::vector<C>::iterator viter = v.begin();
 // { dg-final { regexp-test viter {ref = @0x.*} } }
 

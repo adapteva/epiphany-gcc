@@ -1,4 +1,4 @@
-// Copyright (C) 2015-2016 Free Software Foundation, Inc.
+// Copyright (C) 2015-2017 Free Software Foundation, Inc.
 //
 // This file is part of the GNU ISO C++ Library.  This library is free
 // software; you can redistribute it and/or modify it under the
@@ -15,7 +15,8 @@
 // with this library; see the file COPYING3.  If not see
 // <http://www.gnu.org/licenses/>.
 
-// { dg-options "-std=gnu++11 -lstdc++fs" }
+// { dg-options "-lstdc++fs" }
+// { dg-do run { target c++11 } }
 // { dg-require-filesystem-ts "" }
 
 #include <experimental/filesystem>
@@ -27,7 +28,6 @@ namespace fs = std::experimental::filesystem;
 void
 test01()
 {
-  bool test __attribute__((unused)) = false;
   const std::error_code bad_ec = make_error_code(std::errc::invalid_argument);
   std::error_code ec;
 
@@ -113,8 +113,6 @@ test01()
 void
 test02()
 {
-  bool test __attribute__((unused)) = false;
-
   const std::error_code bad_ec = make_error_code(std::errc::invalid_argument);
   std::error_code ec;
   const auto p = __gnu_test::nonexistent_path();
@@ -143,8 +141,6 @@ test02()
 void
 test03()
 {
-  bool test __attribute__((unused)) = false;
-
   std::error_code ec = make_error_code(std::errc::invalid_argument);
   const auto p = __gnu_test::nonexistent_path();
   create_directories(p / "longer_than_small_string_buffer", ec);
@@ -162,8 +158,6 @@ test03()
 void
 test04()
 {
-  bool test __attribute__((unused)) = false;
-
   // libstdc++/71004
   const fs::recursive_directory_iterator it;
   VERIFY( it == end(it) );
@@ -172,8 +166,6 @@ test04()
 void
 test05()
 {
-  bool test __attribute__((unused)) = false;
-
   auto p = __gnu_test::nonexistent_path();
   create_directory(p);
   create_directory_symlink(p, p / "l");

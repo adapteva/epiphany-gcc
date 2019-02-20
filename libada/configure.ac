@@ -1,5 +1,5 @@
 # Configure script for libada.
-#   Copyright (C) 2003-2016 Free Software Foundation, Inc.
+#   Copyright (C) 2003-2017 Free Software Foundation, Inc.
 #
 # This file is free software; you can redistribute it and/or modify it
 # under the terms of the GNU General Public License as published by
@@ -142,6 +142,9 @@ else
   have_getipinfo=
 fi
 AC_SUBST([have_getipinfo])
+
+# Determine what GCC version number to use in filesystem paths.
+GCC_BASE_VER
 
 # Output: create a Makefile.
 AC_CONFIG_FILES([Makefile])

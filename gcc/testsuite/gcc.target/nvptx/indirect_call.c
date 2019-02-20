@@ -1,4 +1,4 @@
-/* { dg-options "-O2" } */
+/* { dg-options "-O2 -msoft-stack" } */
 /* { dg-do run } */
 
 int

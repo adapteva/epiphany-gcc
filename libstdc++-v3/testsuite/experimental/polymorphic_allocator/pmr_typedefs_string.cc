@@ -16,10 +16,10 @@
 // <http://www.gnu.org/licenses/>.
 
 // { dg-do compile { target c++14 } }
+// { dg-require-effective-target cxx11-abi }
 
 #include <experimental/string>
 
-#if _GLIBCXX_USE_CXX11_ABI
 namespace xpmr = std::experimental::pmr;
 
 struct T : std::char_traits<char> { };
@@ -58,5 +58,4 @@ static_assert(std::is_same<xpmr::wstring,
     std::basic_string<wchar_t, std::char_traits<wchar_t>,
 		      xpmr::polymorphic_allocator<wchar_t>>>::value,
     "pmr::wstring");
-#endif
 #endif

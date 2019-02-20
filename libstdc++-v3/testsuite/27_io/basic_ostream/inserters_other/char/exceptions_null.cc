@@ -1,4 +1,4 @@
-// Copyright (C) 2003-2016 Free Software Foundation, Inc.
+// Copyright (C) 2003-2017 Free Software Foundation, Inc.
 //
 // This file is part of the GNU ISO C++ Library.  This library is free
 // software; you can redistribute it and/or modify it under the
@@ -24,7 +24,6 @@
 void test1()
 {
   using namespace std;
-  bool test __attribute__((unused)) = true;
 
   ostringstream stream;
   stream << static_cast<streambuf*>(0);
@@ -34,7 +33,6 @@ void test1()
 void test3()
 {
   using namespace std;
-  bool test __attribute__((unused)) = true;
 
   ostringstream stream;
   stream.exceptions(ios_base::badbit);
@@ -44,7 +42,7 @@ void test3()
       stream << static_cast<streambuf*>(0);
       VERIFY( false );
     }
-  catch (ios_base::failure&)
+  catch (std::ios_base::failure&)
     {
     }
 

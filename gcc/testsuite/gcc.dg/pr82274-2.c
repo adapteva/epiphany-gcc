@@ -16,7 +16,11 @@ main ()
 #endif
   if (!__builtin_mul_overflow (mv, mv, &r))
     __builtin_abort ();
+  if (!__builtin_mul_overflow_p (mv, mv, r))
+    __builtin_abort ();
   if (!__builtin_mul_overflow (m, m, &r))
+    __builtin_abort ();
+  if (!__builtin_mul_overflow_p (m, m, r))
     __builtin_abort ();
   return 0;
 }

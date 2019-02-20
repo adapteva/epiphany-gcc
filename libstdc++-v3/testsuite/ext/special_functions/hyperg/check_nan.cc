@@ -1,9 +1,9 @@
+// { dg-do run { target c++11 } }
 // { dg-require-c-std "" }
 // { dg-add-options ieee }
 // { dg-options "-D__STDCPP_WANT_MATH_SPEC_FUNCS__" }
-// { dg-do run { target c++11 } }
 
-// Copyright (C) 2016 Free Software Foundation, Inc.
+// Copyright (C) 2016-2017 Free Software Foundation, Inc.
 //
 // This file is part of the GNU ISO C++ Library.  This library is free
 // software; you can redistribute it and/or modify it under the
@@ -50,7 +50,6 @@ test01()
   long double d = __gnu_cxx::hyperg(al, bl, cl, xl);
   long double e = __gnu_cxx::hypergl(al, bl, cl, xl);
 
-  bool test [[gnu::unused]] = true;
   VERIFY(std::isnan(a));
   VERIFY(std::isnan(b));
   VERIFY(std::isnan(c));
@@ -85,7 +84,6 @@ test02()
   long double d = __gnu_cxx::hyperg(al, bl, cl, xl);
   long double e = __gnu_cxx::hypergl(al, bl, cl, xl);
 
-  bool test [[gnu::unused]] = true;
   VERIFY(std::isnan(a));
   VERIFY(std::isnan(b));
   VERIFY(std::isnan(c));
@@ -120,7 +118,6 @@ test03()
   long double d = __gnu_cxx::hyperg(al, bl, cl, xl);
   long double e = __gnu_cxx::hypergl(al, bl, cl, xl);
 
-  bool test [[gnu::unused]] = true;
   VERIFY(std::isnan(a));
   VERIFY(std::isnan(b));
   VERIFY(std::isnan(c));
@@ -155,7 +152,6 @@ test04()
   long double d = __gnu_cxx::hyperg(al, bl, cl, xl);
   long double e = __gnu_cxx::hypergl(al, bl, cl, xl);
 
-  bool test [[gnu::unused]] = true;
   VERIFY(std::isnan(a));
   VERIFY(std::isnan(b));
   VERIFY(std::isnan(c));

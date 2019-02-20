@@ -1,4 +1,4 @@
-// Copyright (C) 2004-2016 Free Software Foundation, Inc.
+// Copyright (C) 2004-2017 Free Software Foundation, Inc.
 //
 // This file is part of the GNU ISO C++ Library.  This library is free
 // software; you can redistribute it and/or modify it under the
@@ -31,10 +31,10 @@ int main()
       wistream::sentry sentry(stream, false);
       VERIFY( false );
     }
-  catch (ios_base::failure&)
+  catch (std::ios_base::failure&)
     {
       VERIFY( stream.rdstate() == (ios_base::eofbit | ios_base::failbit) );
     }
-  
+
   return 0;
 }

@@ -6,7 +6,7 @@
  *                                                                          *
  *                              C Header File                               *
  *                                                                          *
- *          Copyright (C) 1992-2015, Free Software Foundation, Inc.         *
+ *          Copyright (C) 1992-2016, Free Software Foundation, Inc.         *
  *                                                                          *
  * GNAT is free software;  you can  redistribute it  and/or modify it under *
  * terms of the  GNU General Public License as published  by the Free Soft- *
@@ -177,6 +177,7 @@ extern Boolean In_Same_Source_Unit              (Node_Id, Node_Id);
 #define GNAT_Mode                      opt__gnat_mode
 #define List_Representation_Info       opt__list_representation_info
 #define No_Strict_Aliasing_CP          opt__no_strict_aliasing
+#define Suppress_Checks                opt__suppress_checks
 
 typedef enum {
   Front_End_SJLJ, Back_End_ZCX, Back_End_SJLJ
@@ -191,6 +192,7 @@ extern Boolean Generate_SCO_Instance_Table;
 extern Boolean GNAT_Mode;
 extern Int List_Representation_Info;
 extern Boolean No_Strict_Aliasing_CP;
+extern Boolean Suppress_Checks;
 
 #define ZCX_Exceptions            opt__zcx_exceptions
 #define SJLJ_Exceptions           opt__sjlj_exceptions
@@ -226,6 +228,7 @@ extern Boolean Is_Others_Aggregate (Node_Id);
 /* sem_aux:  */
 
 #define Ancestor_Subtype               sem_aux__ancestor_subtype
+#define Constant_Value                 sem_aux__constant_value
 #define First_Discriminant             sem_aux__first_discriminant
 #define First_Stored_Discriminant      sem_aux__first_stored_discriminant
 #define First_Subtype                  sem_aux__first_subtype
@@ -233,6 +236,7 @@ extern Boolean Is_Others_Aggregate (Node_Id);
 #define Is_Derived_Type                sem_aux__is_derived_type
 
 extern Entity_Id  Ancestor_Subtype             (Entity_Id);
+extern Node_Id    Constant_Value               (Entity_Id);
 extern Entity_Id  First_Discriminant           (Entity_Id);
 extern Entity_Id  First_Stored_Discriminant    (Entity_Id);
 extern Entity_Id  First_Subtype                (Entity_Id);

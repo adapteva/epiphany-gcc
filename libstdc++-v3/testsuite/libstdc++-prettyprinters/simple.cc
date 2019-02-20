@@ -2,8 +2,9 @@
 
 // { dg-do run }
 // { dg-options "-g -O0 -std=gnu++98" }
+// { dg-skip-if "" { *-*-* } { "-D_GLIBCXX_PROFILE" } }
 
-// Copyright (C) 2011-2016 Free Software Foundation, Inc.
+// Copyright (C) 2011-2017 Free Software Foundation, Inc.
 //
 // This file is part of the GNU ISO C++ Library.  This library is free
 // software; you can redistribute it and/or modify it under the
@@ -75,7 +76,7 @@ main()
 
   std::map<std::string, int> mp;
   mp["zardoz"] = 23;
-// { dg-final { note-test mp {std::map with 1 elements = {["zardoz"] = 23}} } }
+// { dg-final { note-test mp {std::map with 1 element = {["zardoz"] = 23}} } }
 
   std::map<std::string, int>::iterator mpiter = mp.begin();
 // { dg-final { note-test mpiter {{first = "zardoz", second = 23}} } }

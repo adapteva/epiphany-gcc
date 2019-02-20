@@ -7,3 +7,4 @@ struct S {
   }
 };
 int main() {}
+

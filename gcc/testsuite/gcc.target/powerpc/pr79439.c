@@ -24,6 +24,6 @@ rec (int a)
 }
 
 /* { dg-final { scan-assembler-times {\mbl f\M}   1 } } */
-/* { dg-final { scan-assembler-times {\mbl g\M}   2 } } */
+/* { dg-final { scan-assembler-times {\mbl g\M}   1 } } */
 /* { dg-final { scan-assembler-times {\mbl rec\M} 1 } } */
-/* { dg-final { scan-assembler-times {\mnop\M}    4 } } */
+/* { dg-final { scan-assembler-times {\mnop\M}    3 } } */
