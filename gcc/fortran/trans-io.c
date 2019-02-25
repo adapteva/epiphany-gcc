@@ -1,5 +1,5 @@
 /* IO Code translation/library interface
-   Copyright (C) 2002-2017 Free Software Foundation, Inc.
+   Copyright (C) 2002-2018 Free Software Foundation, Inc.
    Contributed by Paul Brook
 
 This file is part of GCC.
@@ -345,11 +345,11 @@ gfc_build_io_library_fndecls (void)
 
   iocall[IOCALL_X_CHARACTER] = gfc_build_library_function_decl_with_spec (
 	get_identifier (PREFIX("transfer_character")), ".wW",
-	void_type_node, 3, dt_parm_type, pvoid_type_node, gfc_int4_type_node);
+	void_type_node, 3, dt_parm_type, pvoid_type_node, gfc_charlen_type_node);
 
   iocall[IOCALL_X_CHARACTER_WRITE] = gfc_build_library_function_decl_with_spec (
 	get_identifier (PREFIX("transfer_character_write")), ".wR",
-	void_type_node, 3, dt_parm_type, pvoid_type_node, gfc_int4_type_node);
+	void_type_node, 3, dt_parm_type, pvoid_type_node, gfc_charlen_type_node);
 
   iocall[IOCALL_X_CHARACTER_WIDE] = gfc_build_library_function_decl_with_spec (
 	get_identifier (PREFIX("transfer_character_wide")), ".wW",
@@ -478,12 +478,12 @@ gfc_build_io_library_fndecls (void)
   iocall[IOCALL_SET_NML_VAL] = gfc_build_library_function_decl_with_spec (
 	get_identifier (PREFIX("st_set_nml_var")), ".w.R",
 	void_type_node, 6, dt_parm_type, pvoid_type_node, pvoid_type_node,
-	gfc_int4_type_node, gfc_charlen_type_node, gfc_int4_type_node);
+	gfc_int4_type_node, gfc_charlen_type_node, get_dtype_type_node());
 
   iocall[IOCALL_SET_NML_DTIO_VAL] = gfc_build_library_function_decl_with_spec (
 	get_identifier (PREFIX("st_set_nml_dtio_var")), ".w.R",
 	void_type_node, 8, dt_parm_type, pvoid_type_node, pvoid_type_node,
-	gfc_int4_type_node, gfc_charlen_type_node, gfc_int4_type_node,
+	gfc_int4_type_node, gfc_charlen_type_node, get_dtype_type_node(),
 	pvoid_type_node, pvoid_type_node);
 
   iocall[IOCALL_SET_NML_VAL_DIM] = gfc_build_library_function_decl_with_spec (
@@ -852,7 +852,8 @@ set_string (stmtblock_t * block, stmtblock_t * postblock, tree var,
 
       gfc_conv_string_parameter (&se);
       gfc_add_modify (&se.pre, io, fold_convert (TREE_TYPE (io), se.expr));
-      gfc_add_modify (&se.pre, len, se.string_length);
+      gfc_add_modify (&se.pre, len, fold_convert (TREE_TYPE (len),
+						  se.string_length));
     }
 
   gfc_add_block_to_block (block, &se.pre);
@@ -1002,8 +1003,7 @@ io_result (stmtblock_t * block, tree var, gfc_st_label * err_label,
 			rc, build_int_cst (TREE_TYPE (rc),
 					   IOPARM_common_libreturn_mask));
 
-  tmp = fold_build3_loc (input_location, SWITCH_EXPR, NULL_TREE,
-			 rc, tmp, NULL_TREE);
+  tmp = fold_build2_loc (input_location, SWITCH_EXPR, NULL_TREE, rc, tmp);
 
   gfc_add_expr_to_block (block, tmp);
 }
@@ -1662,7 +1662,6 @@ transfer_namelist_element (stmtblock_t * block, const char * var_name,
   tree dtio_proc = null_pointer_node;
   tree vtable = null_pointer_node;
   int n_dim;
-  int itype;
   int rank = 0;
 
   gcc_assert (sym || c);
@@ -1699,8 +1698,8 @@ transfer_namelist_element (stmtblock_t * block, const char * var_name,
     }
   else
     {
-      itype = ts->type;
-      dtype = IARG (itype << GFC_DTYPE_TYPE_SHIFT);
+      dt =  gfc_typenode_for_spec (ts);
+      dtype = gfc_get_dtype_rank_type (0, dt);
     }
 
   /* Build up the arguments for the transfer call.
@@ -1959,8 +1958,8 @@ build_dt (tree function, gfc_code * code)
       if (dt->udtio)
 	mask |= IOPARM_dt_dtio;
 
-      if (dt->default_exp)
-	mask |= IOPARM_dt_default_exp;
+      if (dt->dec_ext)
+	mask |= IOPARM_dt_dec_ext;
 
       if (dt->namelist)
 	{
@@ -2147,7 +2146,12 @@ transfer_array_component (tree expr, gfc_component * cm, locus * where)
   ss = gfc_get_array_ss (gfc_ss_terminator, NULL, cm->as->rank,
 			 GFC_SS_COMPONENT);
   ss_array = &ss->info->data.array;
-  ss_array->shape = gfc_get_shape (cm->as->rank);
+
+  if (cm->attr.pdt_array)
+    ss_array->shape = NULL;
+  else
+    ss_array->shape = gfc_get_shape (cm->as->rank);
+
   ss_array->descriptor = expr;
   ss_array->data = gfc_conv_array_data (expr);
   ss_array->offset = gfc_conv_array_offset (expr);
@@ -2156,10 +2160,15 @@ transfer_array_component (tree expr, gfc_component * cm, locus * where)
       ss_array->start[n] = gfc_conv_array_lbound (expr, n);
       ss_array->stride[n] = gfc_index_one_node;
 
-      mpz_init (ss_array->shape[n]);
-      mpz_sub (ss_array->shape[n], cm->as->upper[n]->value.integer,
-               cm->as->lower[n]->value.integer);
-      mpz_add_ui (ss_array->shape[n], ss_array->shape[n], 1);
+      if (cm->attr.pdt_array)
+	ss_array->end[n] = gfc_conv_array_ubound (expr, n);
+      else
+	{
+	  mpz_init (ss_array->shape[n]);
+	  mpz_sub (ss_array->shape[n], cm->as->upper[n]->value.integer,
+		   cm->as->lower[n]->value.integer);
+	  mpz_add_ui (ss_array->shape[n], ss_array->shape[n], 1);
+	}
     }
 
   /* Once we got ss, we use scalarizer to create the loop.  */
@@ -2194,8 +2203,11 @@ transfer_array_component (tree expr, gfc_component * cm, locus * where)
   gfc_add_block_to_block (&block, &loop.pre);
   gfc_add_block_to_block (&block, &loop.post);
 
-  gcc_assert (ss_array->shape != NULL);
-  gfc_free_shape (&ss_array->shape, cm->as->rank);
+  if (!cm->attr.pdt_array)
+    {
+      gcc_assert (ss_array->shape != NULL);
+      gfc_free_shape (&ss_array->shape, cm->as->rank);
+    }
   gfc_cleanup_loop (&loop);
 
   return gfc_finish_block (&block);
@@ -2398,7 +2410,7 @@ transfer_expr (gfc_se * se, gfc_typespec * ts, tree addr_expr,
     case BT_CLASS:
       if (ts->u.derived->components == NULL)
 	return;
-      if (ts->type == BT_DERIVED || ts->type == BT_CLASS)
+      if (gfc_bt_struct (ts->type) || ts->type == BT_CLASS)
 	{
 	  gfc_symbol *derived;
 	  gfc_symbol *dtio_sub = NULL;
@@ -2432,7 +2444,7 @@ transfer_expr (gfc_se * se, gfc_typespec * ts, tree addr_expr,
 	      function = iocall[IOCALL_X_DERIVED];
 	      break;
 	    }
-	  else if (ts->type == BT_DERIVED)
+	  else if (gfc_bt_struct (ts->type))
 	    {
 	      /* Recurse into the elements of the derived type.  */
 	      expr = gfc_evaluate_now (addr_expr, &se->pre);
@@ -2446,6 +2458,10 @@ transfer_expr (gfc_se * se, gfc_typespec * ts, tree addr_expr,
 
 	      for (c = ts->u.derived->components; c; c = c->next)
 		{
+		  /* Ignore hidden string lengths.  */
+		  if (c->name[0] == '_')
+		    continue;
+
 		  field = c->backend_decl;
 		  gcc_assert (field && TREE_CODE (field) == FIELD_DECL);
 
@@ -2460,9 +2476,29 @@ transfer_expr (gfc_se * se, gfc_typespec * ts, tree addr_expr,
 		    }
 		  else
 		    {
-		      if (!c->attr.pointer)
+		      tree strlen = NULL_TREE;
+
+		      if (!c->attr.pointer && !c->attr.pdt_string)
 			tmp = gfc_build_addr_expr (NULL_TREE, tmp);
+
+		      /* Use the hidden string length for pdt strings.  */
+		      if (c->attr.pdt_string
+			  && gfc_deferred_strlen (c, &strlen)
+			  && strlen != NULL_TREE)
+			{
+			  strlen = fold_build3_loc (UNKNOWN_LOCATION,
+						    COMPONENT_REF,
+						    TREE_TYPE (strlen),
+						    expr, strlen, NULL_TREE);
+			  se->string_length = strlen;
+			}
+
 		      transfer_expr (se, &c->ts, tmp, code, NULL_TREE);
+
+		      /* Reset so that the pdt string length does not propagate
+			 through to other strings.  */
+		      if (c->attr.pdt_string && strlen)
+			se->string_length = NULL_TREE;
 		   }
 		}
 	      return;
@@ -2562,6 +2598,12 @@ gfc_trans_transfer (gfc_code * code)
 	  gcc_assert (ref && ref->type == REF_ARRAY);
 	}
 
+      if (expr->ts.type != BT_CLASS
+	 && expr->expr_type == EXPR_VARIABLE
+	 && gfc_expr_attr (expr).pointer)
+	goto scalarize;
+
+
       if (!(gfc_bt_struct (expr->ts.type)
 	      || expr->ts.type == BT_CLASS)
 	    && ref && ref->next == NULL
@@ -2596,6 +2638,7 @@ gfc_trans_transfer (gfc_code * code)
 	  goto finish_block_label;
 	}
 
+scalarize:
       /* Initialize the scalarizer.  */
       ss = gfc_walk_expr (expr);
       gfc_init_loopinfo (&loop);
@@ -2611,7 +2654,9 @@ gfc_trans_transfer (gfc_code * code)
 
       gfc_copy_loopinfo_to_se (&se, &loop);
       se.ss = ss;
+
       gfc_conv_expr_reference (&se, expr);
+
       if (expr->ts.type == BT_CLASS)
 	vptr = gfc_get_vptr_from_expr (ss->info->data.array.descriptor);
       else

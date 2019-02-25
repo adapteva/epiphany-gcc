@@ -1,6 +1,6 @@
 // The template and inlines for the -*- C++ -*- internal _Array helper class.
 
-// Copyright (C) 1997-2017 Free Software Foundation, Inc.
+// Copyright (C) 1997-2018 Free Software Foundation, Inc.
 //
 // This file is part of the GNU ISO C++ Library.  This library is free
 // software; you can redistribute it and/or modify it under the
@@ -341,16 +341,17 @@ _GLIBCXX_BEGIN_NAMESPACE_VERSION
     }
 
   //
-  // Compute the sum of elements in range [__f, __l) which must not be empty.
+  // Compute the sum of elements in range [__f, __l)
   // This is a naive algorithm.  It suffers from cancelling.
-  // In the future try to specialize for _Tp = float, double, long double
-  // using a more accurate algorithm.
+  // In the future try to specialize
+  // for _Tp = float, double, long double using a more accurate
+  // algorithm.
   //
   template<typename _Tp>
     inline _Tp
     __valarray_sum(const _Tp* __f, const _Tp* __l)
     {
-      _Tp __r = *__f++;
+      _Tp __r = _Tp();
       while (__f != __l)
 	__r += *__f++;
       return __r;

@@ -3,7 +3,7 @@
 
 typedef void (*fun) (void);
 
-void
+void __attribute__ ((noipa))
 f (fun x1)
 {
   register fun x2 asm ("x16");

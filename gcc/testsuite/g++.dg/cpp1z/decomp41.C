@@ -5,5 +5,5 @@
 
 #pragma weak _ZDC1d1e1fE
 struct A { int i, j, k; };
-auto [a, b, c] = A ();	// { dg-warning "decomposition declaration only available with" "" { target c++14_down } }
-auto [d, e, f] = A ();	// { dg-warning "decomposition declaration only available with" "" { target c++14_down } }
+auto [a, b, c] = A ();	// { dg-warning "structured bindings only available with" "" { target c++14_down } }
+auto [d, e, f] = A ();	// { dg-warning "structured bindings only available with" "" { target c++14_down } }

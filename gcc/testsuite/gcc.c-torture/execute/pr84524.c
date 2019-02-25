@@ -1,6 +1,6 @@
 /* PR target/84524 */
 
-__attribute__((noinline,noclone)) void
+__attribute__((noipa)) void
 foo (unsigned short *x)
 {
   unsigned short i, v;

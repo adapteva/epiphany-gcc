@@ -1,27 +1,27 @@
 /* PR target/85095 */
 
-__attribute__((noinline, noclone)) unsigned long
+__attribute__((noipa)) unsigned long
 f1 (unsigned long a, unsigned long b)
 {
   unsigned long i = __builtin_add_overflow (a, b, &a);
   return a + i;
 }
 
-__attribute__((noinline, noclone)) unsigned long
+__attribute__((noipa)) unsigned long
 f2 (unsigned long a, unsigned long b)
 {
   unsigned long i = __builtin_add_overflow (a, b, &a);
   return a - i;
 }
 
-__attribute__((noinline, noclone)) unsigned long
+__attribute__((noipa)) unsigned long
 f3 (unsigned int a, unsigned int b)
 {
   unsigned int i = __builtin_add_overflow (a, b, &a);
   return a + i;
 }
 
-__attribute__((noinline, noclone)) unsigned long
+__attribute__((noipa)) unsigned long
 f4 (unsigned int a, unsigned int b)
 {
   unsigned int i = __builtin_add_overflow (a, b, &a);

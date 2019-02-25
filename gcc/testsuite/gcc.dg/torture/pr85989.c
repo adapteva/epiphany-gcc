@@ -2,7 +2,7 @@
 
 #define N 9
 
-void __attribute__((noinline, noclone))
+void __attribute__((noipa))
 f (double x, double y, double *res)
 {
   y = -y;

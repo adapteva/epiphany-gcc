@@ -24,7 +24,7 @@ populate_name (const char *prefix, char *buffer)
   int i;
 
   /* Begin with the given prefix: */
-  sprintf (buffer, "%s", prefix);
+  sprintf (buffer, prefix);
 
   /* Populate the rest of the buffer with 0123456789 repeatedly: */
   for (i = strlen (prefix); i < NAME_LENGTH - 1; i++)

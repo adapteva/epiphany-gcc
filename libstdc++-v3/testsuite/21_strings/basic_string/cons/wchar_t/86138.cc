@@ -16,7 +16,7 @@
 // <http://www.gnu.org/licenses/>.
 
 // { dg-options "-std=gnu++17" }
-// { dg-do compile { target c++1z } }
+// { dg-do compile { target c++17 } }
 // { dg-final { scan-assembler-not "_ZNSbIwSt11char_traitsIwESaIwEE4_Rep20_S_empty_rep_storageE:" } }
 
 #undef _GLIBCXX_USE_CXX11_ABI

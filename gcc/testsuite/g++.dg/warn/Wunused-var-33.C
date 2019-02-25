@@ -6,7 +6,7 @@ int
 foo ()
 {
   int a[2] = {1, 2};	// { dg-bogus "set but not used" } */
-  auto [x, y] = a;	// { dg-warning "decomposition declaration only available with" "" { target c++14_down } }
+  auto [x, y] = a;	// { dg-warning "structured bindings only available with" "" { target c++14_down } }
   return x + y;
 }
 
@@ -16,7 +16,7 @@ int
 bar ()
 {
   S a = {1, 2};
-  auto [x, y] = a;	// { dg-warning "decomposition declaration only available with" "" { target c++14_down } }
+  auto [x, y] = a;	// { dg-warning "structured bindings only available with" "" { target c++14_down } }
   return x + y;
 }
 
@@ -24,7 +24,7 @@ int
 baz ()
 {
   S a = {1, 2};
-  auto & [x, y] = a;	// { dg-warning "decomposition declaration only available with" "" { target c++14_down } }
+  auto & [x, y] = a;	// { dg-warning "structured bindings only available with" "" { target c++14_down } }
   return x + y;
 }
 
@@ -32,6 +32,6 @@ int
 qux ()
 {
   int a[2] = {1, 2};
-  auto & [x, y] = a;	// { dg-warning "decomposition declaration only available with" "" { target c++14_down } }
+  auto & [x, y] = a;	// { dg-warning "structured bindings only available with" "" { target c++14_down } }
   return x + y;
 }

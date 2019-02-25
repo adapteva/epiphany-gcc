@@ -1,6 +1,6 @@
 // Components for manipulating sequences of characters -*- C++ -*-
 
-// Copyright (C) 1997-2017 Free Software Foundation, Inc.
+// Copyright (C) 1997-2018 Free Software Foundation, Inc.
 //
 // This file is part of the GNU ISO C++ Library.  This library is free
 // software; you can redistribute it and/or modify it under the
@@ -506,6 +506,11 @@ _GLIBCXX_BEGIN_NAMESPACE_CXX11
        *  @param  __s  Source C string.
        *  @param  __a  Allocator to use (default is default allocator).
        */
+#if __cpp_deduction_guides && ! defined _GLIBCXX_DEFINING_STRING_INSTANTIATIONS
+      // _GLIBCXX_RESOLVE_LIB_DEFECTS
+      // 3076. basic_string CTAD ambiguity
+      template<typename = _RequireAllocator<_Alloc>>
+#endif
       basic_string(const _CharT* __s, const _Alloc& __a = _Alloc())
       : _M_dataplus(_M_local_data(), __a)
       { _M_construct(__s, __s ? __s + traits_type::length(__s) : __s+npos); }
@@ -516,6 +521,11 @@ _GLIBCXX_BEGIN_NAMESPACE_CXX11
        *  @param  __c  Character to use.
        *  @param  __a  Allocator to use (default is default allocator).
        */
+#if __cpp_deduction_guides && ! defined _GLIBCXX_DEFINING_STRING_INSTANTIATIONS
+      // _GLIBCXX_RESOLVE_LIB_DEFECTS
+      // 3076. basic_string CTAD ambiguity
+      template<typename = _RequireAllocator<_Alloc>>
+#endif
       basic_string(size_type __n, _CharT __c, const _Alloc& __a = _Alloc())
       : _M_dataplus(_M_local_data(), __a)
       { _M_construct(__n, __c); }
@@ -734,29 +744,20 @@ _GLIBCXX_BEGIN_NAMESPACE_CXX11
 	// Replace allocator if POCMA is true.
 	std::__alloc_on_move(_M_get_allocator(), __str._M_get_allocator());
 
-	if (__str._M_is_local())
+	if (!__str._M_is_local()
+	    && (_Alloc_traits::_S_propagate_on_move_assign()
+	      || _Alloc_traits::_S_always_equal()))
 	  {
-	    // We've always got room for a short string, just copy it.
-	    if (__str.size())
-	      this->_S_copy(_M_data(), __str._M_data(), __str.size());
-	    _M_set_length(__str.size());
-	  }
-	else if (_Alloc_traits::_S_propagate_on_move_assign()
-	    || _Alloc_traits::_S_always_equal()
-	    || _M_get_allocator() == __str._M_get_allocator())
-	  {
-	    // Just move the allocated pointer, our allocator can free it.
 	    pointer __data = nullptr;
 	    size_type __capacity;
 	    if (!_M_is_local())
 	      {
 		if (_Alloc_traits::_S_always_equal())
 		  {
-		    // __str can reuse our existing storage.
 		    __data = _M_data();
 		    __capacity = _M_allocated_capacity;
 		  }
-		else // __str can't use it, so free it.
+		else
 		  _M_destroy(_M_allocated_capacity);
 	      }
 
@@ -771,8 +772,8 @@ _GLIBCXX_BEGIN_NAMESPACE_CXX11
 	    else
 	      __str._M_data(__str._M_local_buf);
 	  }
-	else // Need to do a deep copy
-	  assign(__str);
+	else
+	    assign(__str);
 	__str.clear();
 	return *this;
       }
@@ -5876,6 +5877,35 @@ _GLIBCXX_END_NAMESPACE_CXX11
   };
 #endif  // !_GLIBCXX_USE_CXX11_ABI
 
+#if __cpp_deduction_guides >= 201606
+_GLIBCXX_BEGIN_NAMESPACE_CXX11
+  template<typename _InputIterator, typename _CharT
+	     = typename iterator_traits<_InputIterator>::value_type,
+	   typename _Allocator = allocator<_CharT>,
+	   typename = _RequireInputIter<_InputIterator>,
+	   typename = _RequireAllocator<_Allocator>>
+    basic_string(_InputIterator, _InputIterator, _Allocator = _Allocator())
+      -> basic_string<_CharT, char_traits<_CharT>, _Allocator>;
+
+  // _GLIBCXX_RESOLVE_LIB_DEFECTS
+  // 3075. basic_string needs deduction guides from basic_string_view
+  template<typename _CharT, typename _Traits,
+	   typename _Allocator = allocator<_CharT>,
+	   typename = _RequireAllocator<_Allocator>>
+    basic_string(basic_string_view<_CharT, _Traits>, const _Allocator& = _Allocator())
+      -> basic_string<_CharT, _Traits, _Allocator>;
+
+  template<typename _CharT, typename _Traits,
+	   typename _Allocator = allocator<_CharT>,
+	   typename = _RequireAllocator<_Allocator>>
+    basic_string(basic_string_view<_CharT, _Traits>,
+		 typename basic_string<_CharT, _Traits, _Allocator>::size_type,
+		 typename basic_string<_CharT, _Traits, _Allocator>::size_type,
+		 const _Allocator& = _Allocator())
+      -> basic_string<_CharT, _Traits, _Allocator>;
+_GLIBCXX_END_NAMESPACE_CXX11
+#endif
+
   // operator+
   /**
    *  @brief  Concatenate two strings.
@@ -6657,8 +6687,6 @@ _GLIBCXX_BEGIN_NAMESPACE_VERSION
     { };
 #endif
 
-_GLIBCXX_END_NAMESPACE_VERSION
-
 #if __cplusplus > 201103L
 
 #define __cpp_lib_string_udls 201304
@@ -6667,8 +6695,8 @@ _GLIBCXX_END_NAMESPACE_VERSION
   {
   inline namespace string_literals
   {
-_GLIBCXX_BEGIN_NAMESPACE_VERSION
-
+#pragma GCC diagnostic push
+#pragma GCC diagnostic ignored "-Wliteral-suffix"
     _GLIBCXX_DEFAULT_ABI_TAG
     inline basic_string<char>
     operator""s(const char* __str, size_t __len)
@@ -6693,12 +6721,13 @@ _GLIBCXX_BEGIN_NAMESPACE_VERSION
     { return basic_string<char32_t>{__str, __len}; }
 #endif
 
-_GLIBCXX_END_NAMESPACE_VERSION
+#pragma GCC diagnostic pop
   } // inline namespace string_literals
   } // inline namespace literals
 
 #endif // __cplusplus > 201103L
 
+_GLIBCXX_END_NAMESPACE_VERSION
 } // namespace std
 
 #endif // C++11

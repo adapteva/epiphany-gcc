@@ -1,11 +1,10 @@
-// PR c++/84854
+// PR c++/83273
 // { dg-options -std=c++17 }
 
-constexpr int foo () { return 1; }
-constexpr int foo (int) { return 2; }
-
-template <typename>
-void a()
+int main()
 {
-  if constexpr(foo) { };
+  auto d = 42;
+  if constexpr (d > 0) {	// { dg-error "constant expression" }
+      return d;
+  }
 }

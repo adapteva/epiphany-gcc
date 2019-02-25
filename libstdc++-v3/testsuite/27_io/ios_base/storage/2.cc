@@ -1,6 +1,6 @@
 // 2000-12-19 bkoz
 
-// Copyright (C) 2000-2017 Free Software Foundation, Inc.
+// Copyright (C) 2000-2018 Free Software Foundation, Inc.
 //
 // This file is part of the GNU ISO C++ Library.  This library is free
 // software; you can redistribute it and/or modify it under the
@@ -26,7 +26,7 @@
 // Skip test at -m64 on Darwin because RLIMITS are not being honored.
 // Radar 6467883: 10.4/10.5 setrlimits are not honored by memory allocators
 // Radar 6467884: 10.X systems are not robust when paging space is exceeded
-// { dg-skip-if "" { *-*-darwin* && lp64 } { "*" } { "" } }
+// { dg-skip-if "" { *-*-darwin* && lp64 } }
 
 #include <sstream>
 #include <iostream>

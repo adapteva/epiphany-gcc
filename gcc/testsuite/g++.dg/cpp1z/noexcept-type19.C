@@ -6,7 +6,9 @@ extern "C" void *malloc (size_t);
 
 template<class T> void f(T*);
 
+void *g(size_t);
+
 int main()
 {
-  f<decltype(malloc)>(operator new);
+  f<decltype(malloc)>(g);
 }

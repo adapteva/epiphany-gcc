@@ -5,4 +5,4 @@
 #define C(a,b)a/**/b
 C (foo/,**/)
 C (foo/,*)
-/* { dg-error "unterminated comment" "" {target "*-*-*"} .-1 } */
+/* { dg-error "-:unterminated comment" "" {target "*-*-*"} .-1 } */

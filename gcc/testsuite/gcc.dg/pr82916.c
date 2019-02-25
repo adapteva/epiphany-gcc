@@ -12,7 +12,7 @@ struct C
   struct C *min_occ;
 };
 
-__attribute__((noinline, noclone)) struct C *
+__attribute__((noipa)) struct C *
 foo (int *node)
 {
   struct A *p = __builtin_malloc (sizeof (struct C));

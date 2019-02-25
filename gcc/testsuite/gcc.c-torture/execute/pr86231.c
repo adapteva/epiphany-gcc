@@ -3,7 +3,7 @@
 #define ONE ((void *) 1)
 #define TWO ((void *) 2)
 
-__attribute__((noinline, noclone)) int
+__attribute__((noipa)) int
 foo (void *p, int x)
 {
   if (p == ONE) return 0;

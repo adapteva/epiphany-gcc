@@ -1,4 +1,4 @@
-// { dg-options "-std=c++1z -I${srcdir}/g++.dg/cpp1y -I${srcdir}/g++.dg/cpp1y/testinc" }
+// { dg-options "-std=c++17 -I${srcdir}/g++.dg/cpp1y -I${srcdir}/g++.dg/cpp1y/testinc" }
 
 //  C++98 features:
 
@@ -358,8 +358,8 @@
 
 #ifndef __cpp_deduction_guides
 #  error "__cpp_deduction_guides"
-#elif __cpp_deduction_guides != 201606
-#  error "__cpp_deduction_guides != 201606"
+#elif __cpp_deduction_guides != 201611
+#  error "__cpp_deduction_guides != 201611"
 #endif
 
 #ifndef __cpp_if_constexpr

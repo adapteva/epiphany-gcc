@@ -1,4 +1,4 @@
-/* Copyright (C) 2002-2017 Free Software Foundation, Inc.
+/* Copyright (C) 2002-2018 Free Software Foundation, Inc.
    Contributed by Andy Vaught
    F2003 I/O support contributed by Jerry DeLisle
 
@@ -149,21 +149,13 @@ fallback_access (const char *path, int mode)
 {
   int fd;
 
-  if (mode & R_OK)
-    {
-      if ((fd = open (path, O_RDONLY)) < 0)
-	return -1;
-      else
-	close (fd);
-    }
+  if ((mode & R_OK) && (fd = open (path, O_RDONLY)) < 0)
+    return -1;
+  close (fd);
 
-  if (mode & W_OK)
-    {
-      if ((fd = open (path, O_WRONLY)) < 0)
-	return -1;
-      else
-	close (fd);
-    }
+  if ((mode & W_OK) && (fd = open (path, O_WRONLY)) < 0)
+    return -1;
+  close (fd);
 
   if (mode == F_OK)
     {
@@ -624,6 +616,9 @@ buf_read (unix_stream *s, void *buf, ssize_t nbyte)
 static ssize_t
 buf_write (unix_stream *s, const void *buf, ssize_t nbyte)
 {
+  if (nbyte == 0)
+    return 0;
+
   if (s->ndirty == 0)
     s->buffer_offset = s->logical_offset;
 
@@ -781,7 +776,7 @@ buf_init (unix_stream *s)
 *********************************************************************/
 
 char *
-mem_alloc_r (stream *strm, int *len)
+mem_alloc_r (stream *strm, size_t *len)
 {
   unix_stream *s = (unix_stream *) strm;
   gfc_offset n;
@@ -791,7 +786,7 @@ mem_alloc_r (stream *strm, int *len)
     return NULL;
 
   n = s->buffer_offset + s->active - where;
-  if (*len > n)
+  if ((gfc_offset) *len > n)
     *len = n;
 
   s->logical_offset = where + *len;
@@ -801,7 +796,7 @@ mem_alloc_r (stream *strm, int *len)
 
 
 char *
-mem_alloc_r4 (stream *strm, int *len)
+mem_alloc_r4 (stream *strm, size_t *len)
 {
   unix_stream *s = (unix_stream *) strm;
   gfc_offset n;
@@ -811,7 +806,7 @@ mem_alloc_r4 (stream *strm, int *len)
     return NULL;
 
   n = s->buffer_offset + s->active - where;
-  if (*len > n)
+  if ((gfc_offset) *len > n)
     *len = n;
 
   s->logical_offset = where + *len;
@@ -821,7 +816,7 @@ mem_alloc_r4 (stream *strm, int *len)
 
 
 char *
-mem_alloc_w (stream *strm, int *len)
+mem_alloc_w (stream *strm, size_t *len)
 {
   unix_stream *s = (unix_stream *)strm;
   gfc_offset m;
@@ -842,7 +837,7 @@ mem_alloc_w (stream *strm, int *len)
 
 
 gfc_char4_t *
-mem_alloc_w4 (stream *strm, int *len)
+mem_alloc_w4 (stream *strm, size_t *len)
 {
   unix_stream *s = (unix_stream *)strm;
   gfc_offset m;
@@ -868,7 +863,7 @@ static ssize_t
 mem_read (stream *s, void *buf, ssize_t nbytes)
 {
   void *p;
-  int nb = nbytes;
+  size_t nb = nbytes;
 
   p = mem_alloc_r (s, &nb);
   if (p)
@@ -887,7 +882,7 @@ static ssize_t
 mem_read4 (stream *s, void *buf, ssize_t nbytes)
 {
   void *p;
-  int nb = nbytes;
+  size_t nb = nbytes;
 
   p = mem_alloc_r4 (s, &nb);
   if (p)
@@ -906,7 +901,7 @@ static ssize_t
 mem_write (stream *s, const void *buf, ssize_t nbytes)
 {
   void *p;
-  int nb = nbytes;
+  size_t nb = nbytes;
 
   p = mem_alloc_w (s, &nb);
   if (p)
@@ -925,7 +920,7 @@ static ssize_t
 mem_write4 (stream *s, const void *buf, ssize_t nwords)
 {
   gfc_char4_t *p;
-  int nw = nwords;
+  size_t nw = nwords;
 
   p = mem_alloc_w4 (s, &nw);
   if (p)
@@ -1043,7 +1038,7 @@ static const struct stream_vtable mem4_vtable = {
    internal file */
 
 stream *
-open_internal (char *base, int length, gfc_offset offset)
+open_internal (char *base, size_t length, gfc_offset offset)
 {
   unix_stream *s;
 
@@ -1063,7 +1058,7 @@ open_internal (char *base, int length, gfc_offset offset)
    internal file */
 
 stream *
-open_internal4 (char *base, int length, gfc_offset offset)
+open_internal4 (char *base, size_t length, gfc_offset offset)
 {
   unix_stream *s;
 

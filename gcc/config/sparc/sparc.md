@@ -1,5 +1,5 @@
 ;; Machine description for SPARC.
-;; Copyright (C) 1987-2017 Free Software Foundation, Inc.
+;; Copyright (C) 1987-2018 Free Software Foundation, Inc.
 ;; Contributed by Michael Tiemann (tiemann@cygnus.com)
 ;; 64-bit SPARC-V9 support by Michael Tiemann, Jim Wilson, and Doug Evans,
 ;; at Cygnus Support.
@@ -3151,10 +3151,9 @@ visl")
    srl\t%1, 0, %0
    lduw\t%1, %0
    movstouw\t%1, %0"
-  [(set_attr "type" "shift,load,*")
+  [(set_attr "type" "shift,load,vismv")
    (set_attr "subtype" "*,regular,movstouw")
    (set_attr "cpu_feature" "*,*,vis3")])
-
 
 (define_insn_and_split "*zero_extendsidi2_insn_sp32"
   [(set (match_operand:DI 0 "register_operand" "=r")
@@ -3467,7 +3466,7 @@ visl")
   sra\t%1, 0, %0
   ldsw\t%1, %0
   movstosw\t%1, %0"
-  [(set_attr "type" "shift,sload,*")
+  [(set_attr "type" "shift,sload,vismv")
    (set_attr "us3load_type" "*,3cycle,*")
    (set_attr "cpu_feature" "*,*,vis3")])
 
@@ -7476,7 +7475,7 @@ visl")
 
 (define_expand "builtin_setjmp_receiver"
   [(label_ref (match_operand 0 "" ""))]
-  "flag_pic"
+  "TARGET_VXWORKS_RTP && flag_pic"
 {
   load_got_register ();
   DONE;
@@ -8663,6 +8662,8 @@ visl")
 (define_mode_attr vfptype [(V1SI "single") (V2HI "single") (V4QI "single")
 			   (V1DI "double") (V2SI "double") (V4HI "double")
 			   (V8QI "double")])
+(define_mode_attr veltmode [(V1SI "si") (V2HI "hi") (V4QI "qi") (V1DI "di")
+			    (V2SI "si") (V4HI "hi") (V8QI "qi")])
 
 (define_expand "mov<VMALL:mode>"
   [(set (match_operand:VMALL 0 "nonimmediate_operand" "")
@@ -8804,7 +8805,7 @@ visl")
   DONE;
 })
 
-(define_expand "vec_init<VMALL:mode>"
+(define_expand "vec_init<VMALL:mode><VMALL:veltmode>"
   [(match_operand:VMALL 0 "register_operand" "")
    (match_operand:VMALL 1 "" "")]
   "TARGET_VIS"
@@ -9325,28 +9326,6 @@ visl")
   [(set_attr "type" "fga")
    (set_attr "subtype" "other")
    (set_attr "fptype" "double")])
-
-;; The rtl expanders will happily convert constant permutations on other
-;; modes down to V8QI.  Rely on this to avoid the complexity of the byte
-;; order of the permutation.
-(define_expand "vec_perm_constv8qi"
-  [(match_operand:V8QI 0 "register_operand" "")
-   (match_operand:V8QI 1 "register_operand" "")
-   (match_operand:V8QI 2 "register_operand" "")
-   (match_operand:V8QI 3 "" "")]
-  "TARGET_VIS2"
-{
-  unsigned int i, mask;
-  rtx sel = operands[3];
-
-  for (i = mask = 0; i < 8; ++i)
-    mask |= (INTVAL (XVECEXP (sel, 0, i)) & 0xf) << (28 - i*4);
-  sel = force_reg (SImode, gen_int_mode (mask, SImode));
-
-  emit_insn (gen_bmasksi_vis (gen_reg_rtx (SImode), sel, const0_rtx));
-  emit_insn (gen_bshufflev8qi_vis (operands[0], operands[1], operands[2]));
-  DONE;
-})
 
 ;; Unlike constant permutation, we can vastly simplify the compression of
 ;; the 64-bit selector input to the 32-bit %gsr value by knowing what the

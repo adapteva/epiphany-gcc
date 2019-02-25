@@ -9,7 +9,7 @@ void
 foo (int j)
 {
   auto [j] = A{j};	// { dg-error "shadows a parameter" }
-}			// { dg-warning "decomposition declaration only available with" "" { target c++14_down } .-1 }
+}			// { dg-warning "structured bindings only available with" "" { target c++14_down } .-1 }
 
 void
 bar ()

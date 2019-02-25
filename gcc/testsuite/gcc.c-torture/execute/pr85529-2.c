@@ -1,6 +1,6 @@
 /* PR tree-optimization/85529 */
 
-__attribute__((noinline, noclone)) int
+__attribute__((noipa)) int
 foo (int x)
 {
   x &= 63;

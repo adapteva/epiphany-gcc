@@ -4,7 +4,7 @@
 
 typedef double V __attribute__((vector_size (16)));
 
-__attribute__((noinline, noclone)) V
+__attribute__((noipa)) V
 foo (V x, double y)
 {
   register double z __asm ("xmm18");

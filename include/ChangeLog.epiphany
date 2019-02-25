@@ -1,17 +1,0 @@
-2016-10-25  Ola Jeppsson  <ola@adapteva.com>
-
-    Backported from mainline
-    Commit: ddec7b2090c3c1f7ccdae7a0edf4c11d830b506f
-
-    2016-04-29  Tom Tromey  <tom@tromey.com>
-
-	    * dwarf2.h (enum dwarf_source_language) <DW_LANG_Rust,
-	    DW_LANG_Rust_old>: New constants.
-
-
-Local Variables:
-mode: change-log
-left-margin: 8
-fill-column: 74
-version-control: never
-End:
