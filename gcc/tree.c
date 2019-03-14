@@ -5824,7 +5824,12 @@ free_lang_data (void)
   /* If we are the LTO frontend we have freed lang-specific data already.  */
   if (in_lto_p
       || (!flag_generate_lto && !flag_generate_offload))
-    return 0;
+    {
+      /* Rebuild type inheritance graph even when not doing LTO to get
+	 consistent profile data.  */
+      rebuild_type_inheritance_graph ();
+      return 0;
+    }
 
   /* Provide a dummy TRANSLATION_UNIT_DECL if the FE failed to provide one.  */
   if (vec_safe_is_empty (all_translation_units))
@@ -8018,6 +8023,8 @@ build_function_type (tree value_type, tree arg_types)
   bool any_structural_p, any_noncanonical_p;
   tree canon_argtypes;
 
+  gcc_assert (arg_types != error_mark_node);
+
   if (TREE_CODE (value_type) == FUNCTION_TYPE)
     {
       error ("function return type cannot be function");
@@ -9784,8 +9791,7 @@ build_common_tree_nodes (bool signed_char)
       TYPE_SIZE (int_n_trees[i].signed_type) = bitsize_int (int_n_data[i].bitsize);
       TYPE_SIZE (int_n_trees[i].unsigned_type) = bitsize_int (int_n_data[i].bitsize);
 
-      if (int_n_data[i].bitsize > LONG_LONG_TYPE_SIZE
-	  && int_n_enabled_p[i])
+      if (int_n_enabled_p[i])
 	{
 	  integer_types[itk_intN_0 + i * 2] = int_n_trees[i].signed_type;
 	  integer_types[itk_unsigned_intN_0 + i * 2] = int_n_trees[i].unsigned_type;

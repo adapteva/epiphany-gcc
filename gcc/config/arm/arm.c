@@ -3091,7 +3091,8 @@ arm_option_override_internal (struct gcc_options *opts,
 
   /* Thumb2 inline assembly code should always use unified syntax.
      This will apply to ARM and Thumb1 eventually.  */
-  opts->x_inline_asm_unified = TARGET_THUMB2_P (opts->x_target_flags);
+  if (TARGET_THUMB2_P (opts->x_target_flags))
+    opts->x_inline_asm_unified = true;
 
 #ifdef SUBTARGET_OVERRIDE_INTERNAL_OPTIONS
   SUBTARGET_OVERRIDE_INTERNAL_OPTIONS;
@@ -17663,7 +17664,11 @@ arm_reorg (void)
 
   if (use_cmse)
     cmse_nonsecure_call_clear_caller_saved ();
-  if (TARGET_THUMB1)
+
+  /* We cannot run the Thumb passes for thunks because there is no CFG.  */
+  if (cfun->is_thunk)
+    ;
+  else if (TARGET_THUMB1)
     thumb1_reorg ();
   else if (TARGET_THUMB2)
     thumb2_reorg ();
@@ -18483,12 +18488,18 @@ output_move_double (rtx *operands, bool emit, int *count)
       gcc_assert ((REGNO (operands[1]) != IP_REGNUM)
                   || (TARGET_ARM && TARGET_LDRD));
 
+      /* For TARGET_ARM the first source register of an STRD
+	 must be even.  This is usually the case for double-word
+	 values but user assembly constraints can force an odd
+	 starting register.  */
+      bool allow_strd = TARGET_LDRD
+			 && !(TARGET_ARM && (REGNO (operands[1]) & 1) == 1);
       switch (GET_CODE (XEXP (operands[0], 0)))
         {
 	case REG:
 	  if (emit)
 	    {
-	      if (TARGET_LDRD)
+	      if (allow_strd)
 		output_asm_insn ("strd%?\t%1, [%m0]", operands);
 	      else
 		output_asm_insn ("stm%?\t%m0, %M1", operands);
@@ -18496,7 +18507,7 @@ output_move_double (rtx *operands, bool emit, int *count)
 	  break;
 
         case PRE_INC:
-	  gcc_assert (TARGET_LDRD);
+	  gcc_assert (allow_strd);
 	  if (emit)
 	    output_asm_insn ("strd%?\t%1, [%m0, #8]!", operands);
 	  break;
@@ -18504,7 +18515,7 @@ output_move_double (rtx *operands, bool emit, int *count)
         case PRE_DEC:
 	  if (emit)
 	    {
-	      if (TARGET_LDRD)
+	      if (allow_strd)
 		output_asm_insn ("strd%?\t%1, [%m0, #-8]!", operands);
 	      else
 		output_asm_insn ("stmdb%?\t%m0!, %M1", operands);
@@ -18514,7 +18525,7 @@ output_move_double (rtx *operands, bool emit, int *count)
         case POST_INC:
 	  if (emit)
 	    {
-	      if (TARGET_LDRD)
+	      if (allow_strd)
 		output_asm_insn ("strd%?\t%1, [%m0], #8", operands);
 	      else
 		output_asm_insn ("stm%?\t%m0!, %M1", operands);
@@ -18522,7 +18533,7 @@ output_move_double (rtx *operands, bool emit, int *count)
 	  break;
 
         case POST_DEC:
-	  gcc_assert (TARGET_LDRD);
+	  gcc_assert (allow_strd);
 	  if (emit)
 	    output_asm_insn ("strd%?\t%1, [%m0], #-8", operands);
 	  break;
@@ -18533,8 +18544,8 @@ output_move_double (rtx *operands, bool emit, int *count)
 	  otherops[1] = XEXP (XEXP (XEXP (operands[0], 0), 1), 0);
 	  otherops[2] = XEXP (XEXP (XEXP (operands[0], 0), 1), 1);
 
-	  /* IWMMXT allows offsets larger than ldrd can handle,
-	     fix these up with a pair of ldr.  */
+	  /* IWMMXT allows offsets larger than strd can handle,
+	     fix these up with a pair of str.  */
 	  if (!TARGET_THUMB2
 	      && CONST_INT_P (otherops[2])
 	      && (INTVAL(otherops[2]) <= -256
@@ -18599,7 +18610,7 @@ output_move_double (rtx *operands, bool emit, int *count)
 		  return "";
 		}
 	    }
-	  if (TARGET_LDRD
+	  if (allow_strd
 	      && (REG_P (otherops[2])
 		  || TARGET_THUMB2
 		  || (CONST_INT_P (otherops[2])
@@ -26731,6 +26742,8 @@ static void
 arm32_output_mi_thunk (FILE *file, tree, HOST_WIDE_INT delta,
 		       HOST_WIDE_INT vcall_offset, tree function)
 {
+  const bool long_call_p = arm_is_long_call_p (function);
+
   /* On ARM, this_regno is R0 or R1 depending on
      whether the function returns an aggregate or not.
   */
@@ -26768,9 +26781,22 @@ arm32_output_mi_thunk (FILE *file, tree, HOST_WIDE_INT delta,
       TREE_USED (function) = 1;
     }
   rtx funexp = XEXP (DECL_RTL (function), 0);
+  if (long_call_p)
+    {
+      emit_move_insn (temp, funexp);
+      funexp = temp;
+    }
   funexp = gen_rtx_MEM (FUNCTION_MODE, funexp);
-  rtx_insn * insn = emit_call_insn (gen_sibcall (funexp, const0_rtx, NULL_RTX));
+  rtx_insn *insn = emit_call_insn (gen_sibcall (funexp, const0_rtx, NULL_RTX));
   SIBLING_CALL_P (insn) = 1;
+  emit_barrier ();
+
+  /* Indirect calls require a bit of fixup in PIC mode.  */
+  if (long_call_p)
+    {
+      split_all_insns_noflow ();
+      arm_reorg ();
+    }
 
   insn = get_insns ();
   shorten_branches (insn);
@@ -30059,7 +30085,6 @@ arm_block_set_aligned_vect (rtx dstbase,
   rtx dst, addr, mem;
   rtx val_vec, reg;
   machine_mode mode;
-  unsigned HOST_WIDE_INT v = value;
   unsigned int offset = 0;
 
   gcc_assert ((align & 0x3) == 0);
@@ -30078,10 +30103,8 @@ arm_block_set_aligned_vect (rtx dstbase,
 
   dst = copy_addr_to_reg (XEXP (dstbase, 0));
 
-  v = sext_hwi (v, BITS_PER_WORD);
-
   reg = gen_reg_rtx (mode);
-  val_vec = gen_const_vec_duplicate (mode, GEN_INT (v));
+  val_vec = gen_const_vec_duplicate (mode, gen_int_mode (value, QImode));
   /* Emit instruction loading the constant value.  */
   emit_move_insn (reg, val_vec);
 

@@ -1,3 +1,38 @@
+2019-02-22  Release Manager
+
+	* GCC 8.3.0 released.
+
+2019-02-07  Jakub Jelinek  <jakub@redhat.com>
+
+	Backported from mainline
+	2019-01-22  Jakub Jelinek  <jakub@redhat.com>
+
+	PR middle-end/88968
+	* c-omp.c (c_finish_omp_atomic): For bitfield atomics, update type
+	variable after using BIT_FIELD_REF.
+
+	2019-01-14  Jakub Jelinek  <jakub@redhat.com>
+
+	* c-cppbuiltin.c (c_cpp_builtin): Define __cpp_guaranteed_copy_elision
+	and __cpp_nontype_template_parameter_auto.  Add a comment that
+	__cpp_template_auto is deprecated.
+
+2019-01-08  Jakub Jelinek  <jakub@redhat.com>
+
+	Backported from mainline
+	2018-11-28  Jakub Jelinek  <jakub@redhat.com>
+
+	PR c++/88215
+	* c-ubsan.c: Include langhooks.h.
+	(ubsan_instrument_division): Change gcc_assert that main variants
+	of op0 and op1 types are equal to gcc_checking_assert that the
+	main variants are compatible types.
+
+2018-08-17  Martin Liska  <mliska@suse.cz>
+
+        PR other/86992
+	* c.opt: Fix declaration of cilkplus.
+
 2018-07-26  Release Manager
 
 	* GCC 8.2.0 released.

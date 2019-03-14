@@ -1,3 +1,99 @@
+2019-02-22  Release Manager
+
+	* GCC 8.3.0 released.
+
+2019-02-03  Uroš Bizjak  <ubizjak@gmail.com>
+
+	PR libfortran/88678
+	Revert:
+	2016-11-16  Szabolcs Nagy  <szabolcs.nagy@arm.com>
+
+	PR libfortran/78314
+	* config/fpu-glibc.h (support_fpu_trap): Use feenableexcept.
+
+2019-02-03  Uroš Bizjak  <ubizjak@gmail.com>
+
+	PR libfortran/88678
+	* config/fpu-glibc.h (set_fpu_trap_exceptions): Clear stalled
+	exception flags before changing trap mode.  Optimize to call
+	feenableexcept and fedisableexcept only once.
+
+2019-01-13  Jerry DeLisle  <jvdelisle@gcc.gnu.org>
+
+	Backport from trunk
+	PR libfortran/88776
+	* io/list_read.c (namelist_read): Use nml_err_ret path on read error
+	not based on stdin_unit.
+	* io/open.c (newunit): Free format buffer if the unit specified is for
+	stdin, stdout, or stderr.
+
+2018-12-02  Janne Blomqvist  <jb@gcc.gnu.org>
+
+	Backport from trunk
+	PR libfortran/88137
+	* runtime/backtrace.c (show_backtrace): Use atomic load/store to
+	access the static lbstate pointer.
+
+2018-11-30  Janne Blomqvist  <jb@gcc.gnu.org>
+
+	Backport from trunk
+	PR libfortran/88137
+	* runtime/backtrace.c (show_backtrace): Make lbstate a static
+	variable, initialize once.
+
+2018-11-09  Jerry DeLisle  <jvdelisle@gcc.gnu.org>
+
+	Backport from trunk
+	PR libfortran/78351
+	* io/transfer.c (read_sf_internal): Add support for early
+	comma termination of internal unit formatted reads.
+
+2018-10-05  Gerald Pfeifer  <gerald@pfeifer.com>
+
+	Backport from trunk
+	* io/close.c [!HAVE_UNLINK_OPEN_FILE]: Include <string.h>.
+
+2018-09-18  Kyrylo Tkachov  <kyrylo.tkachov@arm.com>
+
+	Backport from trunk
+	2018-09-14  Kyrylo Tkachov  <kyrylo.tkachov@arm.com>
+
+	* io/unix.c (fallback_access): Avoid calling close on
+	uninitialized file descriptor.
+
+2018-08-26  Thomas Koenig  <tkoenig@gcc.gnu.org>
+
+	Backport from trunk
+	PR libfortran/86704
+	* m4/matmul_internal.m4: Correct calculation of needed buffer size
+	for arrays of shape (1,n).
+	* generated/matmul_c10.c: Regenerated
+	* generated/matmul_c16.c: Regenerated
+	* generated/matmul_c4.c: Regenerated
+	* generated/matmul_c8.c: Regenerated
+	* generated/matmul_i1.c: Regenerated
+	* generated/matmul_i16.c: Regenerated
+	* generated/matmul_i2.c: Regenerated
+	* generated/matmul_i4.c: Regenerated
+	* generated/matmul_i8.c: Regenerated
+	* generated/matmul_r10.c: Regenerated
+	* generated/matmul_r16.c: Regenerated
+	* generated/matmul_r4.c: Regenerated
+	* generated/matmul_r8.c: Regenerated
+	* generated/matmulavx128_c10.c: Regenerated
+	* generated/matmulavx128_c16.c: Regenerated
+	* generated/matmulavx128_c4.c: Regenerated
+	* generated/matmulavx128_c8.c: Regenerated
+	* generated/matmulavx128_i1.c: Regenerated
+	* generated/matmulavx128_i16.c: Regenerated
+	* generated/matmulavx128_i2.c: Regenerated
+	* generated/matmulavx128_i4.c: Regenerated
+	* generated/matmulavx128_i8.c: Regenerated
+	* generated/matmulavx128_r10.c: Regenerated
+	* generated/matmulavx128_r16.c: Regenerated
+	* generated/matmulavx128_r4.c: Regenerated
+	* generated/matmulavx128_r8.c: Regenerated
+
 2018-07-26  Release Manager
 
 	* GCC 8.2.0 released.

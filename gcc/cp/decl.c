@@ -6134,20 +6134,29 @@ reshape_init_r (tree type, reshape_iter *d, bool first_initializer_p,
     {
       if (TREE_CODE (init) == CONSTRUCTOR)
 	{
-	  if (TREE_TYPE (init) && TYPE_PTRMEMFUNC_P (TREE_TYPE (init)))
-	    /* There is no need to reshape pointer-to-member function
-	       initializers, as they are always constructed correctly
-	       by the front end.  */
-           ;
-	  else if (COMPOUND_LITERAL_P (init))
+	  tree init_type = TREE_TYPE (init);
+	  if (init_type && TYPE_PTRMEMFUNC_P (init_type))
+	    /* There is no need to call reshape_init for pointer-to-member
+	       function initializers, as they are always constructed correctly
+	       by the front end.  Here we have e.g. {.__pfn=0B, .__delta=0},
+	       which is missing outermost braces.  We should warn below, and
+	       one of the routines below will wrap it in additional { }.  */;
 	  /* For a nested compound literal, there is no need to reshape since
-	     brace elision is not allowed. Even if we decided to allow it,
-	     we should add a call to reshape_init in finish_compound_literal,
-	     before calling digest_init, so changing this code would still
-	     not be necessary.  */
-	    gcc_assert (!BRACE_ENCLOSED_INITIALIZER_P (init));
+	     we called reshape_init in finish_compound_literal, before calling
+	     digest_init.  */
+	  else if (COMPOUND_LITERAL_P (init)
+		   /* Similarly, a CONSTRUCTOR of the target's type is a
+		      previously digested initializer.  */
+		   || same_type_ignoring_top_level_qualifiers_p (type,
+								 init_type))
+	    {
+	      ++d->cur;
+	      gcc_assert (!BRACE_ENCLOSED_INITIALIZER_P (init));
+	      return init;
+	    }
 	  else
 	    {
+	      /* Something that hasn't been reshaped yet.  */
 	      ++d->cur;
 	      gcc_assert (BRACE_ENCLOSED_INITIALIZER_P (init));
 	      return reshape_init (type, init, complain);
@@ -15557,6 +15566,18 @@ begin_destructor_body (void)
 	    tree stmt = cp_build_modify_expr (input_location, vtbl_ptr,
 					      NOP_EXPR, vtbl,
 					      tf_warning_or_error);
+	    /* If the vptr is shared with some virtual nearly empty base,
+	       don't clear it if not in charge, the dtor of the virtual
+	       nearly empty base will do that later.  */
+	    if (CLASSTYPE_VBASECLASSES (current_class_type)
+		&& CLASSTYPE_PRIMARY_BINFO (current_class_type)
+		&& BINFO_VIRTUAL_P
+			  (CLASSTYPE_PRIMARY_BINFO (current_class_type)))
+	      {
+		stmt = convert_to_void (stmt, ICV_STATEMENT,
+					tf_warning_or_error);
+		stmt = build_if_in_charge (stmt);
+	      }
 	    finish_decl_cleanup (NULL_TREE, stmt);
 	  }
 	else

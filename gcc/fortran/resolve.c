@@ -3926,7 +3926,7 @@ resolve_operator (gfc_expr *e)
 	  if (op2->ts.type != e->ts.type || op2->ts.kind != e->ts.kind)
 	    gfc_convert_type (op2, &e->ts, 1);
 	  e = logical_to_bitwise (e);
-	  return resolve_function (e);
+	  break;
 	}
 
       sprintf (msg, _("Operands of logical operator %%<%s%%> at %%L are %s/%s"),
@@ -3942,7 +3942,7 @@ resolve_operator (gfc_expr *e)
 	  e->ts.type = BT_INTEGER;
 	  e->ts.kind = op1->ts.kind;
 	  e = logical_to_bitwise (e);
-	  return resolve_function (e);
+	  break;
 	}
 
       if (op1->ts.type == BT_LOGICAL)
@@ -5329,7 +5329,7 @@ resolve_variable (gfc_expr *e)
      the ts' type of the component refs is still array valued, which
      can't be translated that way.  */
   if (sym->assoc && e->rank == 0 && e->ref && sym->ts.type == BT_CLASS
-      && sym->assoc->target->ts.type == BT_CLASS
+      && sym->assoc->target && sym->assoc->target->ts.type == BT_CLASS
       && CLASS_DATA (sym->assoc->target)->as)
     {
       gfc_ref *ref = e->ref;
@@ -5358,6 +5358,23 @@ resolve_variable (gfc_expr *e)
 	gfc_fix_class_refs (e);
       if (!sym->attr.dimension && e->ref && e->ref->type == REF_ARRAY)
 	return false;
+       else if (sym->attr.dimension && (!e->ref || e->ref->type != REF_ARRAY))
+	  {
+	    /* This can happen because the parser did not detect that the
+	       associate name is an array and the expression had no array
+	       part_ref.  */
+	    gfc_ref *ref = gfc_get_ref ();
+	    ref->type = REF_ARRAY;
+	    ref->u.ar = *gfc_get_array_ref();
+	    ref->u.ar.type = AR_FULL;
+	    if (sym->as)
+	      {
+		ref->u.ar.as = sym->as;
+		ref->u.ar.dimen = sym->as->rank;
+	      }
+	    ref->next = e->ref;
+	    e->ref = ref;
+	  }
     }
 
   if (sym->ts.type == BT_DERIVED && sym->ts.u.derived->attr.generic)
@@ -8658,6 +8675,14 @@ resolve_assoc_var (gfc_symbol* sym, bool resolve_target)
       if (!sym->ts.u.cl)
 	sym->ts.u.cl = target->ts.u.cl;
 
+      if (sym->ts.deferred && target->expr_type == EXPR_VARIABLE
+	  && target->symtree->n.sym->attr.dummy
+	  && sym->ts.u.cl == target->ts.u.cl)
+	{
+	  sym->ts.u.cl = gfc_new_charlen (sym->ns, NULL);
+	  sym->ts.deferred = 1;
+	}
+
       if (!sym->ts.u.cl->length
 	  && !sym->ts.deferred
 	  && target->expr_type == EXPR_CONSTANT)
@@ -8670,7 +8695,7 @@ resolve_assoc_var (gfc_symbol* sym, bool resolve_target)
 		|| sym->ts.u.cl->length->expr_type != EXPR_CONSTANT)
 		&& target->expr_type != EXPR_VARIABLE)
 	{
-	  sym->ts.u.cl = gfc_get_charlen();
+	  sym->ts.u.cl = gfc_new_charlen (sym->ns, NULL);
 	  sym->ts.deferred = 1;
 
 	  /* This is reset in trans-stmt.c after the assignment
@@ -10491,6 +10516,11 @@ get_temp_from_expr (gfc_expr *e, gfc_namespace *ns)
   gfc_get_sym_tree (name, ns, &tmp, false);
   gfc_add_type (tmp->n.sym, &e->ts, NULL);
 
+  if (e->expr_type == EXPR_CONSTANT && e->ts.type == BT_CHARACTER)
+    tmp->n.sym->ts.u.cl->length = gfc_get_int_expr (gfc_charlen_int_kind,
+						    NULL,
+						    e->value.character.length);
+
   as = NULL;
   ref = NULL;
   aref = NULL;
@@ -11395,7 +11425,7 @@ start:
 	case EXEC_ENDFILE:
 	case EXEC_REWIND:
 	case EXEC_FLUSH:
-	  if (!gfc_resolve_filepos (code->ext.filepos))
+	  if (!gfc_resolve_filepos (code->ext.filepos, &code->loc))
 	    break;
 
 	  resolve_branch (code->ext.filepos->err, code);
@@ -12050,6 +12080,7 @@ resolve_fl_variable_derived (gfc_symbol *sym, int no_init_flag)
      namespace.  14.6.1.3 of the standard and the discussion on
      comp.lang.fortran.  */
   if (sym->ns != sym->ts.u.derived->ns
+      && !sym->ts.u.derived->attr.use_assoc
       && sym->ns->proc_name->attr.if_source != IFSRC_IFBODY)
     {
       gfc_symbol *s;
@@ -12404,7 +12435,8 @@ resolve_fl_procedure (gfc_symbol *sym, int mp_flag)
     }
 
   /* An elemental function is required to return a scalar 12.7.1  */
-  if (sym->attr.elemental && sym->attr.function && sym->as)
+  if (sym->attr.elemental && sym->attr.function
+      && (sym->as || (sym->ts.type == BT_CLASS && CLASS_DATA (sym)->as)))
     {
       gfc_error ("ELEMENTAL function %qs at %L must have a scalar "
 		 "result", sym->name, &sym->declared_at);
@@ -15198,7 +15230,7 @@ resolve_symbol (gfc_symbol *sym)
   /* Set the formal_arg_flag so that check_conflict will not throw
      an error for host associated variables in the specification
      expression for an array_valued function.  */
-  if (sym->attr.function && sym->as)
+  if ((sym->attr.function || sym->attr.result) && sym->as)
     formal_arg_flag = true;
 
   saved_specification_expr = specification_expr;
@@ -15350,7 +15382,10 @@ check_data_variable (gfc_data_variable *var, locus *where)
     e = e->value.function.actual->expr;
 
   if (e->expr_type != EXPR_VARIABLE)
-    gfc_internal_error ("check_data_variable(): Bad expression");
+    {
+      gfc_error ("Expecting definable entity near %L", where);
+      return false;
+    }
 
   sym = e->symtree->n.sym;
 
@@ -15358,6 +15393,7 @@ check_data_variable (gfc_data_variable *var, locus *where)
     {
       gfc_error ("BLOCK DATA element %qs at %L must be in COMMON",
 		 sym->name, &sym->declared_at);
+      return false;
     }
 
   if (e->ref == NULL && sym->as)

@@ -325,7 +325,7 @@ static const struct cpu_addrcost_table qdf24xx_addrcost_table =
   1, /* pre_modify  */
   1, /* post_modify  */
   3, /* register_offset  */
-  4, /* register_sextend  */
+  3, /* register_sextend  */
   3, /* register_zextend  */
   2, /* imm_offset  */
 };
@@ -415,6 +415,26 @@ static const struct cpu_vector_cost generic_vector_cost =
   1, /* scalar_store_cost  */
   1, /* vec_int_stmt_cost  */
   1, /* vec_fp_stmt_cost  */
+  2, /* vec_permute_cost  */
+  1, /* vec_to_scalar_cost  */
+  1, /* scalar_to_vec_cost  */
+  1, /* vec_align_load_cost  */
+  1, /* vec_unalign_load_cost  */
+  1, /* vec_unalign_store_cost  */
+  1, /* vec_store_cost  */
+  3, /* cond_taken_branch_cost  */
+  1 /* cond_not_taken_branch_cost  */
+};
+
+/* QDF24XX costs for vector insn classes.  */
+static const struct cpu_vector_cost qdf24xx_vector_cost =
+{
+  1, /* scalar_int_stmt_cost  */
+  1, /* scalar_fp_stmt_cost  */
+  1, /* scalar_load_cost  */
+  1, /* scalar_store_cost  */
+  1, /* vec_int_stmt_cost  */
+  3, /* vec_fp_stmt_cost  */
   2, /* vec_permute_cost  */
   1, /* vec_to_scalar_cost  */
   1, /* scalar_to_vec_cost  */
@@ -874,7 +894,7 @@ static const struct tune_params qdf24xx_tunings =
   &qdf24xx_extra_costs,
   &qdf24xx_addrcost_table,
   &qdf24xx_regmove_cost,
-  &generic_vector_cost,
+  &qdf24xx_vector_cost,
   &generic_branch_cost,
   &generic_approx_modes,
   4, /* memmov_cost  */
@@ -7074,8 +7094,13 @@ aarch64_print_address_internal (FILE *f, machine_mode mode, rtx x,
   unsigned int size;
 
   /* Check all addresses are Pmode - including ILP32.  */
-  if (GET_MODE (x) != Pmode)
-    output_operand_lossage ("invalid address mode");
+  if (GET_MODE (x) != Pmode
+      && (!CONST_INT_P (x)
+	  || trunc_int_for_mode (INTVAL (x), Pmode) != INTVAL (x)))
+    {
+      output_operand_lossage ("invalid address mode");
+      return false;
+    }
 
   if (aarch64_classify_address (&addr, x, mode, true, type))
     switch (addr.type)
@@ -8405,7 +8430,8 @@ aarch64_mask_and_shift_for_ubfiz_p (scalar_int_mode mode, rtx mask,
   return CONST_INT_P (mask) && CONST_INT_P (shft_amnt)
 	 && INTVAL (shft_amnt) < GET_MODE_BITSIZE (mode)
 	 && exact_log2 ((INTVAL (mask) >> INTVAL (shft_amnt)) + 1) >= 0
-	 && (INTVAL (mask) & ((1 << INTVAL (shft_amnt)) - 1)) == 0;
+	 && (INTVAL (mask)
+	     & ((HOST_WIDE_INT_1U << INTVAL (shft_amnt)) - 1)) == 0;
 }
 
 /* Calculate the cost of calculating X, storing it in *COST.  Result
@@ -16498,8 +16524,6 @@ aarch_macro_fusion_pair_p (rtx_insn *prev, rtx_insn *curr)
   if (aarch64_fusion_enabled_p (AARCH64_FUSE_CMP_BRANCH)
       && any_condjump_p (curr))
     {
-      enum attr_type prev_type = get_attr_type (prev);
-
       unsigned int condreg1, condreg2;
       rtx cc_reg_1;
       aarch64_fixed_condition_code_regs (&condreg1, &condreg2);
@@ -16509,6 +16533,8 @@ aarch_macro_fusion_pair_p (rtx_insn *prev, rtx_insn *curr)
 	  && prev
 	  && modified_in_p (cc_reg_1, prev))
 	{
+	  enum attr_type prev_type = get_attr_type (prev);
+
 	  /* FIXME: this misses some which is considered simple arthematic
 	     instructions for ThunderX.  Simple shifts are missed here.  */
 	  if (prev_type == TYPE_ALUS_SREG

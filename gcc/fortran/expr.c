@@ -1067,14 +1067,17 @@ is_subref_array (gfc_expr * e)
   if (e->symtree->n.sym->attr.subref_array_pointer)
     return true;
 
-  if (e->symtree->n.sym->ts.type == BT_CLASS
-      && e->symtree->n.sym->attr.dummy
-      && CLASS_DATA (e->symtree->n.sym)->attr.class_pointer)
-    return true;
-
   seen_array = false;
+
   for (ref = e->ref; ref; ref = ref->next)
     {
+      /* If we haven't seen the array reference and this is an intrinsic,
+	 what follows cannot be a subreference array.  */
+      if (!seen_array && ref->type == REF_COMPONENT
+	  && ref->u.c.component->ts.type != BT_CLASS
+	  && !gfc_bt_struct (ref->u.c.component->ts.type))
+	return false;
+
       if (ref->type == REF_ARRAY
 	    && ref->u.ar.type != AR_ELEMENT)
 	seen_array = true;
@@ -1083,6 +1086,13 @@ is_subref_array (gfc_expr * e)
 	    && ref->type != REF_ARRAY)
 	return seen_array;
     }
+
+  if (e->symtree->n.sym->ts.type == BT_CLASS
+      && e->symtree->n.sym->attr.dummy
+      && CLASS_DATA (e->symtree->n.sym)->attr.dimension
+      && CLASS_DATA (e->symtree->n.sym)->attr.class_pointer)
+    return true;
+
   return false;
 }
 
@@ -1930,7 +1940,20 @@ gfc_simplify_expr (gfc_expr *p, int type)
       break;
 
     case EXPR_FUNCTION:
-      for (ap = p->value.function.actual; ap; ap = ap->next)
+      // For array-bound functions, we don't need to optimize
+      // the 'array' argument. In particular, if the argument
+      // is a PARAMETER, simplifying might convert an EXPR_VARIABLE
+      // into an EXPR_ARRAY; the latter has lbound = 1, the former
+      // can have any lbound.
+      ap = p->value.function.actual;
+      if (p->value.function.isym &&
+	  (p->value.function.isym->id == GFC_ISYM_LBOUND
+	   || p->value.function.isym->id == GFC_ISYM_UBOUND
+	   || p->value.function.isym->id == GFC_ISYM_LCOBOUND
+	   || p->value.function.isym->id == GFC_ISYM_UCOBOUND))
+	ap = ap->next;
+
+      for ( ; ap; ap = ap->next)
 	if (!gfc_simplify_expr (ap->expr, type))
 	  return false;
 
@@ -3455,7 +3478,7 @@ gfc_check_assign (gfc_expr *lvalue, gfc_expr *rvalue, int conform,
    NULLIFY statement.  */
 
 bool
-gfc_check_pointer_assign (gfc_expr *lvalue, gfc_expr *rvalue)
+gfc_check_pointer_assign (gfc_expr *lvalue, gfc_expr *rvalue, bool is_init_expr)
 {
   symbol_attribute attr, lhs_attr;
   gfc_ref *ref;
@@ -3886,11 +3909,35 @@ gfc_check_pointer_assign (gfc_expr *lvalue, gfc_expr *rvalue)
       return false;
     }
 
-  if (!attr.target && !attr.pointer)
+  if (is_init_expr)
     {
-      gfc_error ("Pointer assignment target is neither TARGET "
-		 "nor POINTER at %L", &rvalue->where);
-      return false;
+      gfc_symbol *sym;
+      bool target;
+
+      gcc_assert (rvalue->symtree);
+      sym = rvalue->symtree->n.sym;
+
+      if (sym->ts.type == BT_CLASS && sym->attr.class_ok)
+	target = CLASS_DATA (sym)->attr.target;
+      else
+	target = sym->attr.target;
+
+      if (!target && !proc_pointer)
+	{
+	  gfc_error ("Pointer assignment target in initialization expression "
+		     "does not have the TARGET attribute at %L",
+		     &rvalue->where);
+	  return false;
+	}
+    }
+  else
+    {
+      if (!attr.target && !attr.pointer)
+	{
+	  gfc_error ("Pointer assignment target is neither TARGET "
+		     "nor POINTER at %L", &rvalue->where);
+	  return false;
+	}
     }
 
   if (is_pure && gfc_impure_variable (rvalue->symtree->n.sym))
@@ -4024,7 +4071,7 @@ gfc_check_assign_symbol (gfc_symbol *sym, gfc_component *comp, gfc_expr *rvalue)
     }
 
   if (pointer || proc_pointer)
-    r = gfc_check_pointer_assign (&lvalue, rvalue);
+    r = gfc_check_pointer_assign (&lvalue, rvalue, true);
   else
     {
       /* If a conversion function, e.g., __convert_i8_i4, was inserted
@@ -4273,12 +4320,10 @@ gfc_apply_init (gfc_typespec *ts, symbol_attribute *attr, gfc_expr *init)
 {
   if (ts->type == BT_CHARACTER && !attr->pointer && init
       && ts->u.cl
-      && ts->u.cl->length && ts->u.cl->length->expr_type == EXPR_CONSTANT)
+      && ts->u.cl->length
+      && ts->u.cl->length->expr_type == EXPR_CONSTANT
+      && ts->u.cl->length->ts.type == BT_INTEGER)
     {
-      gcc_assert (ts->u.cl && ts->u.cl->length);
-      gcc_assert (ts->u.cl->length->expr_type == EXPR_CONSTANT);
-      gcc_assert (ts->u.cl->length->ts.type == BT_INTEGER);
-
       HOST_WIDE_INT len = gfc_mpz_get_hwi (ts->u.cl->length->value.integer);
 
       if (init->expr_type == EXPR_CONSTANT)
@@ -5360,16 +5405,13 @@ gfc_is_simply_contiguous (gfc_expr *expr, bool strict, bool permit_element)
 	return expr->value.function.esym->result->attr.contiguous;
       else
 	{
-	  /* We have to jump through some hoops if this is a vtab entry.  */
-	  gfc_symbol *s;
-	  gfc_ref *r, *rc;
-
-	  s = expr->symtree->n.sym;
-	  if (s->ts.type != BT_CLASS)
+	  /* Type-bound procedures.  */
+	  gfc_symbol *s = expr->symtree->n.sym;
+	  if (s->ts.type != BT_CLASS && s->ts.type != BT_DERIVED)
 	    return false;
-	  
-	  rc = NULL;
-	  for (r = expr->ref; r; r = r->next)
+
+	  gfc_ref *rc = NULL;
+	  for (gfc_ref *r = expr->ref; r; r = r->next)
 	    if (r->type == REF_COMPONENT)
 	      rc = r;
 

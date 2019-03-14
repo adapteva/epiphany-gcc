@@ -1543,6 +1543,13 @@ gfc_get_symbol_decl (gfc_symbol * sym)
       /* Dummy variables should already have been created.  */
       gcc_assert (sym->backend_decl);
 
+      /* However, the string length of deferred arrays must be set.  */
+      if (sym->ts.type == BT_CHARACTER
+	  && sym->ts.deferred
+	  && sym->attr.dimension
+	  && sym->attr.allocatable)
+	gfc_defer_symbol_init (sym);
+
       if (sym->attr.pointer && sym->attr.dimension && sym->ts.type != BT_CLASS)
 	GFC_DECL_PTR_ARRAY_P (sym->backend_decl) = 1;
 
@@ -1595,13 +1602,17 @@ gfc_get_symbol_decl (gfc_symbol * sym)
 	  if (VAR_P (length) && DECL_FILE_SCOPE_P (length))
 	    {
 	      /* Add the string length to the same context as the symbol.  */
-	      if (DECL_CONTEXT (sym->backend_decl) == current_function_decl)
-	        gfc_add_decl_to_function (length);
-	      else
-		gfc_add_decl_to_parent_function (length);
+	      if (DECL_CONTEXT (length) == NULL_TREE)
+		{
+		  if (DECL_CONTEXT (sym->backend_decl)
+		      == current_function_decl)
+		    gfc_add_decl_to_function (length);
+		  else
+		    gfc_add_decl_to_parent_function (length);
+		}
 
-	      gcc_assert (DECL_CONTEXT (sym->backend_decl) ==
-			    DECL_CONTEXT (length));
+	      gcc_assert (DECL_CONTEXT (sym->backend_decl)
+			  == DECL_CONTEXT (length));
 
 	      gfc_defer_symbol_init (sym);
 	    }
@@ -5709,10 +5720,7 @@ generate_local_decl (gfc_symbol * sym)
 			  "imported at %L", sym->name, &sym->declared_at);
 	}
 
-      if (sym->ns
-	  && sym->ns->parent
-	  && sym->ns->parent->code
-	  && sym->ns->parent->code->op == EXEC_BLOCK)
+      if (sym->ns && sym->ns->construct_entities)
 	{
 	  if (sym->attr.referenced)
 	    gfc_get_symbol_decl (sym);

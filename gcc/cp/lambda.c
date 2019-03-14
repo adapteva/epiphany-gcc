@@ -262,6 +262,9 @@ is_capture_proxy (tree decl)
 	  && DECL_HAS_VALUE_EXPR_P (decl)
 	  && !DECL_ANON_UNION_VAR_P (decl)
 	  && !DECL_DECOMPOSITION_P (decl)
+	  && !(DECL_ARTIFICIAL (decl)
+	       && DECL_LANG_SPECIFIC (decl)
+	       && DECL_OMP_PRIVATIZED_MEMBER (decl))
 	  && LAMBDA_FUNCTION_P (DECL_CONTEXT (decl)));
 }
 
@@ -1115,6 +1118,9 @@ maybe_add_lambda_conv_op (tree type)
       {
 	tree new_node = copy_node (src);
 
+	/* Clear TREE_ADDRESSABLE on thunk arguments.  */
+	TREE_ADDRESSABLE (new_node) = 0;
+
 	if (!fn_args)
 	  fn_args = tgt = new_node;
 	else
@@ -1471,8 +1477,10 @@ mark_const_cap_r (tree *t, int *walk_subtrees, void *data)
     {
       tree decl = DECL_EXPR_DECL (*t);
       if (is_constant_capture_proxy (decl))
-	var = DECL_CAPTURED_VARIABLE (decl);
-      *walk_subtrees = 0;
+	{
+	  var = DECL_CAPTURED_VARIABLE (decl);
+	  *walk_subtrees = 0;
+	}
     }
   else if (is_constant_capture_proxy (*t))
     var = DECL_CAPTURED_VARIABLE (*t);
@@ -1511,8 +1519,8 @@ prune_lambda_captures (tree body)
       tree cap = *capp;
       if (tree var = var_to_maybe_prune (cap))
 	{
-	  tree *use = *const_vars.get (var);
-	  if (TREE_CODE (*use) == DECL_EXPR)
+	  tree **use = const_vars.get (var);
+	  if (use && TREE_CODE (**use) == DECL_EXPR)
 	    {
 	      /* All uses of this capture were folded away, leaving only the
 		 proxy declaration.  */
@@ -1527,7 +1535,7 @@ prune_lambda_captures (tree body)
 	      *fieldp = DECL_CHAIN (*fieldp);
 
 	      /* And remove the capture proxy declaration.  */
-	      *use = void_node;
+	      **use = void_node;
 	      continue;
 	    }
 	}

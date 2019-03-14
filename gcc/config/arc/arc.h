@@ -811,15 +811,9 @@ extern int arc_initial_elimination_offset(int from, int to);
 #define INITIAL_ELIMINATION_OFFSET(FROM, TO, OFFSET)                    \
   (OFFSET) = arc_initial_elimination_offset ((FROM), (TO))
 
-/* Output assembler code to FILE to increment profiler label # LABELNO
-   for profiling a function entry.  */
-#define FUNCTION_PROFILER(FILE, LABELNO)			\
-  do {								\
-  if (flag_pic)							\
-    fprintf (FILE, "\tbl\t__mcount@plt\n");			\
-  else								\
-    fprintf (FILE, "\tbl\t__mcount\n");				\
-  } while (0)
+/* All the work done in PROFILE_HOOK, but still required.  */
+#undef FUNCTION_PROFILER
+#define FUNCTION_PROFILER(STREAM, LABELNO) do { } while (0)
 
 #define NO_PROFILE_COUNTERS  1
 
@@ -1366,8 +1360,6 @@ do { \
 #define EH_RETURN_DATA_REGNO(N)  ((N) < 2 ? (N) : INVALID_REGNUM)
 
 #define EH_RETURN_STACKADJ_RTX   gen_rtx_REG (Pmode, 2)
-
-#define EH_RETURN_HANDLER_RTX    arc_eh_return_address_location ()
 
 /* Turn off splitting of long stabs.  */
 #define DBX_CONTIN_LENGTH 0

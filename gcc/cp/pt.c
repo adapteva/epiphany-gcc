@@ -14506,6 +14506,15 @@ tsubst (tree t, tree args, tsubst_flags_t complain, tree in_decl)
 		     && !PLACEHOLDER_TYPE_CONSTRAINTS (r))
 	      /* Break infinite recursion when substituting the constraints
 		 of a constrained placeholder.  */;
+	    else if (TREE_CODE (t) == TEMPLATE_TYPE_PARM
+		     && !PLACEHOLDER_TYPE_CONSTRAINTS (t)
+		     && !CLASS_PLACEHOLDER_TEMPLATE (t)
+		     && (arg = TEMPLATE_TYPE_PARM_INDEX (t),
+			 r = TEMPLATE_PARM_DESCENDANTS (arg))
+		     && (TEMPLATE_PARM_LEVEL (r)
+			 == TEMPLATE_PARM_LEVEL (arg) - levels))
+		/* Cache the simple case of lowering a type parameter.  */
+	      r = TREE_TYPE (r);
 	    else
 	      {
 		r = copy_type (t);
@@ -16734,7 +16743,17 @@ tsubst_expr (tree t, tree args, tsubst_flags_t complain, tree in_decl,
 		else
 		  {
 		    int const_init = false;
+		    unsigned int cnt = 0;
+		    tree first = NULL_TREE, ndecl = error_mark_node;
 		    maybe_push_decl (decl);
+
+		    if (VAR_P (decl)
+			&& DECL_DECOMPOSITION_P (decl)
+			&& TREE_TYPE (pattern_decl) != error_mark_node)
+		      ndecl = tsubst_decomp_names (decl, pattern_decl, args,
+						   complain, in_decl, &first,
+						   &cnt);
+
 		    if (VAR_P (decl)
 			&& DECL_PRETTY_FUNCTION_P (decl))
 		      {
@@ -16750,23 +16769,14 @@ tsubst_expr (tree t, tree args, tsubst_flags_t complain, tree in_decl,
 		    if (VAR_P (decl))
 		      const_init = (DECL_INITIALIZED_BY_CONSTANT_EXPRESSION_P
 				    (pattern_decl));
-		    if (VAR_P (decl)
-			&& DECL_DECOMPOSITION_P (decl)
-			&& TREE_TYPE (pattern_decl) != error_mark_node)
-		      {
-			unsigned int cnt;
-			tree first;
-			tree ndecl
-			  = tsubst_decomp_names (decl, pattern_decl, args,
-						 complain, in_decl, &first, &cnt);
-			if (ndecl != error_mark_node)
-			  cp_maybe_mangle_decomp (ndecl, first, cnt);
-			cp_finish_decl (decl, init, const_init, NULL_TREE, 0);
-			if (ndecl != error_mark_node)
-			  cp_finish_decomp (ndecl, first, cnt);
-		      }
-		    else
-		      cp_finish_decl (decl, init, const_init, NULL_TREE, 0);
+
+		    if (ndecl != error_mark_node)
+		      cp_maybe_mangle_decomp (ndecl, first, cnt);
+
+		    cp_finish_decl (decl, init, const_init, NULL_TREE, 0);
+
+		    if (ndecl != error_mark_node)
+		      cp_finish_decomp (ndecl, first, cnt);
 		  }
 	      }
 	  }
@@ -16816,6 +16826,8 @@ tsubst_expr (tree t, tree args, tsubst_flags_t complain, tree in_decl,
 	    RANGE_FOR_IVDEP (stmt) = RANGE_FOR_IVDEP (t);
 	    RANGE_FOR_UNROLL (stmt) = RANGE_FOR_UNROLL (t);
 	    finish_range_for_decl (stmt, decl, expr);
+	    if (decomp_first && decl != error_mark_node)
+	      cp_finish_decomp (decl, decomp_first, decomp_cnt);
 	  }
 	else
 	  {
@@ -16987,7 +16999,7 @@ tsubst_expr (tree t, tree args, tsubst_flags_t complain, tree in_decl,
 	tree labels = tsubst_copy_asm_operands (ASM_LABELS (t), args,
 						complain, in_decl);
 	tmp = finish_asm_stmt (ASM_VOLATILE_P (t), string, outputs, inputs,
-			       clobbers, labels);
+			       clobbers, labels, ASM_INLINE_P (t));
 	tree asm_expr = tmp;
 	if (TREE_CODE (asm_expr) == CLEANUP_POINT_EXPR)
 	  asm_expr = TREE_OPERAND (asm_expr, 0);
@@ -18516,10 +18528,6 @@ tsubst_copy_and_build (tree t,
 		CALL_EXPR_REVERSE_ARGS (function) = rev;
 		if (thk)
 		  {
-		    if (TREE_CODE (function) == CALL_EXPR)
-		      CALL_FROM_THUNK_P (function) = true;
-		    else
-		      AGGR_INIT_FROM_THUNK_P (function) = true;
 		    /* The thunk location is not interesting.  */
 		    SET_EXPR_LOCATION (function, UNKNOWN_LOCATION);
 		  }
@@ -18992,6 +19000,11 @@ tsubst_copy_and_build (tree t,
 
     case REQUIRES_EXPR:
       RETURN (tsubst_requires_expr (t, args, complain, in_decl));
+
+    case RANGE_EXPR:
+      /* No need to substitute further, a RANGE_EXPR will always be built
+	 with constant operands.  */
+      RETURN (t);
 
     case NON_LVALUE_EXPR:
     case VIEW_CONVERT_EXPR:
@@ -26461,6 +26474,8 @@ build_deduction_guide (tree ctor, tree outer_args, tsubst_flags_t complain)
 	  targs = template_parms_to_args (tparms);
 	  fparms = tsubst_arg_types (fparms, tsubst_args, NULL_TREE,
 				     complain, ctor);
+	  if (fparms == error_mark_node)
+	    ok = false;
 	  fargs = tsubst (fargs, tsubst_args, complain, ctor);
 	  if (ci)
 	    ci = tsubst_constraint_info (ci, tsubst_args, complain, ctor);

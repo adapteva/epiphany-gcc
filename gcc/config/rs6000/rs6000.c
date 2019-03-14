@@ -81,6 +81,8 @@
 #include "case-cfn-macros.h"
 #include "ppc-auxv.h"
 #include "tree-ssa-propagate.h"
+#include "tree-vrp.h"
+#include "tree-ssanames.h"
 
 /* This file should be included last.  */
 #include "target-def.h"
@@ -4631,6 +4633,13 @@ rs6000_option_override_internal (bool global_init_p)
     }
   else if (rs6000_long_double_type_size == 128)
     rs6000_long_double_type_size = FLOAT_PRECISION_TFmode;
+  else if (global_options_set.x_rs6000_ieeequad)
+    {
+      if (global_options.x_rs6000_ieeequad)
+	error ("%qs requires %qs", "-mabi=ieeelongdouble", "-mlong-double-128");
+      else
+	error ("%qs requires %qs", "-mabi=ibmlongdouble", "-mlong-double-128");
+    }
 
   /* Set -mabi=ieeelongdouble on some old targets.  In the future, power server
      systems will also set long double to be IEEE 128-bit.  AIX and Darwin
@@ -4640,16 +4649,23 @@ rs6000_option_override_internal (bool global_init_p)
   if (!global_options_set.x_rs6000_ieeequad)
     rs6000_ieeequad = TARGET_IEEEQUAD_DEFAULT;
 
-  else if (rs6000_ieeequad != TARGET_IEEEQUAD_DEFAULT && TARGET_LONG_DOUBLE_128)
+  else
     {
-      static bool warned_change_long_double;
-      if (!warned_change_long_double)
+      if (global_options.x_rs6000_ieeequad
+	  && (!TARGET_POPCNTD || !TARGET_VSX))
+	error ("%qs requires full ISA 2.06 support", "-mabi=ieeelongdouble");
+
+      if (rs6000_ieeequad != TARGET_IEEEQUAD_DEFAULT && TARGET_LONG_DOUBLE_128)
 	{
-	  warned_change_long_double = true;
-	  if (TARGET_IEEEQUAD)
-	    warning (OPT_Wpsabi, "Using IEEE extended precision long double");
-	  else
-	    warning (OPT_Wpsabi, "Using IBM extended precision long double");
+	  static bool warned_change_long_double;
+	  if (!warned_change_long_double)
+	    {
+	      warned_change_long_double = true;
+	      if (TARGET_IEEEQUAD)
+		warning (OPT_Wpsabi, "Using IEEE extended precision long double");
+	      else
+		warning (OPT_Wpsabi, "Using IBM extended precision long double");
+	    }
 	}
     }
 
@@ -8519,7 +8535,9 @@ toc_relative_expr_p (const_rtx op, bool strict, const_rtx *tocrel_base_ret,
     *tocrel_offset_ret = tocrel_offset;
 
   return (GET_CODE (tocrel_base) == UNSPEC
-	  && XINT (tocrel_base, 1) == UNSPEC_TOCREL);
+	  && XINT (tocrel_base, 1) == UNSPEC_TOCREL
+	  && REG_P (XVECEXP (tocrel_base, 0, 1))
+	  && REGNO (XVECEXP (tocrel_base, 0, 1)) == TOC_REGISTER);
 }
 
 /* Return true if X is a constant pool address, and also for cmodel=medium
@@ -16143,6 +16161,7 @@ rs6000_gimple_fold_builtin (gimple_stmt_iterator *gsi)
   enum rs6000_builtins fn_code
     = (enum rs6000_builtins) DECL_FUNCTION_CODE (fndecl);
   tree arg0, arg1, lhs, temp;
+  enum tree_code bcode;
   gimple *g;
 
   size_t uns_fncode = (size_t) fn_code;
@@ -16181,10 +16200,32 @@ rs6000_gimple_fold_builtin (gimple_stmt_iterator *gsi)
     case P8V_BUILTIN_VADDUDM:
     case ALTIVEC_BUILTIN_VADDFP:
     case VSX_BUILTIN_XVADDDP:
+      bcode = PLUS_EXPR;
+    do_binary:
       arg0 = gimple_call_arg (stmt, 0);
       arg1 = gimple_call_arg (stmt, 1);
       lhs = gimple_call_lhs (stmt);
-      g = gimple_build_assign (lhs, PLUS_EXPR, arg0, arg1);
+      if (INTEGRAL_TYPE_P (TREE_TYPE (TREE_TYPE (lhs)))
+	  && !TYPE_OVERFLOW_WRAPS (TREE_TYPE (TREE_TYPE (lhs))))
+	{
+	  /* Ensure the binary operation is performed in a type
+	     that wraps if it is integral type.  */
+	  gimple_seq stmts = NULL;
+	  tree type = unsigned_type_for (TREE_TYPE (lhs));
+	  tree uarg0 = gimple_build (&stmts, VIEW_CONVERT_EXPR,
+				     type, arg0);
+	  tree uarg1 = gimple_build (&stmts, VIEW_CONVERT_EXPR,
+				     type, arg1);
+	  tree res = gimple_build (&stmts, gimple_location (stmt), bcode,
+				   type, uarg0, uarg1);
+	  gsi_insert_seq_before (gsi, stmts, GSI_SAME_STMT);
+	  g = gimple_build_assign (lhs, VIEW_CONVERT_EXPR,
+				   build1 (VIEW_CONVERT_EXPR,
+					   TREE_TYPE (lhs), res));
+	  gsi_replace (gsi, g, true);
+	  return true;
+	}
+      g = gimple_build_assign (lhs, bcode, arg0, arg1);
       gimple_set_location (g, gimple_location (stmt));
       gsi_replace (gsi, g, true);
       return true;
@@ -16196,13 +16237,8 @@ rs6000_gimple_fold_builtin (gimple_stmt_iterator *gsi)
     case P8V_BUILTIN_VSUBUDM:
     case ALTIVEC_BUILTIN_VSUBFP:
     case VSX_BUILTIN_XVSUBDP:
-      arg0 = gimple_call_arg (stmt, 0);
-      arg1 = gimple_call_arg (stmt, 1);
-      lhs = gimple_call_lhs (stmt);
-      g = gimple_build_assign (lhs, MINUS_EXPR, arg0, arg1);
-      gimple_set_location (g, gimple_location (stmt));
-      gsi_replace (gsi, g, true);
-      return true;
+      bcode = MINUS_EXPR;
+      goto do_binary;
     case VSX_BUILTIN_XVMULSP:
     case VSX_BUILTIN_XVMULDP:
       arg0 = gimple_call_arg (stmt, 0);
@@ -16440,29 +16476,81 @@ rs6000_gimple_fold_builtin (gimple_stmt_iterator *gsi)
     case ALTIVEC_BUILTIN_VSRAH:
     case ALTIVEC_BUILTIN_VSRAW:
     case P8V_BUILTIN_VSRAD:
-      arg0 = gimple_call_arg (stmt, 0);
-      arg1 = gimple_call_arg (stmt, 1);
-      lhs = gimple_call_lhs (stmt);
-      g = gimple_build_assign (lhs, RSHIFT_EXPR, arg0, arg1);
-      gimple_set_location (g, gimple_location (stmt));
-      gsi_replace (gsi, g, true);
-      return true;
+      {
+	arg0 = gimple_call_arg (stmt, 0);
+	arg1 = gimple_call_arg (stmt, 1);
+	lhs = gimple_call_lhs (stmt);
+	tree arg1_type = TREE_TYPE (arg1);
+	tree unsigned_arg1_type = unsigned_type_for (TREE_TYPE (arg1));
+	tree unsigned_element_type = unsigned_type_for (TREE_TYPE (arg1_type));
+	location_t loc = gimple_location (stmt);
+	/* Force arg1 into the range valid matching the arg0 type.  */
+	/* Build a vector consisting of the max valid bit-size values.  */
+	int n_elts = VECTOR_CST_NELTS (arg1);
+	tree element_size = build_int_cst (unsigned_element_type,
+					   128 / n_elts);
+	tree_vector_builder elts (unsigned_arg1_type, n_elts, 1);
+	for (int i = 0; i < n_elts; i++)
+	  elts.safe_push (element_size);
+	tree modulo_tree = elts.build ();
+	/* Modulo the provided shift value against that vector.  */
+	gimple_seq stmts = NULL;
+	tree unsigned_arg1 = gimple_build (&stmts, VIEW_CONVERT_EXPR,
+					   unsigned_arg1_type, arg1);
+	tree new_arg1 = gimple_build (&stmts, loc, TRUNC_MOD_EXPR,
+				      unsigned_arg1_type, unsigned_arg1,
+				      modulo_tree);
+	gsi_insert_seq_before (gsi, stmts, GSI_SAME_STMT);
+	/* And finally, do the shift.  */
+	g = gimple_build_assign (lhs, RSHIFT_EXPR, arg0, new_arg1);
+	gimple_set_location (g, loc);
+	gsi_replace (gsi, g, true);
+	return true;
+      }
    /* Flavors of vector shift left.
       builtin_altivec_vsl{b,h,w} -> vsl{b,h,w}.  */
     case ALTIVEC_BUILTIN_VSLB:
     case ALTIVEC_BUILTIN_VSLH:
     case ALTIVEC_BUILTIN_VSLW:
     case P8V_BUILTIN_VSLD:
-      arg0 = gimple_call_arg (stmt, 0);
-      if (INTEGRAL_TYPE_P (TREE_TYPE (TREE_TYPE (arg0)))
-	  && !TYPE_OVERFLOW_WRAPS (TREE_TYPE (TREE_TYPE (arg0))))
-	return false;
-      arg1 = gimple_call_arg (stmt, 1);
-      lhs = gimple_call_lhs (stmt);
-      g = gimple_build_assign (lhs, LSHIFT_EXPR, arg0, arg1);
-      gimple_set_location (g, gimple_location (stmt));
-      gsi_replace (gsi, g, true);
-      return true;
+      {
+	location_t loc;
+	gimple_seq stmts = NULL;
+	arg0 = gimple_call_arg (stmt, 0);
+	tree arg0_type = TREE_TYPE (arg0);
+	if (INTEGRAL_TYPE_P (TREE_TYPE (arg0_type))
+	    && !TYPE_OVERFLOW_WRAPS (TREE_TYPE (arg0_type)))
+	  return false;
+	arg1 = gimple_call_arg (stmt, 1);
+	tree arg1_type = TREE_TYPE (arg1);
+	tree unsigned_arg1_type = unsigned_type_for (TREE_TYPE (arg1));
+	tree unsigned_element_type = unsigned_type_for (TREE_TYPE (arg1_type));
+	loc = gimple_location (stmt);
+	lhs = gimple_call_lhs (stmt);
+	/* Force arg1 into the range valid matching the arg0 type.  */
+	/* Build a vector consisting of the max valid bit-size values.  */
+	int n_elts = VECTOR_CST_NELTS (arg1);
+	int tree_size_in_bits = TREE_INT_CST_LOW (size_in_bytes (arg1_type))
+				* BITS_PER_UNIT;
+	tree element_size = build_int_cst (unsigned_element_type,
+					   tree_size_in_bits / n_elts);
+	tree_vector_builder elts (unsigned_type_for (arg1_type), n_elts, 1);
+	for (int i = 0; i < n_elts; i++)
+	  elts.safe_push (element_size);
+	tree modulo_tree = elts.build ();
+	/* Modulo the provided shift value against that vector.  */
+	tree unsigned_arg1 = gimple_build (&stmts, VIEW_CONVERT_EXPR,
+					   unsigned_arg1_type, arg1);
+	tree new_arg1 = gimple_build (&stmts, loc, TRUNC_MOD_EXPR,
+				      unsigned_arg1_type, unsigned_arg1,
+				      modulo_tree);
+	gsi_insert_seq_before (gsi, stmts, GSI_SAME_STMT);
+	/* And finally, do the shift.  */
+	g = gimple_build_assign (lhs, LSHIFT_EXPR, arg0, new_arg1);
+	gimple_set_location (g, gimple_location (stmt));
+	gsi_replace (gsi, g, true);
+	return true;
+      }
     /* Flavors of vector shift right.  */
     case ALTIVEC_BUILTIN_VSRB:
     case ALTIVEC_BUILTIN_VSRH:
@@ -16472,14 +16560,34 @@ rs6000_gimple_fold_builtin (gimple_stmt_iterator *gsi)
 	arg0 = gimple_call_arg (stmt, 0);
 	arg1 = gimple_call_arg (stmt, 1);
 	lhs = gimple_call_lhs (stmt);
+	tree arg1_type = TREE_TYPE (arg1);
+	tree unsigned_arg1_type = unsigned_type_for (TREE_TYPE (arg1));
+	tree unsigned_element_type = unsigned_type_for (TREE_TYPE (arg1_type));
+	location_t loc = gimple_location (stmt);
 	gimple_seq stmts = NULL;
 	/* Convert arg0 to unsigned.  */
 	tree arg0_unsigned
 	  = gimple_build (&stmts, VIEW_CONVERT_EXPR,
 			  unsigned_type_for (TREE_TYPE (arg0)), arg0);
+	/* Force arg1 into the range valid matching the arg0 type.  */
+	/* Build a vector consisting of the max valid bit-size values.  */
+	int n_elts = VECTOR_CST_NELTS (arg1);
+	tree element_size = build_int_cst (unsigned_element_type,
+					   128 / n_elts);
+	tree_vector_builder elts (unsigned_arg1_type, n_elts, 1);
+	for (int i = 0; i < n_elts; i++)
+	  elts.safe_push (element_size);
+	tree modulo_tree = elts.build ();
+	/* Modulo the provided shift value against that vector.  */
+	tree unsigned_arg1 = gimple_build (&stmts, VIEW_CONVERT_EXPR,
+					   unsigned_arg1_type, arg1);
+	tree new_arg1 = gimple_build (&stmts, loc, TRUNC_MOD_EXPR,
+				      unsigned_arg1_type, unsigned_arg1,
+				      modulo_tree);
+	/* Do the shift.  */
 	tree res
 	  = gimple_build (&stmts, RSHIFT_EXPR,
-			  TREE_TYPE (arg0_unsigned), arg0_unsigned, arg1);
+			  TREE_TYPE (arg0_unsigned), arg0_unsigned, new_arg1);
 	/* Convert result back to the lhs type.  */
 	res = gimple_build (&stmts, VIEW_CONVERT_EXPR, TREE_TYPE (lhs), res);
 	gsi_insert_seq_before (gsi, stmts, GSI_SAME_STMT);
@@ -16518,6 +16626,13 @@ rs6000_gimple_fold_builtin (gimple_stmt_iterator *gsi)
 					  arg1_type, temp_addr,
 					  build_int_cst (arg1_type, -16));
 	gsi_insert_seq_before (gsi, stmts, GSI_SAME_STMT);
+	if (!is_gimple_mem_ref_addr (aligned_addr))
+	  {
+	    tree t = make_ssa_name (TREE_TYPE (aligned_addr));
+	    gimple *g = gimple_build_assign (t, aligned_addr);
+	    gsi_insert_before (gsi, g, GSI_SAME_STMT);
+	    aligned_addr = t;
+	  }
 	/* Use the build2 helper to set up the mem_ref.  The MEM_REF could also
 	   take an offset, but since we've already incorporated the offset
 	   above, here we just pass in a zero.  */
@@ -16566,6 +16681,13 @@ rs6000_gimple_fold_builtin (gimple_stmt_iterator *gsi)
 					  arg2_type, temp_addr,
 					  build_int_cst (arg2_type, -16));
 	gsi_insert_seq_before (gsi, stmts, GSI_SAME_STMT);
+	if (!is_gimple_mem_ref_addr (aligned_addr))
+	  {
+	    tree t = make_ssa_name (TREE_TYPE (aligned_addr));
+	    gimple *g = gimple_build_assign (t, aligned_addr);
+	    gsi_insert_before (gsi, g, GSI_SAME_STMT);
+	    aligned_addr = t;
+	  }
 	/* The desired gimple result should be similar to:
 	   MEM[(__vector floatD.1407 *)_1] = vf1D.2697;  */
 	gimple *g
@@ -24242,22 +24364,31 @@ rs6000_split_multireg_move (rtx dst, rtx src)
 static bool
 save_reg_p (int reg)
 {
-  /* We need to mark the PIC offset register live for the same conditions
-     as it is set up, or otherwise it won't be saved before we clobber it.  */
-
   if (reg == RS6000_PIC_OFFSET_TABLE_REGNUM && !TARGET_SINGLE_PIC_BASE)
     {
       /* When calling eh_return, we must return true for all the cases
 	 where conditional_register_usage marks the PIC offset reg
-	 call used.  */
-      if (TARGET_TOC && TARGET_MINIMAL_TOC
-	  && (crtl->calls_eh_return
-	      || df_regs_ever_live_p (reg)
-	      || !constant_pool_empty_p ()))
+	 call used or fixed.  */
+      if (crtl->calls_eh_return
+	  && ((DEFAULT_ABI == ABI_V4 && flag_pic)
+	      || (DEFAULT_ABI == ABI_DARWIN && flag_pic)
+	      || (TARGET_TOC && TARGET_MINIMAL_TOC)))
 	return true;
 
-      if ((DEFAULT_ABI == ABI_V4 || DEFAULT_ABI == ABI_DARWIN)
-	  && flag_pic)
+      /* We need to mark the PIC offset register live for the same
+	 conditions as it is set up in rs6000_emit_prologue, or
+	 otherwise it won't be saved before we clobber it.  */
+      if (TARGET_TOC && TARGET_MINIMAL_TOC
+	  && !constant_pool_empty_p ())
+	return true;
+
+      if (DEFAULT_ABI == ABI_V4
+	  && (flag_pic == 1 || (flag_pic && TARGET_SECURE_PLT))
+	  && df_regs_ever_live_p (RS6000_PIC_OFFSET_TABLE_REGNUM))
+	return true;
+
+      if (DEFAULT_ABI == ABI_DARWIN
+	  && flag_pic && crtl->uses_pic_offset_table)
 	return true;
     }
 
@@ -25225,6 +25356,12 @@ static bool
 rs6000_function_ok_for_sibcall (tree decl, tree exp)
 {
   tree fntype;
+
+  /* The sibcall epilogue may clobber the static chain register.
+     ??? We could work harder and avoid that, but it's probably
+     not worth the hassle in practice.  */
+  if (CALL_EXPR_STATIC_CHAIN (exp))
+    return false;
 
   if (decl)
     fntype = TREE_TYPE (decl);

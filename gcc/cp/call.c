@@ -1396,6 +1396,13 @@ standard_conversion (tree to, tree from, tree expr, bool c_cast_p,
 	     || (fcode == REAL_TYPE && !(flags & LOOKUP_NO_NON_INTEGRAL)))
           || SCOPED_ENUM_P (from))
 	return NULL;
+
+      /* If we're parsing an enum with no fixed underlying type, we're
+	 dealing with an incomplete type, which renders the conversion
+	 ill-formed.  */
+      if (!COMPLETE_TYPE_P (from))
+	return NULL;
+
       conv = build_conv (ck_std, to, conv);
 
       /* Give this a better rank if it's a promotion.  */
@@ -6783,7 +6790,9 @@ convert_like_real (conversion *convs, tree expr, tree fn, int argnum,
 	    return expr;
 	  }
 
-	expr = mark_rvalue_use (expr);
+	/* We don't know here whether EXPR is being used as an lvalue or
+	   rvalue, but we know it's read.  */
+	mark_exp_read (expr);
 
 	/* Pass LOOKUP_NO_CONVERSION so rvalue/base handling knows not to allow
 	   any more UDCs.  */
@@ -10824,14 +10833,12 @@ make_temporary_var_for_ref_to_temp (tree decl, tree type)
       tree name = mangle_ref_init_variable (decl);
       DECL_NAME (var) = name;
       SET_DECL_ASSEMBLER_NAME (var, name);
-
-      var = pushdecl (var);
     }
   else
     /* Create a new cleanup level if necessary.  */
     maybe_push_cleanup_level (type);
 
-  return var;
+  return pushdecl (var);
 }
 
 /* EXPR is the initializer for a variable DECL of reference or

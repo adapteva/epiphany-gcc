@@ -3457,10 +3457,13 @@ arc_expand_epilogue (int sibcall_p)
 /* Return rtx for the location of the return address on the stack,
    suitable for use in __builtin_eh_return.  The new return address
    will be written to this location in order to redirect the return to
-   the exception handler.  */
+   the exception handler.  Our ABI says the blink is pushed first on
+   stack followed by an unknown number of register saves, and finally
+   by fp.  Hence we cannot use the EH_RETURN_ADDRESS macro as the
+   stack is not finalized.  */
 
-rtx
-arc_eh_return_address_location (void)
+void
+arc_eh_return_address_location (rtx source)
 {
   rtx mem;
   int offset;
@@ -3488,8 +3491,8 @@ arc_eh_return_address_location (void)
      remove this store seems perfectly sensible.  Marking the memory
      address as volatile obviously has the effect of preventing DSE
      from removing the store.  */
-  MEM_VOLATILE_P (mem) = 1;
-  return mem;
+  MEM_VOLATILE_P (mem) = true;
+  emit_move_insn (mem, source);
 }
 
 /* PIC */
@@ -7303,7 +7306,17 @@ hwloop_optimize (hwloop_info loop)
   for (insn = loop->start_label;
        insn && insn != loop->loop_end;
        insn = NEXT_INSN (insn))
-    length += NONDEBUG_INSN_P (insn) ? get_attr_length (insn) : 0;
+    {
+      length += NONDEBUG_INSN_P (insn) ? get_attr_length (insn) : 0;
+      if (JUMP_TABLES_IN_TEXT_SECTION
+	  && JUMP_TABLE_DATA_P (insn))
+	{
+	  if (dump_file)
+	    fprintf (dump_file, ";; loop %d has a jump table\n",
+		     loop->loop_no);
+	  return false;
+	}
+    }
 
   if (!insn)
     {
@@ -9912,7 +9925,7 @@ arc_return_address_register (unsigned int fn_type)
 
   if (ARC_INTERRUPT_P (fn_type))
     {
-      if (((fn_type & ARC_FUNCTION_ILINK1) | ARC_FUNCTION_FIRQ) != 0)
+      if ((fn_type & (ARC_FUNCTION_ILINK1 | ARC_FUNCTION_FIRQ)) != 0)
         regno = ILINK1_REGNUM;
       else if ((fn_type & ARC_FUNCTION_ILINK2) != 0)
         regno = ILINK2_REGNUM;
