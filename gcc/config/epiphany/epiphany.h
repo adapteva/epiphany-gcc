@@ -192,6 +192,7 @@ along with GCC; see the file COPYING3.  If not see
 
 #define ADJUST_FIELD_ALIGN(FIELD, TYPE, COMPUTED) \
   epiphany_adjust_field_align((TYPE), (COMPUTED))
+#endif
 
 /* Layout of source language data types.  */
 
@@ -677,9 +678,6 @@ typedef struct GTY (()) machine_function
 
 #define TEXT_SECTION_ASM_OP	"\t.section .text"
 #define DATA_SECTION_ASM_OP	"\t.section .data"
-
-#undef  READONLY_DATA_SECTION_ASM_OP
-#define READONLY_DATA_SECTION_ASM_OP	"\t.section .rodata"
 
 #define BSS_SECTION_ASM_OP	"\t.section .bss"
 

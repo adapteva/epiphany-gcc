@@ -1,3 +1,18 @@
+2019-03-24  Ola Jeppsson  <ola@adapteva.com>
+
+	* config/epiphany/epiphany.c: Include cfgrtl.h
+	(epiphany_expand_prologue): Remove VOIDMode parameter from
+	call to gen_rtx_SET.
+	Remove unused variable seq.
+	(emit_set_fp_mode): Mark 'to' argument as unused.
+	* config/epiphany/epiphany.h: Add missing #endif.
+	(READONLY_DATA_SECTION_ASM_OP): Remove define.
+	* config/epiphany/epiphany.md (casesi): Fix call to
+	C++-ified emit_cmp_and_jump_insns.
+	(casesi_load): Fix C++ issue with call to next_nonnote_insn.
+	(call_value): Remove VOIDmode parameter from call to
+	gen_rtx_SET.
+
 2019-03-15  Ola Jeppsson  <ola@adapteva.com>
 
     Backported from mainline

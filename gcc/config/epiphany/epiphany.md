@@ -2279,7 +2279,7 @@
       operands[0] = reg;
     }
   emit_cmp_and_jump_insns (operands[0], operands[2], GTU, NULL_RTX, Pmode, 1,
-			   operands[4], -1);
+			   operands[4]);
   rtx target = gen_reg_rtx (Pmode);
   emit_insn (gen_casesi_load (target, operands[0], operands[3]));
   emit_jump_insn (gen_tablejump_internal (target, operands[3]));
@@ -2295,7 +2295,7 @@
    (clobber (reg:CC CC_REGNUM))]
   "flag_pic"
 {
-  rtx diff_vec = PATTERN (next_nonnote_insn (operands[2]));
+  rtx diff_vec = PATTERN (next_nonnote_insn (as_a<rtx_insn *> (operands[2])));
   gcc_assert (GET_CODE (diff_vec) == ADDR_DIFF_VEC);
   enum machine_mode mode = GET_MODE (diff_vec);
   int shift = exact_log2 (GET_MODE_SIZE (mode));
@@ -2432,7 +2432,7 @@
 	  (VOIDmode,
 	   gen_rtvec
 	    (3,
-	     gen_rtx_SET (VOIDmode, operands[0],
+	     gen_rtx_SET (operands[0],
 			  gen_rtx_CALL (VOIDmode, operands[1], operands[2])),
 	     gen_rtx_USE (VOIDmode, gen_rtx_MEM (BLKmode,
 			  hard_frame_pointer_rtx)),

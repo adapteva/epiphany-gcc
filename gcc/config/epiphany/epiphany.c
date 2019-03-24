@@ -44,6 +44,7 @@ along with GCC; see the file COPYING3.  If not see
 #include "insn-attr.h"
 #include "explow.h"
 #include "expr.h"
+#include "cfgrtl.h"
 #include "tm-constrs.h"
 #include "tree-pass.h"	/* for current_pass */
 #include "context.h"
@@ -1960,10 +1961,9 @@ epiphany_expand_prologue (void)
 	insn = gen_addsi3_i (hard_frame_pointer_rtx, stack_pointer_rtx,
 			     GEN_INT (frame_adjust));
       else
-	insn
-	  = gen_rtx_SET (VOIDmode, hard_frame_pointer_rtx, stack_pointer_rtx);
+	insn = gen_rtx_SET (hard_frame_pointer_rtx, stack_pointer_rtx);
       (frame_pointer_needed ? frame_insn : emit_insn) (insn);
-	
+
     }
   /* For large frames, allocate bulk of frame.  This is usually joint with one
      register save.  */
@@ -2007,7 +2007,7 @@ epiphany_expand_prologue (void)
 	  reg = gen_rtx_REG (Pmode, GPR_IP);
 	  frame_move_insn (reg, off);
 	  note = gen_rtx_PLUS (Pmode, stack_pointer_rtx, off);
-	  note = gen_rtx_SET (VOIDmode, stack_pointer_rtx, note);
+	  note = gen_rtx_SET (stack_pointer_rtx, note);
 	  off = reg;
 	}
       insn = frame_insn (gen_stack_adjust_add (off, mem));
@@ -2763,7 +2763,7 @@ emit_set_fp_mode (int entity, int mode, int prev_mode ATTRIBUTE_UNUSED,
 	 there never can be an uninitialized load from the save-register.  */
 
       edge entry_edge;
-      rtx_insn *insn, *seq;
+      rtx_insn *seq;
       rtx save;
 
       gcc_assert (mode >= 0 && mode <= 2);
@@ -3213,7 +3213,7 @@ epiphany_start_function (FILE *file, const char *name, tree decl)
 /* Return true if register FROM can be eliminated via register TO.  */
 
 static bool
-epiphany_can_eliminate (const int from, const int to)
+epiphany_can_eliminate (const int from, const int to ATTRIBUTE_UNUSED)
 {
   /* When compiling for overlays, we require a frame pointer in all non-leaf
      functions so that the runtime can easily find all active functions.
