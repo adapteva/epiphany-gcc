@@ -1,5 +1,10 @@
 2019-03-24  Ola Jeppsson  <ola@adapteva.com>
 
+	* config/epiphany/epiphany.opt (fsoftware-cache): Add missing
+	dot in description. Fixes a testcase.
+
+2019-03-24  Ola Jeppsson  <ola@adapteva.com>
+
 	* config/epiphany/epiphany.c: Include cfgrtl.h
 	(epiphany_expand_prologue): Remove VOIDMode parameter from
 	call to gen_rtx_SET.
