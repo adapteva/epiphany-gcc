@@ -105,7 +105,10 @@ static tree epiphany_handle_forwarder_attribute (tree *, tree, tree, int,
 static bool epiphany_pass_by_reference (cumulative_args_t, machine_mode,
 					const_tree, bool);
 static rtx_insn *frame_insn (rtx);
-
+
+static tree epiphany_handle_naked_attribute (tree *, tree, tree, int, bool *);
+bool epiphany_is_naked_p (void);
+
 /* defines for the initialization of the GCC target structure.  */
 #define TARGET_ATTRIBUTE_TABLE epiphany_attribute_table
 
@@ -492,8 +495,26 @@ static const struct attribute_spec epiphany_attribute_table[] =
   { "long_call",  0, 0, false, true, true, NULL, false },
   { "short_call", 0, 0, false, true, true, NULL, false },
   { "disinterrupt", 0, 0, false, true, true, NULL, true },
+  { "naked", 0, 0, true, false, false, epiphany_handle_naked_attribute, false },
   { NULL,         0, 0, false, false, false, NULL, false }
 };
+
+/* Handle a "naked" attribute; arguments as in
+   struct attribute_spec.handler.  */
+
+static tree
+epiphany_handle_naked_attribute (tree * node, tree name, tree args ATTRIBUTE_UNUSED,
+			      int flags ATTRIBUTE_UNUSED, bool * no_add_attrs)
+{
+  if (TREE_CODE (*node) != FUNCTION_DECL)
+    {
+      warning (OPT_Wattributes, "%qE attribute only applies to functions",
+	       name);
+      *no_add_attrs = true;
+    }
+
+  return NULL_TREE;
+}
 
 /* Handle an "interrupt" attribute; arguments as in
    struct attribute_spec.handler.  */
@@ -1166,6 +1187,10 @@ epiphany_compute_frame_size (int size /* # of var. bytes allocated.  */)
   last_slot_offset = 0;
   first_slot_size = UNITS_PER_WORD;
   current_frame_info.frame_offset_known = false;
+
+  if(epiphany_is_naked_p()){
+	  return 0;
+  }
 
   /* See if this is an interrupt handler.  Call used registers must be saved
      for them too.  */
@@ -1901,6 +1926,10 @@ epiphany_expand_prologue (void)
   enum epiphany_function_type fn_type;
   rtx addr, mem, off, reg;
 
+  if(epiphany_is_naked_p()){
+	  return;
+  }
+  
   if (!current_frame_info.initialized)
     epiphany_compute_frame_size (get_frame_size ());
 
@@ -2042,6 +2071,10 @@ epiphany_expand_epilogue (int sibcall_p)
   rtx mem, addr, reg, off;
   HOST_WIDE_INT restore_offset;
 
+  if(epiphany_is_naked_p()){
+	  return;
+  }
+  
   fn_type = epiphany_compute_function_type( current_function_decl);
   interrupt_p = EPIPHANY_INTERRUPT_P (fn_type);
 
@@ -3254,3 +3287,10 @@ epiphany_need_fp (void)
 }
 
 struct gcc_target targetm = TARGET_INITIALIZER;
+
+bool 
+epiphany_is_naked_p (void)
+{
+  return lookup_attribute ("naked", DECL_ATTRIBUTES (current_function_decl)) != NULL_TREE;
+}
+
